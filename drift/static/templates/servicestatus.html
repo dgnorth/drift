@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Service Index</title>
+<style>
+    body {
+        font-family: verdana, tahoma, arial, helvetica, sans-serif;
+        font-size:12px;
+    }
+    h1 {
+        font-size: 22px;
+    }
+    h2 {
+        font-size: 18px;
+    }
+    .key {
+        text-align: right;
+        padding-right: 10px;
+        vertical-align: top;
+        font-weight: bold;
+        width:120px;
+    }
+    span {
+        color:red;
+    }
+    a {
+        text-decoration: none;
+    }
+    .subitem {
+        margin:5px;
+        border: 1px solid #ACACAC;
+        background-color: #FAF6F8;
+        width: 100%;
+    }
+    .subitem td {
+        text-align: left;
+        padding:2px;
+    }
+
+    .maintable {
+        border: 1px solid #ACACAC;
+        padding:3px;
+        margin:0px;
+    }
+    .maintable td {
+        padding:3px;
+        margin:0px;
+    }
+    .maintable tr:nth-child(odd) {
+        background-color: #F9F9F9;
+    }
+</style>
+</head>
+<body>
+<h1>{{service_name}} Status</h1>
+
+{{content | safe}}
+
+</body>
+</html>

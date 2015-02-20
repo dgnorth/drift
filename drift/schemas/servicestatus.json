@@ -1,0 +1,140 @@
+{
+    "media_types":
+    [
+        {
+            "type_name": "vnd.ccp.eus.servicestatuslist-v1",
+            "schema_path": "#/service_status_list"
+        },
+        {
+            "type_name": "vnd.ccp.eus.servicestatus-v1",
+            "schema_path": "#/service_status"
+        }
+    ],
+
+    "service_status_list": {
+        "id": "http://localhost:10080/schemas/vnd.ccp.eus.servicestatuslist-v1",
+        "title": "Service Status List",
+        "media_type": "vnd.ccp.eus.servicestatuslist-v1",
+        "type": "array",
+        "items": {
+            "type": "object",
+            "required": ["name", "status"],
+            "properties": {
+                "name": {"type": "string"},
+                "href": {"type": "string"},
+                "status": {"enum": ["ok", "warning", "error"]}
+            }
+        }
+    },
+
+    "service_status": {
+        "id": "http://schemas.eus.ccpgames.com/users.json#",
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "title": "Service Status",
+        "description": "Schema describing the essential parts of a service and its health.",
+
+        "definitions":
+        {
+            "contact_info": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "email": {"format": "email"},
+                        "phone": {"type": "string"},
+                        "description": {"type": "string"}
+                    }
+                }
+            },
+
+            "statusflag": {
+                "enum": ["ok", "warning", "error"]
+            }
+        },
+
+        "type": "object",
+        "required": ["name", "status", "dependencies"],
+        "additionalProperties": false,
+
+        "properties": {
+            "name": {"type": "string"},
+            "display_name": {"type": "string"},
+            "description": {"type": "string"},
+            "documentation": {"format": "uri"},
+            "revision_control": {"format": "uri"},
+            "is_multi_tenant": {"enum": ["yes", "no", "hybrid", "n/a"]},
+            "contact_info": {"$ref": "#/definitions/contact_info"},
+
+            "status": {
+                "$ref": "#/definitions/statusflag",
+                "description": "Global service status. If any critical dependencies have status 'warning' or 'error', it will be reflected here as a global service status."
+            },
+            "start_time": {"format": "date-time"},
+            "current_tenant": {
+                "type": ["string", "null"],
+                "description" :"For multi-tenant services, this is the tenant of which tenant specific dependency info applies to."
+            },
+
+            "tenants": {
+                "type": "array",
+                "description" :"List of tenants or environments being served by this service.",
+                "items": {"type": "string"}
+            },
+
+            "dependencies": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["name"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "name": {
+                            "type": "string",
+                            "description": "Name of this resource. Use a short, lower-case name, like 'eve db', 'sso token', and 'security warning' to describe connection to an eve database, the SSO token check service and an issue with security settings respectively."
+                        },
+                        "display_name": {"type": "string"},
+                        "resource_type": {
+                            "enum": ["soa", "db", "storage", "css", "logical", "other"],
+                            "description": "soa: Service adhering to SOA principles, running on AWS, Azure, CCP London or similar data centers.\ndb: Database service (MSSQL, DynamoDB, etc.)\nstorage: Storage or content delivery service or resource.\ncss: Service from CCP Shared Services group (SSO, VGS, etc.).\nlogical: A self-check or intangible resource. other: None of the other."
+                        },
+                        "is_critical": {
+                            "type": "boolean",
+                            "description": "Specifies if this resource is critical to the function of this service. The overall service status will inherit the status value of this entry."
+                        },
+                        "is_tenant_specific": {
+                            "type": "boolean",
+                            "description": "Specifies if this dependency is specific to the current tenant. If so, then the information and status info only applies to that particular tenant. If this is not a tenant specific dependency, the information and status applies to the service in general, and to all tentants, if applicable."
+                        },
+                        "contact_info": {"$ref": "#/definitions/contact_info"},
+
+                        "resource_ref": {"type": "string"},
+                        "status": {"$ref": "#/definitions/statusflag"},
+                        "last_checked": {"format": "date-time"},
+                        "check_duration": {
+                            "type": "number",
+                            "description": "Describes how long the check took in seconds."
+                        },
+                        "last_error": {
+                            "type": "string",
+                            "description": "If 'status' is 'warning' or 'error', this string should describe or give a hint of what failed. A good practice is to provide enough information so the event can be found in the logs (i.e. Splunk, Sentry, and such)."
+                        }
+                    }
+                }
+            },
+
+            "monitoring_tools": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": ["name", "link"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "name": {"type": "string"},
+                        "link": {"format": "uri"},
+                        "owner": {"format": "email"}
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Service Index</title>
+<style>
+    body {
+        font-family: verdana, tahoma, arial, helvetica, sans-serif;
+    }
+    h1 {
+        font-size: 22px;
+    }
+    h2 {
+        font-size: 18px;
+    }
+    .status_ok {
+        color:green;
+    }
+    span {
+        color:red;
+    }
+    a {
+        text-decoration: none;
+    }
+    .k {
+        font-size:16px;
+        font-family: courier-new;
+    }
+    .v {
+        font-size:16px;
+        font-family: courier-new;
+        font-weight: bold
+    }
+</style>
+</head>
+<body>
+<h1>Service Status</h1>
+{%for s in service_statuses:%}
+<h2><a href="{{s["href"]}}">{{s["name"]}}... <span class="status_{{s["status"]}}">{{s["status"]}}</span></a></h2>
+{%endfor%}
+<h1>Shortcuts</h1>
+<a href=/api/spec.html>REST API Description</a><br>
+
+<h1>Host Info</h1>
+<table>
+{%for k, v in host_info.iteritems():%}
+    <tr><td class=k>{{k}}</td><td class=v>{{v}}</td></tr>
+{%endfor%}
+</table>
+
+</body>
+</html>

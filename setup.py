@@ -1,0 +1,71 @@
+import os
+import sys
+from distutils.sysconfig import get_python_lib
+
+from setuptools import find_packages, setup
+
+EXCLUDE_FROM_PACKAGES = [ ]
+
+setup(
+    name='python-drift',
+    version="0.0.1",
+    url='http://www.nada.com/',
+    author='No one',
+    author_email='info@nada.com',
+    description=('Micro-framework for SOA based applications'),
+    license='MIT',
+    packages=find_packages(exclude=EXCLUDE_FROM_PACKAGES),
+    include_package_data=True,
+    scripts=['scripts/drift-admin.py'],
+    entry_points={'console_scripts': [
+        'drift-admin = drift.management:execute_cmd',
+    ]},
+    install_requires=[
+        "Flask",
+        "Flask-Cache",
+        "Flask-JWT>=0.2.0",
+        "Flask-RESTful>=0.3.0",
+        "flask-restful-swagger==0.12",
+        "requests",
+        "iso8601",
+        "iso3166",
+        "rfc3987",
+        "strict_rfc3339",
+        "python-dateutil",
+        "jsonschema",
+        "raven==4.1.1",
+        "blinker",
+        "python-tds",
+        "Sphinx",
+        "tornado",
+        "coverage",
+        "pika",
+        "simplejson",
+        "boto",
+        "python-ldap",
+        "aniso8601",
+        "pytz",
+        "redis",
+        "celery>=3.1.17",
+        "pyjwt",
+        "netaddr",
+        "mock",
+        "responses",
+    ],
+    extras_require={ },
+    zip_safe=False,
+    classifiers=[
+        'Development Status :: 2 - Pre-Alpha',
+        'Environment :: Web Environment',
+        'Framework :: Flask',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2.7',
+        'Topic :: Internet :: WWW/HTTP',
+        'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
+        'Topic :: Software Development :: Libraries :: Application Frameworks',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+    ],
+)
