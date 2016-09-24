@@ -1,0 +1,96 @@
+import sys
+from setuptools import find_packages, setup
+
+
+EXCLUDE_FROM_PACKAGES = []
+
+
+install_requires=[
+        "Flask>=0.11",
+        "Flask-Cache",
+        "Flask-JWT>=0.3.2",
+        "Flask-RESTful",
+        "requests>=2.6.0",
+        "iso8601",
+        "iso3166",
+        "rfc3987",
+        "strict_rfc3339",
+        "python-dateutil",
+        "jsonschema",
+        "raven==4.1.1",
+        "blinker",
+        "python-tds",
+        "Sphinx",
+        "tornado",
+        "coverage",
+        "pika",
+        "simplejson",
+        "boto",
+        "boto3",
+        "python-ldap",
+        "aniso8601",
+        "pytz",
+        "redis",
+        "celery>=3.1.22",
+        "pyjwt",
+        "netaddr",
+        "responses",
+        "SQLAlchemy",
+        "paramiko<2.0",
+        "fabric",
+        "flask-cors",
+        "flask-mako",
+        "colorama",
+        "slacker",
+        "pyopenssl",
+        "ndg-httpsclient",
+        "pyasn1",
+        "cryptography",
+        "redlock",
+        "mock",
+        "nose2",
+        "Flask-Testing",
+        "oss2",
+        "gevent",
+        ]
+
+tests_require = [
+    'mock',
+    'nose2',
+    'Flask-Testing',
+    ]
+
+
+setup(
+    name='Drift',
+    version='0.1.0-dev',
+    license='MIT',
+    author='Directive Games North',
+    author_email="info@directivegames.com",
+    description='Micro-framework for SOA based applications',
+    test_suite="nose2.collector.collector",
+    packages=find_packages(exclude=EXCLUDE_FROM_PACKAGES),
+    include_package_data=True,
+    scripts=['scripts/drift-admin.py'],
+    entry_points={'console_scripts': [
+        'drift-admin = drift.management:execute_cmd',
+    ]},
+    install_requires=install_requires,
+    tests_require=tests_require,
+    extras_require={},
+    zip_safe=False,
+    classifiers=[
+        'Development Status :: 2 - Pre-Alpha',
+        'Environment :: Web Environment',
+        'Framework :: Flask',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 2.7',
+        'Topic :: Internet :: WWW/HTTP',
+        'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
+        'Topic :: Software Development :: Libraries :: Application Frameworks',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+    ],
+)

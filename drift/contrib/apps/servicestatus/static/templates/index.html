@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Service Index</title>
+<style>
+    body {
+        font-family: verdana, tahoma, arial, helvetica, sans-serif;
+    }
+    h1 {
+        font-size: 20px;
+    }
+    h2 {
+        font-size: 18px;
+    }
+    .status_ok {
+        color:green;
+    }
+    span {
+        color:red;
+    }
+    a {
+        text-decoration: none;
+    }
+    .k {
+        //font-family: courier-new;
+        padding-right:10px;
+        text-align:right;
+        white-space: nowrap;
+    }
+    .v {
+        //font-family: courier-new;
+        font-weight: bold
+    }
+    td {
+        padding-right:10px;
+        vertical-align:top;
+    }
+    .bigtable td {
+        font-size:16px;
+    }
+    .smalltable td {
+        font-size:12px;
+    }
+    .pre {
+        display: block;
+        unicode-bidi: embed;
+        font-family: monospace;
+        //white-space: pre;
+    }
+</style>
+</head>
+<body>
+<h1>Service Info</h1>
+<table class="bigtable">
+<tr><td class="k">Service</td><td>{{service_name}}</td></tr>
+<tr><td class="k">Tier</td><td>{{tier_name}}</td></tr>
+<tr><td class="k">Current Tenant</td><td>{{tenant_name}}</td></tr>
+<tr><td class="k">Registered Tenants</td><td>{{", ".join(tenants or [])}}</td></tr>
+<tr><td class="k">Server Time</td><td>{{server_time}}</td></tr>
+</table>
+<h1>Shortcuts</h1>
+<a href=/api/spec.html>REST API Description</a><br>
+<h1>Registered endpoints</h1>
+<table class="bigtable">
+{%for k, v in endpoints.iteritems():%}
+    <tr><td class=k>{{k}}</td><td class=v>{{v}}</td></tr>
+{%endfor%}
+</table>
+<h1>Host Info</h1>
+<table class="bigtable">
+{%for k, v in host_info.iteritems():%}
+    <tr><td class=k>{{k}}</td><td class=v>{{v}}</td></tr>
+{%endfor%}
+</table>
+<br>
+{%if deployment:%}
+<h1>Deployment</h1>
+<table class="smalltable">
+{%for k, v in deployment.iteritems():%}
+    <tr><td class=k>{{k}}</td><td class=v>{{v}}</td></tr>
+{%endfor%}
+</table>
+<br>
+{%endif%}
+
+{%if config:%}
+    <h1>Configuration (only visible in DEBUG mode)</h1>
+    <pre>{{config}}</pre>
+{%endif%}
+
+{%if headers:%}
+    <h1>Request headers</h1>
+    <table class="smalltable">
+    {%for k, v in headers.iteritems():%}
+        <tr><td class=k>{{k}}</td><td class="v pre">{{v.strip()}}</td></tr>
+    {%endfor%}
+    </table>    
+{%endif%}
+<div style="font-size:10px;padding-left:5px;">Powered by <i>drift</i></div>
+</body>
+</html>
