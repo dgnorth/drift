@@ -5,6 +5,7 @@ python:
 cache: pip
 install:
 - pip install travispy
+- pip install codecov
 - pip install cov-core
 - pip install nose2
 - pip install .
