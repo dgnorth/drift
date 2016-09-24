@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/dgnorth/drift.svg?branch=master)](https://travis-ci.org/dgnorth/drift)
+[![codecov](https://codecov.io/gh/dgnorth/drift/branch/master/graph/badge.svg)](https://codecov.io/gh/dgnorth/drift)
+
 ### Please note, this project is currently in a migration state and is missing a few crucial bits that will be made available shortly!
 
 # drift
