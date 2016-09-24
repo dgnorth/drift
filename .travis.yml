@@ -5,11 +5,14 @@ python:
 cache: pip
 install:
 - pip install travispy
+- pip install cov-core
 - pip install nose2
 - pip install .
 script:
-- nose2 --log-level=CRITICAL
+- nose2 --log-level=CRITICAL  --with-coverage
 - python scripts/travis_build_dependent_projects.py
+after_success: 
+ - codecov
 notifications:
   email:
     secure: gyhoRaM8tCtRJ/1eG7O6wPCNtZuFDBob+XK/W0CianwtqATtZlkxADSyy0O7+2pczV28BnRPGKs2Bz43PwrXDA1YIVXfa8B+F19pXJt+g1c6a7l2TrH4yDnkZADxC8j0qvUptEHNTzq9DX/w+73WgrUJvki4YDdcPk0YXCTMtIh5e/xw05A1nCmNGXZzWMPPjSHaqpUa39YhCdDGWh/mpeOXCKgWEsyRF3lN+wNrwXGJUJTBs0hpV07aCY0X1CYFETO4bhsRIpT67qwtpL/Y4ZjUbaP26iZcNdRFa2HVJu1r8qhGU6W/7gNPBwwhDhUZD41RDeFtxMsav/fpu4f0zQtwYB4giZNOCF4d+m+5p0dz2XVVw1ZDHy+5ZKeKWck8ZQEEipk89PvEB9LhcvSjN8DwOK31z5YHu1PXawb40RUC7AOcVwsxhUxQrUCLcjDG4f8ae7PZj2KYFchIrf+9cA55JLD/pG40z4ns18VXIpTymfZUs8NmR36+IAtXtxyrlxlRKxtH/76fd14Hpzi8hApO/fSjMOty0935iiHfj5BWXbRcZGe3QhnWR5TKRjilmSZcuvpo0eBckIHg9IIToFh+IAir/yKGE0bUNFfuasGk0Ks9p6Hgfv4olBtbtwz4CP6d0UQD1VE2XXeRmIy47QFCA1894QOfaUavZr+SOJw=
