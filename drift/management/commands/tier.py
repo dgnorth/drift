@@ -72,6 +72,11 @@ def get_options(parser):
         help='A path or URL to a master configuration file, or a '
         'path to an S3 bucket using the format "region/bucket-name/path"'
     )
+    p.add_argument(
+        '-a', '--activate',
+        default=False, 
+        help='Activate the given tier.',
+    )        
 
     # The info command
     p = subparsers.add_parser(
@@ -170,6 +175,11 @@ def init_command(args):
 
     # Report currently selected config
     get_tiers_config()
+
+    if args.activate:
+        print "Activating tier '{}'...".format(args.activate)
+        args.tier = args.activate
+        use_command(args)
 
 
 def publish_config_command(args):

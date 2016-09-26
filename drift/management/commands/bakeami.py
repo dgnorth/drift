@@ -16,7 +16,7 @@ try:
 except ImportError:
     pass
 
-from drift.management import get_tier_config, get_service_info
+from drift.management import get_tier_config, get_service_info, get_tier_config_url
 from drift.management.gittools import get_branch, get_commit, get_git_version, checkout
 from drift.utils import get_tier_name
 from drift import slackbot
@@ -88,6 +88,7 @@ def run_command(args):
 
     service_info = get_service_info()    
     user = iam_conn.get_user()  # The current IAM user running this command
+    tier_url = get_tier_config_url(tier_config)
     
     var = {
         "service": service_info["name"],
@@ -99,6 +100,7 @@ def run_command(args):
         "release": version['tag'],
         "user_name": user.user_name,
         "tier": tier_config["tier"],
+        "tier_url": "'{}'".format(tier_url),
     }
 
     print "Using var:", var

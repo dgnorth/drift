@@ -12,6 +12,7 @@
     "release": "unknown",
     "user_name": "unknown",
     "tier": "unknown",
+    "tier_url": "unknown",
     "debug_user": "n/a",
     "debug_pwd": "n/a"
   },
@@ -122,8 +123,8 @@
         "sudo cp -v /usr/local/bin/{{user `service`}}/config/rsyslog.d/*.conf /etc/rsyslog.d/",
         "sudo cp -v /usr/local/bin/{{user `service`}}/config/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/",
         "sudo cp -v /usr/local/bin/{{user `service`}}/config/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/",
-        "sudo drift-admin tier init {{user `tierurl`}}",
-        "sudo drift-admin tier use {{user `tier`}}",
+        "sudo pip install six --upgrade",
+        "sudo drift-admin tier init {{user `tier_url`}} --activate {{user `tier`}}",
         "echo ----------------- All done -----------------"
       ]
     }
