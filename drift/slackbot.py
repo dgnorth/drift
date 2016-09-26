@@ -9,7 +9,8 @@ NOTIFICATION_CHANNEL = "#drift-notifications"
 
 def post_message(message):
     if not SLACKBOT_TOKEN:
-        print "No slackbot token. Cannot notify slack of '%s'" % message
+        print "Slackbot key not found, cannot notify slack of '%s'" % message
+        print "Set the environment variable DRIFT_SLACKBOT_KEY to remedy."
         return
 
     final_message = "{}: {}".format(getpass.getuser(), message)
