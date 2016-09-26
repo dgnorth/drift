@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from flask import g, current_app
 import redis
 from redlock import RedLockFactory
@@ -6,6 +7,7 @@ import logging
 log = logging.getLogger(__name__)
 
 REDIS_DB = 0  # We always use the main redis db for now
+
 
 class RedisCache(object):
     """
@@ -26,11 +28,12 @@ class RedisCache(object):
             return
         if not redis_server:
             try:
-                redis_server = g.ccpenv_objects["redis_server"]
+                redis_server = g.driftenv_objects["redis_server"]
             except Exception:
-                log.info("'redis_server' not found in config. Using default server '%s'", conn_info["host"])
+                log.info("'redis_server' not found in config. Using default server '%s'",
+                         conn_info["host"])
                 redis_server = conn_info["host"]
-        self.tenant = tenant or g.ccpenv["name"]
+        self.tenant = tenant or g.driftenv["name"]
         self.service_name = service_name or current_app.config["name"]
         self.host = redis_server
         self.port = conn_info["port"]
@@ -102,7 +105,8 @@ class RedisCache(object):
 
     def incr(self, key, amount=1, expire=None):
         """
-        Increments the value of 'key' by 'amount'. If no key exists, the value will be initialized as 'amount'
+        Increments the value of 'key' by 'amount'. If no key exists,
+        the value will be initialized as 'amount'
         """
         if self.disabled:
             log.info("Redis disabled. Not incrementing key '%s'", key)

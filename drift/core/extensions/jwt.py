@@ -374,9 +374,9 @@ def verify_token(token, auth_type):
             abort_unauthorized("Invalid JWT. "
                                "Token must specify both 'tenant' and 'tier'.")
 
-        if tenant != g.ccpenv["name"]:
+        if tenant != g.driftenv["name"]:
             abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
-                               " is tenant '%s'" % (tenant, g.ccpenv["name"]))
+                               " is tenant '%s'" % (tenant, g.driftenv["name"]))
 
         cfg_tier_name = get_tier_name()
         if tier != cfg_tier_name:
@@ -403,8 +403,8 @@ def create_standard_claims(expire=None):
         'iss': iss,
 
         # Drift fields
-        'tier': g.ccpenv["tier_name"],
-        'tenant': g.ccpenv["name"],
+        'tier': g.driftenv["tier_name"],
+        'tenant': g.driftenv["name"],
     }
 
     return standard_claims

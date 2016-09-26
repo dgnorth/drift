@@ -7,17 +7,21 @@
 import logging
 import os
 import json
-from socket import gethostname
+import datetime
 from copy import deepcopy
+from json import dumps
+import collections
 
 from flask import request, g, jsonify, current_app
 
 from drift.rediscache import RedisCache
 from drift.core.extensions.jwt import check_jwt_authorization
+from drift.core.extensions.jwt import jwt_not_required
 
 DEFAULT_TENANT = "global"
 
 log = logging.getLogger(__name__)
+
 
 def flatten_config(app):
     """
@@ -34,7 +38,6 @@ def flatten_config(app):
 
 def rig_tenants(app):
     if app.config.get('DEBUG'):
-        import datetime
         def json_serial(obj):
             """JSON serializer for objects not serializable by default json code"""
             if isinstance(obj, datetime.datetime):
@@ -42,11 +45,8 @@ def rig_tenants(app):
                 return serial
             elif isinstance(obj, datetime.timedelta):
                 return "Timedelta: " + str(obj)
-            raise TypeError ("Type %s not serializable" % type(obj))
+            raise TypeError("Type %s not serializable" % type(obj))
 
-        from drift.core.extensions.jwt import jwt_not_required
-        from json import dumps
-        import collections
         @jwt_not_required
         @app.route('/conf')
         def conf():
@@ -54,11 +54,11 @@ def rig_tenants(app):
 
             ret = {
                 'app_config': conf,
-                'ccpenv': collections.OrderedDict(sorted(g.ccpenv.items())),
+                'driftenv': collections.OrderedDict(sorted(g.driftenv.items())),
             }
 
-
-            return current_app.response_class(dumps(ret, indent=4, default=json_serial), mimetype='application/json')
+            return current_app.response_class(dumps(ret, indent=4, default=json_serial),
+                                              mimetype='application/json')
 
     # if default tenant has not been picked assume the 'global' tenant
     if not app.config.get("default_tenant"):
@@ -97,7 +97,7 @@ def rig_tenants(app):
         for header_key in header_keys:
             if header_key in request.headers:
                 if tenant_name and request.headers.get(header_key) != tenant_name:
-                    log.warning("Tenant name %s overridden using request header %s.", 
+                    log.warning("Tenant name %s overridden using request header %s.",
                                 tenant_name, request.headers.get(header_key))
                 tenant_name = request.headers.get(header_key)
                 log.debug("Tenant '%s' identified through header", tenant_name)
@@ -106,13 +106,13 @@ def rig_tenants(app):
         if not tenant_name and default_tenant:
             tenant_name = default_tenant
 
-        g.ccpenv = _get_env(app, tenant_name or DEFAULT_TENANT)
-        g.ccpenv_objects = app.env_objects[g.ccpenv["name"]]
+        g.driftenv = _get_env(app, tenant_name or DEFAULT_TENANT)
+        g.driftenv_objects = app.env_objects[g.driftenv["name"]]
 
         # put the redis connection into g so that we can reuse it throughout the request
         g.redis = RedisCache(tenant_name, service_name)
 
-        # check for a valid JWT/JTI access token in the request header and populate current_user 
+        # check for a valid JWT/JTI access token in the request header and populate current_user
         check_jwt_authorization()
 
         # initialize the list for messages to the debug client
@@ -120,7 +120,8 @@ def rig_tenants(app):
 
         if not tenant_name or tenant_name == DEFAULT_TENANT:
             g.db = None
-            log.info("No tenant specified. Using default tenant %s. No db access possible.", default_tenant)
+            log.info("No tenant specified. Using default tenant %s. No db access possible.",
+                     default_tenant)
         else:
             # set up a db session to our tenant DB
             from drift.orm import get_sqlalchemy_session
@@ -132,7 +133,6 @@ def rig_tenants(app):
         except ImportError:
             pass
 
-
     @app.after_request
     def after_request(response):
         """Add response headers"""
@@ -140,7 +140,7 @@ def rig_tenants(app):
             response.headers["Drift-Debug-Message"] = "\\n".join(g.client_debug_messages)
 
         if app.config.get("no_response_caching", False) \
-          or not response.cache_control.max_age:
+           or not response.cache_control.max_age:
             # Turn off all caching
             response.cache_control.no_cache = True
             response.cache_control.no_store = True
@@ -166,8 +166,8 @@ def rig_tenants(app):
 
 def _get_env(app, tenant_name=None):
     """
-    Return configuration values for tenant 'tenant_name' using the values
-    from the configuration file.
+    Return configuration values for tenant 'tenant_name' using the values from
+    the configuration file.
     If 'tenant_name' is None, the default tenant config is returned.
     """
     if not tenant_name:
@@ -182,7 +182,8 @@ def _get_env(app, tenant_name=None):
             if not env.get("_is_expanded", False):
                 # If names do not match exactly, then it's a template so we
                 # duplicate the entry
-                log.debug("Environment config: prepping %r %r for dict %r", env["name"], tenant_name, env)
+                log.debug("Environment config: prepping %r %r for dict %r",
+                          env["name"], tenant_name, env)
                 if env["name"] != tenant_name:
                     env = deepcopy(env)
                     env["name"] = tenant_name

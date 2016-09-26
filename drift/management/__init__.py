@@ -21,16 +21,16 @@ TIERS_CONFIG_FILENAME = "tiers-config.json"
 
 def get_commands():
     commands = [
-        f[:-3] 
-        for f in os.listdir(os.path.join(__path__[0], "commands")) 
+        f[:-3]
+        for f in os.listdir(os.path.join(__path__[0], "commands"))
         if not f.startswith("_") and f.endswith(".py")
     ]
     return commands
 
+
 def execute_cmd():
     valid_commands = get_commands()
     parser = argparse.ArgumentParser(description="")
-    #parser.add_argument("command", help="Command to execute", choices=valid_commands)
     parser.add_argument("-v", "--verbose", help="I am verbose!", action="store_true")
     parser.add_argument("-t", "--tier", help="Tier to use (overrides drift_TIER from environment)")
     subparsers = parser.add_subparsers(help="sub-command help")
@@ -71,7 +71,7 @@ def get_config_path(file_name=None, folder=None):
 
 
 def get_s3_bucket(tiers_config):
-    conn = connect_to_region(tiers_config["region"], calling_format=OrdinaryCallingFormat())    
+    conn = connect_to_region(tiers_config["region"], calling_format=OrdinaryCallingFormat())
     bucket_name = "{}.{}".format(tiers_config["bucket"], tiers_config["domain"])
     bucket = conn.get_bucket(bucket_name)
     return bucket
@@ -123,7 +123,7 @@ def fetch(path):
     try:
         r = requests.get(path)
         r.raise_for_status()
-        return r.text        
+        return r.text
     except Exception as e2:
         pass
 
@@ -139,7 +139,7 @@ def fetch(path):
     print "Can't fetch '{}'".format(path)
     print "   Not a file:", e1
     print "   Not an URL:", e2
-    print "   Not a bucket:", e3        
+    print "   Not a bucket:", e3
 
 
 def get_tier_config():
@@ -153,7 +153,7 @@ def get_tier_config():
 
 
 def get_service_info():
-    #! TODO: error checking
+    # TODO: error checking
     config_filename = os.environ["drift_CONFIG"]
 
     config = json.load(open(config_filename))
@@ -179,7 +179,6 @@ def get_ec2_instances(region, filters=None):
     reservations = conn.get_all_reservations(filters=filters)
     instances = [i for r in reservations for i in r.instances]
     return instances
-
 
 
 def create_deployment_manifest(method):

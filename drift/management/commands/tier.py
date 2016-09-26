@@ -1,8 +1,8 @@
+# -*- coding: utf-8 -*-
 import sys
 import os
 import os.path
 import json
-import argparse
 from pprint import pprint
 import mimetypes
 import subprocess
@@ -12,7 +12,6 @@ import boto
 from boto.s3 import connect_to_region
 from boto.s3.connection import OrdinaryCallingFormat
 from boto.s3.key import Key
-import requests
 
 import drift
 from drift.management import get_config_path, get_s3_bucket, get_tiers_config, fetch, TIERS_CONFIG_FILENAME
@@ -20,31 +19,31 @@ from drift.management import get_config_path, get_s3_bucket, get_tiers_config, f
 
 def get_admin_options(subparsers):
     # temp function just to keep this admin command set separate
-    
+
     # The publish command
     p = subparsers.add_parser(
-        'publish-config', 
+        'publish-config',
         help='Publish configuration files to S3.',
         description='Publish configuration and upload files to S3. Use this command to publish new '
         'master configurations as well as tier configuration files and ssh key files.'
-        )
+    )
     p.add_argument(
-        'master-config', 
+        'master-config',
         action='store',
         help='A path or URL to a master configuration file, or a path to an S3 bucket using the '
         'format "region/bucket-name/path"'
-    )    
+    )
 
     # Unpublish command
     p = subparsers.add_parser(
-        'unpublish-config', 
+        'unpublish-config',
         help='Unpublish, or remove a tier configuration from S3.',
-        description='Remove a tier configuration from S3. SSH key files must be removed manually.'        
-        )
+        description='Remove a tier configuration from S3. SSH key files must be removed manually.'
+    )
     p.add_argument(
         'tier', action='store',
         help='Name of the tier to unpublish.'
-    )    
+    )
 
 
 def get_options(parser):
@@ -54,21 +53,21 @@ def get_options(parser):
         description="These sets of commands help you with setting up tier configuration "
         "for your local workstation as well as managing tier configuration on AWS. See "
         "https://github.com/directivegames/drift/blob/master/README.md for further details.",
-        dest="command", 
+        dest="command",
     )
 
     get_admin_options(subparsers)
 
     # The init command
     p = subparsers.add_parser(
-        'init', 
+        'init',
         help='Initialize tiers configuration for your local user environment.',
         description='Initialize tiers configuration for your local user environment by installing '
         'tiers master configuration file into your ~/.drift folder.'
     )
     p.add_argument(
-        'master-config', 
-        action='store', 
+        'master-config',
+        action='store',
         help='A path or URL to a master configuration file, or a '
         'path to an S3 bucket using the format "region/bucket-name/path"'
     )
@@ -80,29 +79,29 @@ def get_options(parser):
 
     # The info command
     p = subparsers.add_parser(
-        'info', 
+        'info',
         help='Show info on currently selected tier.',
         description='Show info on currently selected tier'
     )
     p.add_argument(
         '-v', '--verbose',
-        default=False, 
+        default=False,
         action='store_true',
         help='Show all configuration settings.',
     )
- 
+
     # The list command
     p = subparsers.add_parser(
-        'list', 
+        'list',
         help='List available tier configs.'
     )
     p.add_argument(
         '-v', '--verbose',
-        default=False, 
+        default=False,
         action='store_true',
         help='Show all configuration settings.',
     )
- 
+
     # The use command
     use_parser = subparsers.add_parser('use', help='Switch current config to a particular tier.')
     use_parser.add_argument(
@@ -117,25 +116,14 @@ def get_options(parser):
         delete_parser = subparsers.add_parser('delete', help='Remove a tier config')
         delete_parser.add_argument('tiername', action='store', help='The tier config to remove')
 
-
         # A delete command
         delete_parser = subparsers.add_parser('delete', help='Remove a tier config')
         delete_parser.add_argument('tiername', action='store', help='The tier config to remove')
         delete_parser.add_argument('--recursive', '-r', default=False, action='store_true',
                                    help='Remove the contents of the directory, too',
                                    )
-
     return
-    parser.add_argument("tier", help="Tier name to switch to", nargs='?', default=None)
-    parser.cloudkit-base(
-        "--create",
-        help="Create a new tier configuration.",
-    )      
 
-    parser.add_argument(
-        "--init", default="./" + TIERS_CONFIG_FILENAME,
-        help="Initialize a tier configuration using the specified config file (i.e. '{}).".format(TIERS_CONFIG_FILENAME)
-    )  
 
 def create_tier(args):
     tier_name = args.create
@@ -143,7 +131,7 @@ def create_tier(args):
     if not os.path.isdir("tiers"):
         print "Can't find 'tiers' folder. Please run from a tiers config repo."
         sys.exit(1)
-    tier_file = os.path.join("tiers" , tier_name.upper() + ".json")
+    tier_file = os.path.join("tiers", tier_name.upper() + ".json")
     if os.path.exists(tier_file):
         print "Tier configuration file '{}' already exists!".format(tier_file)
 
@@ -193,12 +181,11 @@ def publish_config_command(args):
     if not bucket:
         print "In region {}, creating S3 bucket {}".format(tiers_config["region"], bucket_name)
         bucket = conn.create_bucket(bucket_name, location=tiers_config["region"])
-    
+
     args.dirty = False
 
     def upload_if_changed(source, key_name, topic):
         global dirty
-        #print "Publishing {} to s3://{}/{}".format(topic, bucket_name, key_name),
         if key_name.lower().endswith(".json"):
             try:
                 json.loads(source)  # Verify json syntax
@@ -244,7 +231,8 @@ def publish_config_command(args):
             upload_if_changed(f.read(), filename, "ssh key")
 
     if args.dirty:
-        print "Changes detected! Please update your local environment with 'tier use [tier-name]' command."
+        print "Changes detected! Please update your local environment " \
+              "with 'tier use [tier-name]' command."
 
     print "Publish command ran successfully."
 
@@ -308,7 +296,7 @@ def use_command(args):
     json_text = key.get_contents_as_string()
     tier_config = json.loads(json_text)
     with open(get_config_path("{}.json".format(tier_name_upper)), "w") as f:
-        f.write(json_text)    
+        f.write(json_text)
 
     # Install config files for tier
     for file_key in bucket.list("tiers/{}/".format(tier_name_upper), "/"):
@@ -320,8 +308,8 @@ def use_command(args):
     # Install ssh keys referenced by the master config and deployables in the tier config.
     ssh_keys = [tiers_config["default_ssh_key"]]
     ssh_keys += [
-        deployable["ssh_key"] 
-        for deployable in tier_config["deployables"] 
+        deployable["ssh_key"]
+        for deployable in tier_config["deployables"]
         if "ssh_key" in deployable
     ]
 
@@ -332,7 +320,7 @@ def use_command(args):
             continue
 
         key = bucket.get_key("ssh-keys/{}".format(key_name))
-        if key:            
+        if key:
             key.get_contents_to_filename(ssh_key_filename)
             # Must make file private to user, or else ssh command will fail with:
             # "It is required that your private key files are NOT accessible by others."
@@ -352,8 +340,8 @@ def use_command(args):
     print "(To set up or check VPN status, you may be prompted for sudo password)"
     try:
         tier_lower = args.tier.lower()
-        cmd = ["sudo", "ipsec", "up", ]
-        p = subprocess.Popen(["sudo", "ipsec", "status", tier_lower], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        p = subprocess.Popen(["sudo", "ipsec", "status", tier_lower],
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         stdout, _ = p.communicate()
         if p.returncode != 0:
             print "Error running ipsec command: %s" % stdout
@@ -362,7 +350,8 @@ def use_command(args):
             print "VPN tunnel '{}' already established.".format(tier_lower)
         else:
             print "Establish VPN connection"
-            p = subprocess.Popen(["sudo", "ipsec", "up", tier_lower], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            p = subprocess.Popen(["sudo", "ipsec", "up", tier_lower],
+                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             stdout, _ = p.communicate()
             if p.returncode != 0:
                 print "Error running ipsec command: %s" % stdout
@@ -373,7 +362,7 @@ def use_command(args):
     print ""
     print "done."
 
+
 def run_command(args):
     fn = globals()["{}_command".format(args.command.replace("-", "_"))]
     fn(args)
-

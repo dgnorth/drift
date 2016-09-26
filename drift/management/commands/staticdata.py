@@ -1,10 +1,9 @@
+# -*- coding: utf-8 -*-
 
 import os
 import os.path
 import json
-import zlib
 import logging
-import base64
 from datetime import datetime
 
 import mimetypes
@@ -19,38 +18,38 @@ from drift.management import get_s3_bucket, get_tiers_config
 
 STATIC_DATA_ROOT_FOLDER = 'static-data'  # Root folder on S3
 
+
 def get_options(parser):
 
     subparsers = parser.add_subparsers(
         title="Static Data management",
         description="These sets of commands help you with publishing and testing Static Data.",
-        dest="command", 
+        dest="command",
     )
 
     # The publish command
     p = subparsers.add_parser(
-        'publish', 
+        'publish',
         help='Publish static data files to S3.',
         description='Publish static data files by uploading to S3 and update the index file. All '
-            'referencable versions will be published (i.e. all '
+                    'referencable versions will be published (i.e. all )'
     )
 
     p.add_argument(
-        '--repository', 
-        action='store', 
+        '--repository',
+        action='store',
         help='The name of the source repository that contains the static data files. '
-            'If not specified then the name will be extracted from the url path from '
-            '`git config  --get remote.origin.url`.'
+             'If not specified then the name will be extracted from the url path from '
+             '`git config  --get remote.origin.url`.'
     )
 
     p.add_argument(
-        '--user', 
-        action='store', 
+        '--user',
+        action='store',
         help='A user name. The current version of static data on local disk will be published '
-            'under /user-<user name>/. If not specified, then all referencable versions '
-            'will be published.'
+             'under /user-<user name>/. If not specified, then all referencable versions '
+             'will be published.'
     )
-
 
 
 # This code lifted straight from /the-machines-static-data/tools/publish.py and path_helper.py
@@ -135,7 +134,8 @@ def publish_command(args):
 
     if user:
         print "User defined reference ..."
-        to_upload = set()  # 
+        to_upload = set()
+        # TODO: This will crash. No serialno??
         s3_upload_batch.append(["user-{}/{}".format(user, serialno)])
     else:
         # We need to checkout a few branches. Let's remember which branch is currently active
@@ -162,11 +162,10 @@ def publish_command(args):
 
             # Prune any "dereference" markers from the ref string.
             ref = ref.replace("^{}", "")
-            
+
             print "    {:<50}{}".format(ref, commit_id)
             to_upload.add(commit_id)
             indexes.append({"commit_id": commit_id, "ref": ref})
-            
         # List out all subfolders under the repo name to see which commits are already there.
         # Prune the 'to_upload' list accordingly.
         for key in bucket.list(prefix=repo_folder, delimiter="/"):
@@ -211,11 +210,10 @@ def publish_command(args):
         key.set_acl('public-read')
 
     # Upload index
-    refs_index = {
-        "created": now.isoformat() + "Z",
-        "repository": repository,
-        "index": indexes,
-    } 
+    refs_index = {"created": now.isoformat() + "Z",
+                  "repository": repository,
+                  "index": indexes,
+                  }
     key = Key(bucket)
     key.set_metadata('Content-Type', "application/json")
     key.set_metadata('Cache-Control', "max-age=0, no-cache, no-store")
@@ -226,7 +224,7 @@ def publish_command(args):
 
     print "All done!"
 
+
 def run_command(args):
     fn = globals()["{}_command".format(args.command.replace("-", "_"))]
     fn(args)
-

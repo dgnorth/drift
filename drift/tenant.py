@@ -1,9 +1,14 @@
+# -*- coding: utf-8 -*-
 import os
 import logging
-from sqlalchemy import create_engine
-from drift.flaskfactory import load_config
-from drift.utils import get_tier_name
 import importlib
+
+from sqlalchemy import create_engine
+from alembic.config import Config
+from alembic import command
+
+from drift.flaskfactory import load_config, TenantNotFoundError
+from drift.utils import get_tier_name
 
 log = logging.getLogger(__name__)
 
@@ -14,37 +19,41 @@ MASTER_PASSWORD = 'postgres'
 
 ECHO_SQL = False
 
+
 def get_db_info():
     config = load_config()
     db_info = config.get('db_connection_info', {'user': 'zzp_user', 'password': 'zzp_user'})
     return db_info
 
+
 schemas = ["public"]
 
+
 def construct_db_name(tenant, service, tier_name=None):
-    #! TODO: Sanitize tenant
-    #service = service.replace("-", "")
+    # TODO: Sanitize tenant
+    # service = service.replace("-", "")
     # ATT! 'tenant' now contains the tier name, i.e. "default-devnorth", so it
     # needs to be stripped out.
-    #! FIX ME YOU LAZY BASTARDS!!!
+    # TODO: FIX ME YOU LAZY BASTARDS!!!
 
     if tenant.endswith("-%s" % tier_name.lower()):
         tenant = tenant.replace("-%s" % tier_name.lower(), "")
     db_name = '{}_{}_{}'.format(tier_name or get_tier_name(), tenant, service)
     return db_name
 
+
 def connect(db_name, db_host=None):
     if not db_host:
         db_host = get_db_info()['server']
     db_username = MASTER_USER
-    db_password = MASTER_PASSWORD  #! TODO: Secure this
+    # TODO: Secure this
+    db_password = MASTER_PASSWORD
     connection_string = 'postgresql://%s:%s@%s/%s' % (db_username, db_password, db_host, db_name)
     engine = create_engine(connection_string, echo=ECHO_SQL, isolation_level='AUTOCOMMIT')
     return engine
 
+
 def create_db(tenant, db_host=None, tier_name=None):
-    from alembic.config import Config
-    from alembic import command
 
     config = load_config()
     service = config['name']
@@ -60,7 +69,8 @@ def create_db(tenant, db_host=None, tier_name=None):
     except Exception as e:
         print sql, e
 
-    #! This will only run for the first time and fail in all other cases. Maybe test before instead?
+    # TODO: This will only run for the first time and fail in all other cases.
+    # Maybe test before instead?
     sql = 'CREATE ROLE {user} LOGIN PASSWORD "{user}" VALID UNTIL "infinity";'.format(user=username)
     try:
         engine.execute(sql)
@@ -69,14 +79,8 @@ def create_db(tenant, db_host=None, tier_name=None):
 
     engine = connect(db_name, db_host)
 
-    #! TODO: Alembic (and sqlalchemy for that matter) don't like schemas. We should
-    #! figure out a way to add these later
-    #for schema in schemas:
-    #    sql = 'CREATE SCHEMA "{schema}";'.format(schema=schema)
-    #    try:
-    #        engine.execute(sql)
-    #    except Exception as e:
-    #        print sql, e
+    # TODO: Alembic (and sqlalchemy for that matter) don't like schemas. We should
+    # figure out a way to add these later
 
     models = config.get("models", [])
     if not models:
@@ -89,7 +93,7 @@ def create_db(tenant, db_host=None, tier_name=None):
 
     engine = connect(db_name, db_host)
     for schema in schemas:
-        #! Note that this does not automatically grant on tables added later
+        # Note that this does not automatically grant on tables added later
         sql = '''
                  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "{schema}" TO {user};
                  GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA "{schema}" TO {user};
@@ -117,6 +121,7 @@ def create_db(tenant, db_host=None, tier_name=None):
 
     return db_name
 
+
 def drop_db(tenant, db_host=None, tier_name=None):
     config = load_config()
     service = config['name']
@@ -125,7 +130,8 @@ def drop_db(tenant, db_host=None, tier_name=None):
     engine = connect(MASTER_DB, db_host)
 
     # disconnect connected clients
-    engine.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{}';".format(db_name))
+    engine.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{}';"
+                   .format(db_name))
 
     sql = 'DROP DATABASE "{}";'.format(db_name)
     engine.execute('COMMIT')
@@ -154,19 +160,19 @@ def get_connection_string(tenant_config, conn_info=None, service_name=None, tier
     # otherwise the tenant should supply the server and we construct the connection string
     elif tenant_config.get("db_server", None):
         if not service_name:
-            service_name = config["name"] 
+            service_name = config["name"]
         db_name = construct_db_name(tenant_config["name"], service_name, tier_name=tier_name)
         if not conn_info:
             conn_info = config.get('db_connection_info', {})
-        connection_string = '{driver}://{user}:{password}@{server}/{db}'.format(driver=conn_info.get("driver", "postgresql"), 
-                                                                                user=conn_info.get("user", "zzp_user"), 
-                                                                                password=conn_info.get("password", "zzp_user"), 
-                                                                                server=tenant_config["db_server"], 
-                                                                                db=db_name)
-    #print "connection_string", connection_string
+        connection_string = '{driver}://{user}:{password}@{server}/{db}'.format(
+            driver=conn_info.get("driver", "postgresql"),
+            user=conn_info.get("user", "zzp_user"),
+            password=conn_info.get("password", "zzp_user"),
+            server=tenant_config["db_server"],
+            db=db_name)
+
     if not connection_string:
         log.warning("raising TenantNotFoundError. tenant_config is %s ", tenant_config)
-        from drift.flaskfactory import TenantNotFoundError
         raise TenantNotFoundError(
             "Tenant '%s' is not registered on tier '%s'" % (tenant_config["name"], tier_name))
     return connection_string

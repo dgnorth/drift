@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from werkzeug.local import LocalProxy
 
 
@@ -26,7 +27,7 @@ class EndpointRegistry(object):
 
 
 def register_endpoints(f):
-    #! TODO: It is a bad pattern to import app here since it might cause the app to be created
+    # TODO: It is a bad pattern to import app here since it might cause the app to be created
     from appmodule import app
     _url_registry = app.extensions['urlregistry']
     _url_registry.register_endpoints(f)

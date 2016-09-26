@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import logging, getpass, os
 
 log = logging.getLogger(__name__)

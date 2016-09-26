@@ -1,8 +1,8 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
 import uuid
 import copy
-import subprocess
 import httplib
 import unittest
 import responses
@@ -24,8 +24,10 @@ local_password = "LOCAL"
 
 big_number = 9999999999
 
+
 def uuid_string():
     return str(uuid.uuid4()).split("-")[0]
+
 
 db_name = None
 
@@ -48,8 +50,8 @@ def _get_test_db():
 def setup_tenant():
     """
     Called from individual test modules.
-    create a tenant only if the test module was not called
-    from the kitrun's systest command
+    create a tenant only if the test module was not called from
+    the kitrun's systest command
     (in which case drift_test_database has been set in environ)
     Also configure some basic parameters in the app
     """
@@ -84,7 +86,7 @@ def setup_tenant():
     }
     app.config["tenants"].insert(0, test_tenant)
     # flushwrite("Adding test tenant '%s'" % test_tenant)
-    #! TODO: _get_env assumes "*" is the last tenant and screws things up
+    # TODO: _get_env assumes "*" is the last tenant and screws things up
     # if you append something else at the end. Fix this plz.
 
 
@@ -119,6 +121,7 @@ def set_config_file(test_filename):
     config_file = abspath(join(test_filename, "..", "..", "..", "config", "config.json"))
     os.environ.setdefault("drift_CONFIG", config_file)
 
+
 def create_standard_claims_for_test():
     """
     Duplicate of the code from jwtsetup but does not use the
@@ -148,6 +151,7 @@ def create_standard_claims_for_test():
         'deployable': iss,
     }
     return standard_claims
+
 
 class DriftBaseTestCase(unittest.TestCase):
 

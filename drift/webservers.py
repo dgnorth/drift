@@ -6,6 +6,7 @@ log = logging.getLogger(__name__)
 
 DEFAULT_PORT = 5000
 
+
 def run_app(app, web_server=None):
     """
     Run Flask app in the specified web server.

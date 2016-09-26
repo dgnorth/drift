@@ -1,27 +1,33 @@
-import re
+# -*- coding: utf-8 -*-
 import os
-from flask import g, make_response, jsonify, request, url_for
 import pytds
 import httplib
+import logging
 import requests
 from functools import wraps
 from socket import gethostname
 import json
 import uuid
-from boto.utils import get_instance_metadata
 import time
+from boto.utils import get_instance_metadata
+import boto.ec2
 
-import logging
+from flask.globals import _app_ctx_stack
+from flask import g, make_response, jsonify, request, url_for
+
 log = logging.getLogger(__name__)
 
 host_name = gethostname()
 
+
 def uuid_string():
     return str(uuid.uuid4()).split("-")[0]
+
 
 def is_ec2():
     """Naive check if this is an ec2 instance"""
     return host_name and host_name.startswith("ip")
+
 
 def _get_db_connection(conn_info, app_name, row_strategy=None):
     """
@@ -32,12 +38,12 @@ def _get_db_connection(conn_info, app_name, row_strategy=None):
     """
     canonical_conn_str = "dbconn_{server}_{database}".format(**conn_info)
     # !TODO disabled so that we don't cache connections for now
-    if canonical_conn_str in g.ccpenv and 0:
+    if canonical_conn_str in g.driftenv and 0:
         log.debug(
             "_get_db_connection: returning cached '%s'", canonical_conn_str)
         # TODO: Note that this cache is tenant specific. We may want to move it
         # to a global cache.
-        return g.ccpenv[canonical_conn_str]
+        return g.driftenv[canonical_conn_str]
 
     db_conn = pytds.connect(
         conn_info["server"],
@@ -50,7 +56,6 @@ def _get_db_connection(conn_info, app_name, row_strategy=None):
     )
 
     log.debug("_get_db_connection: initializing '%s'", canonical_conn_str)
-    #g.ccpenv[canonical_conn_str] = db_conn
     return db_conn
 
 
@@ -138,29 +143,26 @@ def get_tier_name(config_path=None):
     Currently supports only DEV, STAGING, DGN-DEV and LIVE tiers.
     """
     # cache the tier name if we have an app context
-    from flask.globals import _app_ctx_stack
     disable_cache = False
-    if not _app_ctx_stack.top or not hasattr(g, "ccpenv"):
+    if not _app_ctx_stack.top or not hasattr(g, "driftenv"):
         disable_cache = True
     else:
         try:
-            return g.ccpenv["tier_name"]
+            return g.driftenv["tier_name"]
         except KeyError:
             pass
 
     tier_name = None
     metastore_url = "http://169.254.169.254/latest/meta-data"
-    ec2_instance = False
     try:
         r = requests.get("%s/placement/availability-zone" % metastore_url, timeout=0.1)
-        # on travis-ci the request above sometimes actually succeeds and returns a 404 
+        # on travis-ci the request above sometimes actually succeeds and returns a 404
         # so we need to check for that and handle the case like we do local servers.
         if r.status_code == 404:
             raise Exception("404")
         region = r.text.strip()[:-1]  # skip the a, b, c at the end
         r = requests.get("%s/instance-id" % metastore_url, timeout=1.0)
         instance_id = r.text.strip()
-        import boto.ec2
         n = 0
         tier_name = None
         # try to get the tier tag for 10 seconds. Tags might not be ready in AWS when we start up
@@ -197,10 +199,10 @@ def get_tier_name(config_path=None):
 
     if not tier_name:
         raise RuntimeError("You do not have have a tier selected. Please run "
-            "kitrun.py tier [tier-name]")
+                           "kitrun.py tier [tier-name]")
 
     if not disable_cache:
-        g.ccpenv["tier_name"] = tier_name
+        g.driftenv["tier_name"] = tier_name
         log.debug("Caching tier '%s'", tier_name)
 
     return tier_name
@@ -228,8 +230,8 @@ def merge_dicts(dict1, dict2):
 def request_wants_json():
     """
     Returns true it the request header has 'application/json'.
-    This is used to determine whether to return html or json content
-    from the same endpoint
+    This is used to determine whether to return html or json content from
+    the same endpoint
     """
     best = request.accept_mimetypes \
         .best_match(['application/json', 'text/html'])
@@ -242,7 +244,11 @@ def request_wants_json():
 
 def url_user(user_id):
     return url_for("users.user", user_id=user_id, _external=True)
+
+
 def url_player(player_id):
     return url_for("players.player", player_id=player_id, _external=True)
+
+
 def url_client(client_id):
     return url_for("clients.client", client_id=client_id, _external=True)

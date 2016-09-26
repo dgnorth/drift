@@ -1,4 +1,4 @@
-# the real app
+# -*- coding: utf-8 -*-
 
 import os
 import logging
@@ -10,6 +10,11 @@ import os.path
 import pkgutil
 
 from flask import jsonify, current_app, _app_ctx_stack
+from flask_restful import Api
+from flask import make_response
+from flask.json import dumps
+import flask_restful
+
 from werkzeug.contrib.fixers import ProxyFix
 
 from drift.utils import get_tier_name, merge_dicts
@@ -52,15 +57,15 @@ def load_config(tier_name=None):
 
 
 def load_config_files(tier_name, config_values):
-    
+
     # Apply global tier config
     host_config = get_local_config('tiers/{}/tierconfig.json'.format(tier_name))
     config_values.update(host_config)
-    
+
     # Apply deployable config specific to current tier
     host_config = get_local_config('tiers/{}/{}.json'.format(tier_name, config_values['name']))
     config_values.update(host_config)
-    
+
     # Apply local host config
     host_config = get_local_config('{}.json'.format(config_values['name']))
     config_values.update(host_config)
@@ -81,7 +86,8 @@ def get_local_config(file_name):
     with open(config_filename, "r") as f:
         json_text = f.read()
         host_configs = json.loads(json_text)
-        log.info("Applying host config file '%s', contains %s keys.", config_filename, len(host_configs))
+        log.info("Applying host config file '%s', contains %s keys.",
+                 config_filename, len(host_configs))
         return host_configs
 
 
@@ -182,7 +188,6 @@ def _apply_patches(app):
     # Euthanize Flask Restful exception handlers. This may get fixed
     # soon in "Error handling re-worked #544"
     # https://github.com/flask-restful/flask-restful/pull/544
-    from flask_restful import Api
     def patched_init_app(self, app):
         if len(self.resources) > 0:
             for resource, urls, kwargs in self.resources:
@@ -192,18 +197,14 @@ def _apply_patches(app):
     # Install proper json dumper for Flask Restful library.
     # This is needed because we need to use Flask's JSON converter which can
     # handle more variety of Python types than the standard converter.
-    from flask import make_response
-    from flask.json import dumps
-    import flask_restful as restful
-
     def output_json(obj, code, headers=None):
         resp = make_response(dumps(obj, indent=4), code)
         resp.headers.extend(headers or {})
         return resp
-    if isinstance(restful.DEFAULT_REPRESENTATIONS, dict):
-        restful.DEFAULT_REPRESENTATIONS['application/json'] = output_json
+    if isinstance(flask_restful.DEFAULT_REPRESENTATIONS, dict):
+        flask_restful.DEFAULT_REPRESENTATIONS['application/json'] = output_json
     else:
-        restful.DEFAULT_REPRESENTATIONS = [('application/json', output_json)]
+        flask_restful.DEFAULT_REPRESENTATIONS = [('application/json', output_json)]
 
     def tenant_not_found(message):
         status_code = httplib.NOT_FOUND

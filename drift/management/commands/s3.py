@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import os
 import oss2
 from drift.management import get_s3_bucket, get_tiers_config
@@ -10,7 +12,7 @@ ALICLOUD_BUCKETNAME = "directive-tiers"
 def get_options(parser):
     subparsers = parser.add_subparsers(
         title="S3 management",
-        dest="command", 
+        dest="command",
     )
 
     p = subparsers.add_parser(
@@ -42,11 +44,13 @@ def mirror_alicloud(keys, s3_bucket):
     print "mirroring to alicloud..."
     access_key = os.environ.get("OSS_ACCESS_KEY_ID", "")
     if not access_key:
-        raise RuntimeError("Missing environment variable 'OSS_ACCESS_KEY_ID' for alicloud access key")
+        raise RuntimeError("Missing environment variable 'OSS_ACCESS_KEY_ID' "
+                           "for alicloud access key")
 
     access_secret = os.environ.get("OSS_SECRET_ACCESS_KEY", "")
     if not access_secret:
-        raise RuntimeError("Missing environment variable 'OSS_SECRET_ACCESS_KEY' for alicloud access secret")
+        raise RuntimeError("Missing environment variable 'OSS_SECRET_ACCESS_KEY' "
+                           "for alicloud access secret")
 
     auth = oss2.Auth(access_key, access_secret)
     bucket = oss2.Bucket(auth, ALICLOUD_ENDPOINT, ALICLOUD_BUCKETNAME)
@@ -62,29 +66,29 @@ def mirror_alicloud(keys, s3_bucket):
     index = 0
     for key in keys:
         source = s3_bucket.get_key(key)
-        
+
         headers = {
             "x-oss-object-acl": "public-read",
         }
-        
+
         # copy the headers
         if source.content_type:
             headers["Content-Type"] = source.content_type
-        
+
         if source.cache_control:
             headers["Cache-Control"] = source.cache_control
-        
+
         if source.content_encoding:
             headers["Content-Encoding"] = source.content_encoding
-        
+
         if source.content_language:
             headers["Content-Language"] = source.content_language
-        
+
         if source.content_disposition:
             headers["Content-Disposition"] = source.content_disposition
 
         content = source.get_contents_as_string()
-        bucket.put_object(key, content, headers=headers)        
+        bucket.put_object(key, content, headers=headers)
         index += 1
         print "[{}/{}] copying {}".format(index, len(keys), key)
 

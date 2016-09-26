@@ -59,7 +59,7 @@ class InfoPageAPI(Resource):
             "endpoints": endpoints,
             "current_user": dict(current_user) if current_user else None,
             "tier_name": get_tier_name(),
-            "tenant_name": g.ccpenv["name"],
+            "tenant_name": g.driftenv["name"],
             "server_time": datetime.datetime.utcnow().isoformat("T") + "Z",
             "tenants": tenants,
         }

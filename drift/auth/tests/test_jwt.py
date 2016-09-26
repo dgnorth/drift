@@ -4,6 +4,7 @@ import unittest
 
 from flask import Flask, Blueprint, jsonify
 from flask_restful import Api, Resource
+from flask import g
 
 from drift.tests import DriftTestCase
 from drift.core.extensions.jwt import jwtsetup, verify_token, jwt_not_required, current_user, check_jwt_authorization
@@ -25,6 +26,7 @@ class APIClosed(Resource):
             "current_user": dict(current_user) if current_user else None,
         }
         return ret
+
 
 api.add_resource(APIClosed, '/apiclosed', endpoint="apiclosed")
 
@@ -54,6 +56,7 @@ class APIOpen(Resource):
 
         return ret
 
+
 api.add_resource(APIOpen, '/apiopen', endpoint="apiopen")
 
 
@@ -65,25 +68,24 @@ def openfunc():
             "message": "this is wide open",
             "current_user": dict(current_user) if current_user else None,
         }
-        )
-
+    )
 
 
 @jwt_not_required
-@app.route('/api', methods = ['GET'])
+@app.route('/api', methods=['GET'])
 def this_func():
     """This is a function. It does nothing."""
-    return jsonify({ 'result': '' })
+    return jsonify({'result': ''})
 
 
 @jwt_not_required
-@app.route('/api/help', methods = ['GET'])
+@app.route('/api/help', methods=['GET'])
 def help():
     """Print available functions."""
     func_list = {}
     for rule in app.url_map.iter_rules():
         if rule.endpoint != 'static':
-            func_list[rule.rule] = app.view_functions[rule.endpoint].__doc__                
+            func_list[rule.rule] = app.view_functions[rule.endpoint].__doc__
     return jsonify(func_list)
 
 
@@ -146,10 +148,9 @@ class JWTCase(DriftTestCase):
         return private_key
 
     def test_access_control(self):
-        from flask import g
-        g.ccpenv = {}
-        g.ccpenv["tier_name"] = 'unittest_tier'
-        g.ccpenv["name"] = 'unittest_tenant'
+        g.driftenv = {}
+        g.driftenv["tier_name"] = 'unittest_tier'
+        g.driftenv["name"] = 'unittest_tenant'
 
         # Make myself a trusted issuer
         issuer = {
