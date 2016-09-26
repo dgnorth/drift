@@ -100,7 +100,7 @@ def run_command(args):
         "release": version['tag'],
         "user_name": user.user_name,
         "tier": tier_config["tier"],
-        "tier_url": "'{}'".format(tier_url),
+        "tier_url": tier_url,
     }
 
     print "Using var:", var
