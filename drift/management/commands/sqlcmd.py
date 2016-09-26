@@ -1,9 +1,11 @@
+# -*- coding: utf-8 -*-
+
 """
 Run a SQL command on the databases for the current deployable.
 Used when you need to update all db's at once for example.
 This is a small shim on psql which you must have install (brew install postgres)
 """
-import sys, os
+import os
 from drift.management import get_tier_config, get_service_info
 from fabric.api import env, run, settings, hide
 from fabric.operations import run, put
@@ -13,6 +15,7 @@ import subprocess
 
 PORT = 5432
 
+
 def get_options(parser):
     parser.add_argument("cmd", help="SQL Statement to run on one or more databases", nargs='?', default=None)
     parser.add_argument(
@@ -21,6 +24,7 @@ def get_options(parser):
     parser.add_argument(
         "--tenant", 
         help="Tenant to run the command on. Default is all tenants")
+
 
 def run_command(args):
     cmd = args.cmd

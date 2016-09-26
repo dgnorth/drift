@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Run system tests for the project
 """
@@ -55,6 +56,7 @@ def get_options(parser):
         action="store_true"
     )
 
+
 def run_command(args):
     from drift.utils import uuid_string
     from drift.appmodule import app as _app
@@ -95,8 +97,7 @@ def run_command(args):
             print "No tests found for app '{}'".format(app)
             continue
         if not os.path.exists(os.path.join(tests_path, "__init__.py")):
-            print "No tests found for app '{}' (missing __init__.py)".format(
-                app)
+            print "No tests found for app '{}' (missing __init__.py)".format(app)
             continue
         n = 0
         for filename in os.listdir(tests_path):
@@ -108,9 +109,9 @@ def run_command(args):
 
     suites = {}
     for module_name in test_modules:
-        m = importlib.import_module(module_name) # first import it to see if we get any errors
-        suites[module_name] = unittest.defaultTestLoader.loadTestsFromName(
-            module_name)
+        # first import it to see if we get any errors
+        m = importlib.import_module(module_name)
+        suites[module_name] = unittest.defaultTestLoader.loadTestsFromName(module_name)
 
     tests_to_run = []
     tests_to_skip = []

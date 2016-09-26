@@ -11,33 +11,39 @@ log = logging.getLogger(__name__)
 
 
 def get_options(parser):
-    parser.add_argument("--server", '-s', help="Server type to run. Specify 'celery' to run a Celery worker.", default=None)
-    parser.add_argument("--loglevel", '-l', help="Logging level name. Default is INFO.", default='INFO')
-    parser.add_argument("--nodebug", help="Do not run Flask server in DEBUG mode.", action='store_false')
+    parser.add_argument("--server", '-s',
+                        help="Server type to run. Specify 'celery' to run a Celery worker.",
+                        default=None)
+    parser.add_argument("--loglevel", '-l',
+                        help="Logging level name. Default is INFO.",
+                        default='INFO')
+    parser.add_argument("--nodebug",
+                        help="Do not run Flask server in DEBUG mode.",
+                        action='store_false')
 
 
 def run_command(args):
-    
     if args.server == 'celery':
         cmd = 'celery worker -A kitrun.celery -B -l {}'.format(args.loglevel)
         # For safety reasons, if BROKER_URL is not explicitly set in the config,
         # we default to localhost Redis server. If we do not do this, then it
         # would most likely connect to a broker on AWS tier which is something
         # we would rather not do.
-        from drift.appmodule import app  # Importing this as late as possible
+        # Importing the app as late as possible
+        from drift.appmodule import app
         if 'BROKER_URL' not in app.config:
             broker_url = 'redis://localhost:6379/22'
             print "No broker specified in config. Using local Redis broker:", broker_url
             cmd += ' --broker={}'.format(broker_url)
 
-        print "Running:", cmd        
+        print "Running:", cmd
         p = subprocess.Popen(cmd.split(' '))
         while p.returncode is None:
             try:
                 p.wait()
             except KeyboardInterrupt:
                 pass
-        
+
         sys.exit(p.returncode)
 
     # Log to console using Splunk friendly formatter
@@ -51,13 +57,15 @@ def run_command(args):
 
     log.info("\n\n--------------------- Drift server starting up.... --------------------\n", )
 
-    from drift.appmodule import app  # Importing this as late as possible
-    
+    # Importing the app as late as possible
+    from drift.appmodule import app
+
     if args.nodebug:
         app.debug = True
         log.info("Running Flask in DEBUG mode. Use 'runserver --nodebug' to run in RELEASE mode.")
     else:
         app.debug = False
-        logging.root.info("Running Flask in RELEASE mode because of --nodebug command line argument.")
+        logging.root.info("Running Flask in RELEASE mode because of --nodebug "
+                          "command line argument.")
 
     webservers.run_app(app, args.server)

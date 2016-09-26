@@ -1,8 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-    drift.fixers
-    ~~~~~~~~~~~~~~~~~~~~~~~
-
     This module includes various helpers and fixers.
 """
 from flask.json import JSONEncoder
@@ -26,9 +23,9 @@ class CustomJSONEncoder(JSONEncoder):
 # Fixing SCRIPT_NAME/url_scheme when behind reverse proxy
 # http://flask.pocoo.org/snippets/35/
 class ReverseProxied(object):
-    '''Wrap the application in this middleware and configure the 
-    front-end server to add these headers, to let you quietly bind 
-    this to a URL other than / and to an HTTP scheme that is 
+    '''Wrap the application in this middleware and configure the
+    front-end server to add these headers, to let you quietly bind
+    this to a URL other than / and to an HTTP scheme that is
     different than what is used locally.
 
     In nginx:
@@ -57,7 +54,7 @@ class ReverseProxied(object):
         if scheme:
             environ['wsgi.url_scheme'] = scheme
         server = environ.get('HTTP_X_FORWARDED_SERVER', '')
-        if server: 
+        if server:
             environ['HTTP_HOST'] = server
 
         return self.app(environ, start_response)

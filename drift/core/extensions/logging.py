@@ -31,8 +31,8 @@ def get_log_details():
         pass
 
     try:
-        tenant = g.ccpenv["name"]
-        tier = g.ccpenv["tier_name"]
+        tenant = g.driftenv["name"]
+        tier = g.driftenv["tier_name"]
     except Exception:
         pass
     log_context = {}

@@ -1,7 +1,9 @@
+# -*- coding: utf-8 -*-
 import subprocess
 import sys
 import os
 from urlparse import urlparse
+
 
 def get_branch():
     try:
@@ -13,6 +15,7 @@ def get_branch():
     except subprocess.CalledProcessError:
         return "unknown"
 
+
 def get_commit():
     try:
         output = subprocess.check_output(
@@ -22,6 +25,7 @@ def get_commit():
         return output
     except subprocess.CalledProcessError:
         return "unknown"
+
 
 def get_repo_url():
     cmd = 'git config --get remote.origin.url'
@@ -48,7 +52,7 @@ def get_git_version():
     p = subprocess.Popen(
         ["git", "describe", "--tags", "--dirty", "--long"],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
+    )
     stdout, _ = p.communicate()
     if p.returncode == 128:
         return  # No tag found, probably
@@ -79,15 +83,13 @@ def get_git_version():
     return version
 
 
-
 def checkout(branch_or_tag):
     """Check out a branch or tag."""
     p = subprocess.Popen(
         ["git", "checkout", branch_or_tag],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
+    )
     stdout, _ = p.communicate()
     if p.returncode != 0:
         print "git command failed:", p.returncode
         sys.exit(1)
-
