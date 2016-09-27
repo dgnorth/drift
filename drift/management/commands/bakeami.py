@@ -13,10 +13,11 @@ try:
     # boto library is not a hard requirement for drift.
     import boto.ec2
     import boto.iam
+    import boto3
 except ImportError:
     pass
 
-from drift.management import get_tier_config, get_service_info, get_tier_config_url
+from drift.management import get_tier_config, get_service_info, get_tiers_config, TIERS_CONFIG_FILENAME
 from drift.management.gittools import get_branch, get_commit, get_git_version, checkout
 from drift.utils import get_tier_name
 from drift import slackbot
@@ -88,8 +89,19 @@ def run_command(args):
 
     service_info = get_service_info()    
     user = iam_conn.get_user()  # The current IAM user running this command
-    tier_url = get_tier_config_url(tier_config)
-    
+
+    # Need to generate a pre-signed url to the tiers root config file on S3
+    tiers_config = get_tiers_config()
+    s3 = boto3.client('s3', tiers_config['region'])
+    tiers_config_url = s3.generate_presigned_url(
+        ClientMethod='get_object', 
+        Params={
+            'Bucket': '{}.{}'.format(tiers_config['bucket'], tiers_config['domain']), 
+            'Key': TIERS_CONFIG_FILENAME
+        },
+        ExpiresIn=3600,  # One hour
+    )
+
     var = {
         "service": service_info["name"],
         "versionNumber": service_info["version"],
@@ -100,7 +112,7 @@ def run_command(args):
         "release": version['tag'],
         "user_name": user.user_name,
         "tier": tier_config["tier"],
-        "tier_url": tier_url,
+        "tier_url": "'{}'".format(tiers_config_url),
     }
 
     print "Using var:", var

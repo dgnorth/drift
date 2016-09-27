@@ -103,10 +103,19 @@ def get_options(parser):
     )
 
     # The use command
-    use_parser = subparsers.add_parser('use', help='Switch current config to a particular tier.')
-    use_parser.add_argument(
+    p = subparsers.add_parser(
+        'use', 
+        help='Switch current config to a particular tier.'
+    )
+    p.add_argument(
         'tier', action='store', help='Name of the tier to switch to.')
-
+    p.add_argument(
+        '-v', '--vpn',
+        default=False, 
+        action='store_true',
+        help='Set up or check VPN connection.',
+    )
+ 
     # The create command
     create_parser = subparsers.add_parser('create', help='Create a tier config')
     create_parser.add_argument('tiername', action='store', help='New tier config to create')
@@ -337,28 +346,30 @@ def use_command(args):
     get_tiers_config()  # To write out current status
 
     # Set up VPN tunnel
-    print "(To set up or check VPN status, you may be prompted for sudo password)"
-    try:
-        tier_lower = args.tier.lower()
-        p = subprocess.Popen(["sudo", "ipsec", "status", tier_lower],
-                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        stdout, _ = p.communicate()
-        if p.returncode != 0:
-            print "Error running ipsec command: %s" % stdout
-            return
-        if "ESTABLISHED" in stdout:
-            print "VPN tunnel '{}' already established.".format(tier_lower)
-        else:
-            print "Establish VPN connection"
-            p = subprocess.Popen(["sudo", "ipsec", "up", tier_lower],
+    if args.vpn:
+        print "(To set up or check VPN status, you may be prompted for sudo password)"
+        try:
+            tier_lower = args.tier.lower()
+            p = subprocess.Popen(["sudo", "ipsec", "status", tier_lower],
                                  stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             stdout, _ = p.communicate()
             if p.returncode != 0:
                 print "Error running ipsec command: %s" % stdout
                 return
-            print stdout
-    except Exception as e:
-        print "Exception setting up strongswan tunnel: %s" % e
+            if "ESTABLISHED" in stdout:
+                print "VPN tunnel '{}' already established.".format(tier_lower)
+            else:
+                print "Establish VPN connection"
+                p = subprocess.Popen(["sudo", "ipsec", "up", tier_lower],
+                                     stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                stdout, _ = p.communicate()
+                if p.returncode != 0:
+                    print "Error running ipsec command: %s" % stdout
+                    return
+                print stdout
+        except Exception as e:
+            print "Exception setting up strongswan tunnel: %s" % e
+    
     print ""
     print "done."
 

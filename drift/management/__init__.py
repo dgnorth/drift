@@ -105,13 +105,6 @@ def get_tiers_config(display_title=True):
     return tiers_config
 
 
-def get_tier_config_url(tier_config=None):
-    """Returns the 'url' used in tier init command."""
-    tier_config = tier_config or get_tier_config()
-    tier_url = "{}/{}/{}".format(tier_config['region'], tier_config['bucket'], TIERS_CONFIG_FILENAME)
-    return tier_url
-    
-
 def fetch(path):
     """Read the contents of the file or url pointed to by 'path'."""
     try:
