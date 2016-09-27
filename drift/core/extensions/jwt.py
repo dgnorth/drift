@@ -22,9 +22,8 @@ from drift.utils import get_tier_name
 try:
     import auth_mixin
     authenticate = getattr(auth_mixin, "authenticate", None)
-    private_key = getattr(auth_mixin, "private_key", None)
 except ImportError:
-    authenticate = private_key = None
+    authenticate = None
 
 
 JWT_VERIFY_CLAIMS = ['signature', 'exp', 'iat']
@@ -270,7 +269,7 @@ def issue_token(payload, expire=None):
         raise RuntimeError('Payload is missing required claims: %s' %
                            ', '.join(missing_claims))
 
-    access_token = jwt.encode(payload, private_key(), algorithm=algorithm)
+    access_token = jwt.encode(payload, current_app.config['private_key'], algorithm=algorithm)
     cache_token(payload)
     log.debug("Issuing a new token: %s.", payload)
     ret = {
