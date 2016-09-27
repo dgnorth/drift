@@ -176,6 +176,7 @@ def init_command(args):
     if args.activate:
         print "Activating tier '{}'...".format(args.activate)
         args.tier = args.activate
+        args.vpn = False
         use_command(args)
 
 
