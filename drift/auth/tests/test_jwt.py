@@ -104,7 +104,7 @@ E74vGa3+G/KdGO94ZnI9uxySb/czhnhvOGkpd9/p
 -----END RSA PRIVATE KEY-----
 '''
 
-public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDjhJCi86VWOc" \
+public_test_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDjhJCi86VWOc" \
     "zW59s2Zc/yZUXt/N33Z7Lstpjk4V6SXPU6vhriPjySV7DWucLjwct9q+Ovz" \
     "fL6Hv81BuKmK60Qkco5ldMruJGXjT0nTuLjOCvfD9aG61GmK4pPXKcJ7vE=" \
     " unittest@dg-api.com"
@@ -155,7 +155,7 @@ class JWTCase(DriftTestCase):
         # Make myself a trusted issuer
         issuer = {
             'iss': self.app.config["name"],
-            'pub_rsa': public_key,
+            'pub_rsa': public_test_key,
         }
         self.app.config["jwt_trusted_issuers"] = [issuer]
 
