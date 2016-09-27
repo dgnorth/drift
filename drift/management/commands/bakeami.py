@@ -92,14 +92,10 @@ def run_command(args):
 
     # Need to generate a pre-signed url to the tiers root config file on S3
     tiers_config = get_tiers_config()
-    s3 = boto3.client('s3', tiers_config['region'])
-    tiers_config_url = s3.generate_presigned_url(
-        ClientMethod='get_object', 
-        Params={
-            'Bucket': '{}.{}'.format(tiers_config['bucket'], tiers_config['domain']), 
-            'Key': TIERS_CONFIG_FILENAME
-        },
-        ExpiresIn=3600,  # One hour
+    tiers_config_url = '{}/{}.{}/{}'.format(
+        tiers_config['region'],
+        tiers_config['bucket'], tiers_config['domain'],
+        TIERS_CONFIG_FILENAME
     )
 
     var = {
@@ -112,7 +108,7 @@ def run_command(args):
         "release": version['tag'],
         "user_name": user.user_name,
         "tier": tier_config["tier"],
-        "tier_url": "'{}'".format(tiers_config_url),
+        "tier_url": tiers_config_url,
     }
 
     print "Using var:", var
@@ -134,7 +130,7 @@ def run_command(args):
 
     cmd += "-only=amazon-ebs "
     for k, v in var.iteritems():
-        cmd += "-var {}={} ".format(k, v)
+        cmd += "-var {}=\"{}\" ".format(k, v)
 
     # Use generic packer script if project doesn't specify one    
     pkg_resources.cleanup_resources()

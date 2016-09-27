@@ -30,6 +30,7 @@
       "region": "{{user `region`}}",
       "source_ami": "{{user `source_ami`}}",
       "instance_type": "m3.medium",
+      "iam_instance_profile": "ec2",
       "ssh_username": "ubuntu",
       "ami_name": "{{user `service`}}-{{isotime `2006-01-02-15-04`}}",
       "tags": {
