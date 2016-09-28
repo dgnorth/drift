@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+7# -*- coding: utf-8 -*-
 
 import os
 import logging
@@ -63,7 +63,7 @@ def load_config_files(tier_name, config_values):
     config_values.update(host_config)
 
     # Apply deployable config specific to current tier
-    host_config = get_local_config('tiers/{}/{}.json'.format(tier_name, config_values['name']))
+    host_config = get_local_config('tiers/{}/{}.json'.format(tier_name.upper(), config_values['name']))
     config_values.update(host_config)
 
     # Apply local host config
@@ -80,7 +80,7 @@ def load_config_files(tier_name, config_values):
 def get_local_config(file_name):
     config_filename = get_config_path(file_name=file_name)
     if not os.path.exists(config_filename):
-        log.error("No config file found at '%s'.", config_filename)
+        log.warning("No config file found at '%s'.", config_filename)
         return {}
 
     with open(config_filename, "r") as f:
