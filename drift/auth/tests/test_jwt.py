@@ -126,9 +126,9 @@ class JWTCase(DriftTestCase):
         # Deployables implement the authenticate() callback function
         # as well as providing a private key for signing tokens. Here
         # we do this as Drift is not a deployable by itself.
+        app.config['private_key'] = private_key
         import drift.core.extensions.jwt as jwtsetupmodule
         jwtsetupmodule.authenticate = self.authenticate
-        jwtsetupmodule.private_key = self.private_key
 
         return app
 
