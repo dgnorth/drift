@@ -28,6 +28,8 @@ def mock_iam_connect_to_region(region):
     ret.get_user.return_value = MagicMock()
     return ret
 
+def mock_open(*args):
+    return MagicMock()
 
 class NullWriter:
     def write(self, s):
@@ -69,7 +71,9 @@ class TestCommands(unittest.TestCase):
     @patch("drift.management.commands.bakeami.get_tiers_config", MagicMock)
     @patch("drift.management.commands.bakeami.create_deployment_manifest", mock_create_deployment_manifest)
     @patch("drift.management.os", MagicMock)
+    @patch("drift.management.commands.bakeami.open", mock_open)
     @patch("drift.management.commands.bakeami.os.system", MagicMock)
+    @patch("drift.management.commands.bakeami.os.remove", MagicMock)
     @patch("drift.management.commands.bakeami.subprocess.call")
     def test_bakeami(self, mock_call):
         mock_parser = MagicMock()
