@@ -69,6 +69,7 @@ class TestCommands(unittest.TestCase):
     @patch("drift.management.commands.bakeami.checkout", MagicMock)
     @patch("drift.management.commands.bakeami.get_tier_config", MagicMock)
     @patch("drift.management.commands.bakeami.get_tiers_config", MagicMock)
+    @patch("drift.management.commands.bakeami.get_tier_name", MagicMock)
     @patch("drift.management.commands.bakeami.create_deployment_manifest", mock_create_deployment_manifest)
     @patch("drift.management.os", MagicMock)
     @patch("drift.management.commands.bakeami.open", mock_open)
