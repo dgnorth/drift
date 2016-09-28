@@ -78,14 +78,15 @@ class InfoPageAPI(Resource):
             except Exception:
                 log.exception("Failed to read deployment manifest from %s", path)
 
-        if current_app.config.get("DEBUG", False):
+        if current_app.debug:
             # TODO: Only do for authenticated sessions.. preferably..
             ret["headers"] = dict(request.headers)
 
             # Pretty print the config
             d = {k: str(v) for k, v in current_app.config.items()}
             d = collections.OrderedDict(sorted(d.items()))
-            ret['config'] = json.dumps(d, indent=4)
+            d['private_key'] = '...'  # Just to be safe(r)
+            ret['config_dump'] = json.dumps(d, indent=4)
         
         if request_wants_json():
             return make_response(jsonify(ret))
