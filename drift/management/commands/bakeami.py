@@ -36,7 +36,7 @@ def get_options(parser):
     parser.add_argument(
         "--sourceami",
         help="Source AMI ID to use. If not specified, the latest Ubuntu 14 "
-            "Server image will be used.",
+             "Server image will be used.",
     )
     parser.add_argument("--preview", help="Show arguments only", action="store_true")
     parser.add_argument("--debug", help="Run Packer in debug mode", action="store_true")
@@ -52,8 +52,9 @@ def run_command(args):
         # Get all Ubuntu Trusty 14.04 images from the appropriate region and
         # pick the most recent one.
         print "No source AMI specified, finding the latest one on AWS that matches 'ubuntu-trusty-14.04*'"
+        # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
         amis = ec2_conn.get_all_images(
-            owners=['099720109477'],  # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
+            owners=['099720109477'],
             filters={'name': 'ubuntu/images/hvm/ubuntu-trusty-14.04*'},
         )
         ami = max(amis, key=operator.attrgetter("creationDate"))
@@ -64,7 +65,7 @@ def run_command(args):
     print "\tID:\t", ami.id
     print "\tName:\t", ami.name
     print "\tDate:\t", ami.creationDate
-    
+
     cmd = "python setup.py sdist --formats=zip"
     current_branch = get_branch()
     if not args.tag:
@@ -132,7 +133,7 @@ def run_command(args):
     for k, v in var.iteritems():
         cmd += "-var {}=\"{}\" ".format(k, v)
 
-    # Use generic packer script if project doesn't specify one    
+    # Use generic packer script if project doesn't specify one
     pkg_resources.cleanup_resources()
     if os.path.exists("config/packer.json"):
         cmd += "config/packer.json"
@@ -150,7 +151,7 @@ def run_command(args):
     # will pick it up and bake it into the AMI.
     deployment_manifest_filename = os.path.join("dist", "deployment-manifest.json")
     deployment_manifest_json = json.dumps(create_deployment_manifest('bakeami'), indent=4)
-    print "Deployment Manifest:\n", deployment_manifest_json    
+    print "Deployment Manifest:\n", deployment_manifest_json
     with open(deployment_manifest_filename, "w") as dif:
         dif.write(deployment_manifest_json)
 
@@ -161,4 +162,5 @@ def run_command(args):
         pkg_resources.cleanup_resources()
     duration = time.time() - start_time
     print "Done after %.0f seconds" % (duration)
-    slackbot.post_message("Successfully baked a new AMI for '{}' on tier '{}' in %.0f seconds".format(service_info["name"], get_tier_name(), duration))
+    slackbot.post_message("Successfully baked a new AMI for '{}' on tier '{}' in %.0f seconds"
+                          .format(service_info["name"], get_tier_name(), duration))

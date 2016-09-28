@@ -29,6 +29,10 @@ def get_commands():
 
 
 def execute_cmd():
+    return do_execute_cmd(sys.argv[1:])
+
+
+def do_execute_cmd(argv):
     valid_commands = get_commands()
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("-v", "--verbose", help="I am verbose!", action="store_true")
@@ -41,9 +45,9 @@ def execute_cmd():
             module.get_options(subparser)
         subparser.set_defaults(func=module.run_command)
 
-    args = parser.parse_args()
-    if args.tier:
+    args = parser.parse_args(argv)
 
+    if args.tier:
         os.environ["drift_TIER"] = args.tier
 
     args.func(args)
