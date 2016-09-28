@@ -23,19 +23,6 @@ DEFAULT_TENANT = "global"
 log = logging.getLogger(__name__)
 
 
-def flatten_config(app):
-    """
-    Move the contents from 'flask_config' in the config.json file into the root config
-    """
-    # Poor mans multi-tenancy
-    app.env_objects = {}  # Environment specific object store.
-
-    # Apply global config values.
-    if 'flask_config' in app.config:
-        raise RuntimeError("'flask_config' is not supported anymore.")
-    log.debug("flask_config flattened into app.config")
-
-
 def rig_tenants(app):
     if app.config.get('DEBUG'):
         def json_serial(obj):

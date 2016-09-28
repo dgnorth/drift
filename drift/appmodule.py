@@ -2,10 +2,10 @@
 
 # the real app
 from flask import Flask
-from flaskfactory import make_app, config_app, install_extras
+from flaskfactory import make_app, load_config, install_extras
 from flask_cors import CORS
 
-from drift.configsetup import flatten_config, rig_tenants
+from drift.configsetup import rig_tenants
 from .urlregistry import urlregistrysetup
 
 import logging
@@ -18,15 +18,8 @@ cors = CORS(app)
 def bootstrap():
 
     make_app(app)
-    config_app(app)
-    flatten_config(app)
-
-    # TODO: Fix this plz
-    from drift.flaskfactory import load_config_files
-    from drift.utils import get_tier_name
-    tier_name = get_tier_name()
-    load_config_files(tier_name, app.config)
-
+    app.config.update(load_config())
+    app.env_objects = {}  # Environment specific object store.    
     rig_tenants(app)
     urlregistrysetup(app)
     install_extras(app)

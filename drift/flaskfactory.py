@@ -25,20 +25,6 @@ from drift.management import get_config_path
 log = logging.getLogger(__name__)
 
 
-def safe_get_config():
-    """
-    If working inside of a flask application context,
-    return the cooked config in the app. Otherwise
-    load the config from disk and return it (without host
-    and request context overrides)
-    """
-    if _app_ctx_stack.top:
-        return current_app.config
-    else:
-        log.info("Outside application. Loading config from disk.")
-        return load_config()
-
-
 def load_config(tier_name=None):
     if not tier_name:
         tier_name = get_tier_name()
@@ -46,28 +32,28 @@ def load_config(tier_name=None):
     config_values = {}
 
     log.info("Loading configuration from %s", config_filename)
+   
     with open(config_filename) as f:
         config_values = json.load(f)
     config_values["config_filename"] = config_filename
     config_values["tier_name"] = tier_name
 
-    load_config_files(tier_name, config_values)
+    load_config_files(tier_name, config_values, log_progress=False)
 
     return config_values
 
 
-def load_config_files(tier_name, config_values):
-
+def load_config_files(tier_name, config_values, log_progress):
     # Apply global tier config
-    host_config = get_local_config('tiers/{}/tierconfig.json'.format(tier_name))
+    host_config = _get_local_config('tiers/{}/tierconfig.json'.format(tier_name), log_progress)
     config_values.update(host_config)
 
     # Apply deployable config specific to current tier
-    host_config = get_local_config('tiers/{}/{}.json'.format(tier_name.upper(), config_values['name']))
+    host_config = _get_local_config('tiers/{}/{}.json'.format(tier_name.upper(), config_values['name']), log_progress)
     config_values.update(host_config)
 
     # Apply local host config
-    host_config = get_local_config('{}.json'.format(config_values['name']))
+    host_config = _get_local_config('{}.json'.format(config_values['name']), log_progress)
     config_values.update(host_config)
 
     # update servers for tenants according to defaults
@@ -77,17 +63,22 @@ def load_config_files(tier_name, config_values):
         tenant.setdefault('redis_server', config_values.get('redis_server'))
 
 
-def get_local_config(file_name):
+def _get_local_config(file_name, log_progress):
+    log_progress = True
     config_filename = get_config_path(file_name=file_name)
     if not os.path.exists(config_filename):
-        log.warning("No config file found at '%s'.", config_filename)
+        if log_progress:
+            log.warning("No config file found at '%s'.", config_filename)
         return {}
 
     with open(config_filename, "r") as f:
         json_text = f.read()
         host_configs = json.loads(json_text)
-        log.info("Applying host config file '%s', contains %s keys.",
-                 config_filename, len(host_configs))
+        if log_progress:
+            log.info(
+                "Applying host config file '%s', contains %s keys.",
+                config_filename, len(host_configs)
+            )
         return host_configs
 
 
@@ -99,21 +90,6 @@ def make_app(app):
         app.static_folder = os.path.join(instance_path, "..", "static")
         sys.path.append(os.path.join(instance_path, "..", ".."))
     _apply_patches(app)
-
-
-def config_app(app):
-    config_values = {}
-    project_name = None
-    if "drift_CONFIG" in os.environ:
-        config_values = load_config()
-        project_name = config_values["name"]
-    else:
-        raise Exception("drift_CONFIG not found in environment")
-
-    if not project_name:
-        raise Exception("No project name!")
-
-    app.config.update(config_values)
 
 
 def install_extras(app):
