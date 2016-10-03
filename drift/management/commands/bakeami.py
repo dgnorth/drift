@@ -27,6 +27,8 @@ from drift import slackbot
 #             ready-made: ami-71196e06
 # ap-southeast-1: ami-ca381398
 
+UBUNTU_BASE_IMAGE_NAME = 'ubuntu-base-image'
+
 
 def get_options(parser):
 
@@ -34,9 +36,8 @@ def get_options(parser):
         'tag', action='store', help='Git release tag to bake.', nargs='?', default=None)
 
     parser.add_argument(
-        "--sourceami",
-        help="Source AMI ID to use. If not specified, the latest Ubuntu 14 "
-             "Server image will be used.",
+        "--ubuntu", action="store_true",
+        help="Build base Ubuntu image. ",
     )
     parser.add_argument("--preview", help="Show arguments only", action="store_true")
     parser.add_argument("--debug", help="Run Packer in debug mode", action="store_true")
@@ -48,10 +49,10 @@ def run_command(args):
     ec2_conn = boto.ec2.connect_to_region(tier_config["region"])
     iam_conn = boto.iam.connect_to_region(tier_config["region"])
 
-    if args.sourceami is None:
+    if args.ubuntu:
         # Get all Ubuntu Trusty 14.04 images from the appropriate region and
         # pick the most recent one.
-        print "No source AMI specified, finding the latest one on AWS that matches 'ubuntu-trusty-14.04*'"
+        print "Finding the latest AMI on AWS that matches 'ubuntu-trusty-14.04*'"
         # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
         amis = ec2_conn.get_all_images(
             owners=['099720109477'],
@@ -59,29 +60,47 @@ def run_command(args):
         )
         ami = max(amis, key=operator.attrgetter("creationDate"))
     else:
-        ami = ec2_conn.get_image(args.sourceami)
+
+        amis = ec2_conn.get_all_images(
+            owners=['self'],  # The current organization
+            filters={
+                'tag:service-name': UBUNTU_BASE_IMAGE_NAME,
+                'tag:tier': tier_config["tier"],
+            },
+        )
+        if not amis:
+            print "No '{}' AMI found for tier {}. Bake one using this command: {} bakeami --ubuntu".format(UBUNTU_BASE_IMAGE_NAME, tier_config["tier"], sys.argv[0])
+            sys.exit(1)
+
+        ami = max(amis, key=operator.attrgetter("creationDate"))
+        print "{} AMI(s) found.".format(len(amis))
 
     print "Using source AMI:"
     print "\tID:\t", ami.id
     print "\tName:\t", ami.name
     print "\tDate:\t", ami.creationDate
 
-    cmd = "python setup.py sdist --formats=zip"
-    current_branch = get_branch()
-    if not args.tag:
-        args.tag = current_branch
+    if args.ubuntu:
+        version = None
+        branch = ''
+        sha_commit = ''
+    else:
+        cmd = "python setup.py sdist --formats=zip"
+        current_branch = get_branch()
+        if not args.tag:
+            args.tag = current_branch
 
-    print "Using branch/tag", args.tag
-    checkout(args.tag)
-    try:
-        sha_commit = get_commit()
-        branch = get_branch()
-        version = get_git_version()
-        if not args.preview:
-            os.system(cmd)
-    finally:
-        print "Reverting to ", current_branch
-        checkout(current_branch)
+        print "Using branch/tag", args.tag
+        checkout(args.tag)
+        try:
+            sha_commit = get_commit()
+            branch = get_branch()
+            version = get_git_version()
+            if not args.preview:
+                os.system(cmd)
+        finally:
+            print "Reverting to ", current_branch
+            checkout(current_branch)
 
     if not version:
         version = {'tag': 'untagged-branch'}
@@ -100,7 +119,7 @@ def run_command(args):
     )
 
     var = {
-        "service": service_info["name"],
+        "service": UBUNTU_BASE_IMAGE_NAME if args.ubuntu else service_info["name"],
         "versionNumber": service_info["version"],
         "region": tier_config["region"],
         "source_ami": ami.id,
@@ -135,7 +154,10 @@ def run_command(args):
 
     # Use generic packer script if project doesn't specify one
     pkg_resources.cleanup_resources()
-    if os.path.exists("config/packer.json"):
+    if args.ubuntu:
+        scriptfile = pkg_resources.resource_filename(__name__, "ubuntu-packer.json")
+        cmd += scriptfile
+    elif os.path.exists("config/packer.json"):
         cmd += "config/packer.json"
     else:
         scriptfile = pkg_resources.resource_filename(__name__, "driftapp-packer.json")
