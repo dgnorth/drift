@@ -105,6 +105,7 @@
         "echo ----------------- Installing {{user `service`}}-{{user `versionNumber`}}.zip to /usr/local/bin/{{user `service`}}/ -----------------",
         "unzip ~/{{user `service`}}-{{user `versionNumber`}}.zip",
         "sudo mkdir -p /usr/local/bin/{{user `service`}}",
+        "sudo chmod a+w /usr/local/bin/{{user `service`}}",
         "sudo mv ~/{{user `service`}}-{{user `versionNumber`}}/* /usr/local/bin/{{user `service`}}/",
         "rmdir ~/{{user `service`}}-{{user `versionNumber`}}/",
         "echo ----------------- Installing deployment-manifest.json to /usr/local/bin/{{user `service`}}/ -----------------",
