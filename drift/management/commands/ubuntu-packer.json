@@ -13,16 +13,11 @@
     "user_name": "unknown",
     "tier": "unknown",
     "tier_url": "unknown",
+    "setup_script": "unknown",
     "debug_user": "n/a",
     "debug_pwd": "n/a"
   },
   "builders": [
-    {
-      "type":         "null",
-      "ssh_host":     "127.0.0.1",
-      "ssh_username": "{{user `debug_user`}}",
-      "ssh_password": "{{user `debug_pwd`}}"
-    },
     {
       "type": "amazon-ebs",
       "access_key": "{{user `aws_access_key`}}",
@@ -51,44 +46,8 @@
   "provisioners": [
     {
       "type": "shell",
-      "inline": [
-          "echo ----------------- Sleeping for 30 seconds. Oh, the humanity and all the passengers screaming around here ---",
-          "sleep 30",
-          "echo ----------------- Updating apt-get -----------------",
-          "sudo apt-get update -y -q",
-          "echo cannot do sudo apt-get upgrade -y -q because of a grub prompt. Will use a workaround instead: http://askubuntu.com/questions/146921/how-do-i-apt-get-y-dist-upgrade-without-a-grub-config-prompt",
-          "sudo DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' dist-upgrade",
-          "apt-cache search python-dev",
-          "echo ----------------- Installing Dependencies -----------------",
-          "sudo apt-get install -y -q python-dev python-pip",
-          "sudo pip install --upgrade pip",
-          "sudo pip install --upgrade distribute",
-          "sudo apt-get install -y -q git",
-          "echo pinning pycparser to version 2.14 because of a bug in latest causing issues in cryptography installation",
-          "sudo pip install git+https://github.com/eliben/pycparser@release_v2.14",
-          "sudo apt-get install -y -q htop",
-          "sudo apt-get install -y -q httpie",
-          "sudo apt-get install -y -q libldap2-dev libsasl2-dev",
-          "sudo apt-get install -y -q unzip",
-          "sudo apt-get install -y -q nginx",
-          "sudo apt-get install -y -q ntp",
-          "sudo apt-get install -y -q postgresql",
-          "sudo apt-get install -y -q libpq-dev",
-          "sudo apt-get install -y -q python-psycopg2",
-          "sudo apt-get install -y -q awscli",
-          "sudo apt-get install -y -q --force-yes python-dev libssl-dev libffi-dev",
-          "sudo sudo ntpdate -u pool.ntp.org",
-          "sudo service nginx start",
-          "sudo pip install uwsgi",
-          "echo ----------------- Installing Splunk Forwarder -----------------",
-          "sudo apt-get install -y -q rpm",
-          "sudo wget https://s3-ap-southeast-1.amazonaws.com/pm-builds/redist/splunkforwarder-6.2.4-271043-linux-2.6-x86_64.rpm",
-          "sudo rpm -i --nodeps splunkforwarder-6.2.4-271043-linux-2.6-x86_64.rpm",
-          "sudo /opt/splunkforwarder/bin/splunk start --answer-yes --no-prompt --accept-license",
-          "sudo /opt/splunkforwarder/bin/splunk enable boot-start",
-          "echo ----------------- Configuring environment -----------------",
-          "sudo sh -c 'sudo echo PYTHONDONTWRITEBYTECODE=1 >> /etc/environment'"
-      ]
+      "script": "{{user `setup_script`}}",
+      "execute_command": "echo 'packer' | {{ .Vars }} sudo -E -S sh '{{ .Path }}'"
     }
   ]
 }

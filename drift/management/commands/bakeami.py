@@ -131,7 +131,10 @@ def run_command(args):
         "tier_url": tiers_config_url,
     }
 
-    print "Using var:", var
+    if args.ubuntu:
+        var['setup_script'] = pkg_resources.resource_filename(__name__, "ubuntu-packer.sh")
+
+    print "Using var:\n", json.dumps(var, indent=4)
 
     packer_cmd = "packer"
     try:
