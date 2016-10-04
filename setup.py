@@ -27,6 +27,8 @@ install_requires=[
         "fabric",
         "colorama",
         "slacker",
+        "pycrypto",
+        "pyopenssl",
         "cryptography",
         "redlock",
         "alembic",
@@ -53,7 +55,7 @@ setup(
     entry_points={'console_scripts': [
         'drift-admin = drift.management:execute_cmd',
     ]},
-    install_requires=install_requires,
+    install_requires=install_requires + tests_require,
     tests_require=tests_require,
     extras_require={},
     zip_safe=False,
