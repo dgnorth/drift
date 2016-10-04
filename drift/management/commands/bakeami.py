@@ -13,10 +13,11 @@ try:
     # boto library is not a hard requirement for drift.
     import boto.ec2
     import boto.iam
+    import boto3
 except ImportError:
     pass
 
-from drift.management import get_tier_config, get_service_info, get_tier_config_url
+from drift.management import get_tier_config, get_service_info, get_tiers_config, TIERS_CONFIG_FILENAME
 from drift.management.gittools import get_branch, get_commit, get_git_version, checkout
 from drift.utils import get_tier_name
 from drift import slackbot
@@ -26,6 +27,8 @@ from drift import slackbot
 #             ready-made: ami-71196e06
 # ap-southeast-1: ami-ca381398
 
+UBUNTU_BASE_IMAGE_NAME = 'ubuntu-base-image'
+
 
 def get_options(parser):
 
@@ -33,9 +36,8 @@ def get_options(parser):
         'tag', action='store', help='Git release tag to bake.', nargs='?', default=None)
 
     parser.add_argument(
-        "--sourceami",
-        help="Source AMI ID to use. If not specified, the latest Ubuntu 14 "
-            "Server image will be used.",
+        "--ubuntu", action="store_true",
+        help="Build base Ubuntu image. ",
     )
     parser.add_argument("--preview", help="Show arguments only", action="store_true")
     parser.add_argument("--debug", help="Run Packer in debug mode", action="store_true")
@@ -47,39 +49,58 @@ def run_command(args):
     ec2_conn = boto.ec2.connect_to_region(tier_config["region"])
     iam_conn = boto.iam.connect_to_region(tier_config["region"])
 
-    if args.sourceami is None:
+    if args.ubuntu:
         # Get all Ubuntu Trusty 14.04 images from the appropriate region and
         # pick the most recent one.
-        print "No source AMI specified, finding the latest one on AWS that matches 'ubuntu-trusty-14.04*'"
+        print "Finding the latest AMI on AWS that matches 'ubuntu-trusty-14.04*'"
+        # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
         amis = ec2_conn.get_all_images(
-            owners=['099720109477'],  # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
+            owners=['099720109477'],
             filters={'name': 'ubuntu/images/hvm/ubuntu-trusty-14.04*'},
         )
         ami = max(amis, key=operator.attrgetter("creationDate"))
     else:
-        ami = ec2_conn.get_image(args.sourceami)
+
+        amis = ec2_conn.get_all_images(
+            owners=['self'],  # The current organization
+            filters={
+                'tag:service-name': UBUNTU_BASE_IMAGE_NAME,
+                'tag:tier': tier_config["tier"],
+            },
+        )
+        if not amis:
+            print "No '{}' AMI found for tier {}. Bake one using this command: {} bakeami --ubuntu".format(UBUNTU_BASE_IMAGE_NAME, tier_config["tier"], sys.argv[0])
+            sys.exit(1)
+
+        ami = max(amis, key=operator.attrgetter("creationDate"))
+        print "{} AMI(s) found.".format(len(amis))
 
     print "Using source AMI:"
     print "\tID:\t", ami.id
     print "\tName:\t", ami.name
     print "\tDate:\t", ami.creationDate
-    
-    cmd = "python setup.py sdist --formats=zip"
-    current_branch = get_branch()
-    if not args.tag:
-        args.tag = current_branch
 
-    print "Using branch/tag", args.tag
-    checkout(args.tag)
-    try:
-        sha_commit = get_commit()
-        branch = get_branch()
-        version = get_git_version()
-        if not args.preview:
-            os.system(cmd)
-    finally:
-        print "Reverting to ", current_branch
-        checkout(current_branch)
+    if args.ubuntu:
+        version = None
+        branch = ''
+        sha_commit = ''
+    else:
+        cmd = "python setup.py sdist --formats=zip"
+        current_branch = get_branch()
+        if not args.tag:
+            args.tag = current_branch
+
+        print "Using branch/tag", args.tag
+        checkout(args.tag)
+        try:
+            sha_commit = get_commit()
+            branch = get_branch()
+            version = get_git_version()
+            if not args.preview:
+                os.system(cmd)
+        finally:
+            print "Reverting to ", current_branch
+            checkout(current_branch)
 
     if not version:
         version = {'tag': 'untagged-branch'}
@@ -88,10 +109,17 @@ def run_command(args):
 
     service_info = get_service_info()    
     user = iam_conn.get_user()  # The current IAM user running this command
-    tier_url = get_tier_config_url(tier_config)
-    
+
+    # Need to generate a pre-signed url to the tiers root config file on S3
+    tiers_config = get_tiers_config()
+    tiers_config_url = '{}/{}.{}/{}'.format(
+        tiers_config['region'],
+        tiers_config['bucket'], tiers_config['domain'],
+        TIERS_CONFIG_FILENAME
+    )
+
     var = {
-        "service": service_info["name"],
+        "service": UBUNTU_BASE_IMAGE_NAME if args.ubuntu else service_info["name"],
         "versionNumber": service_info["version"],
         "region": tier_config["region"],
         "source_ami": ami.id,
@@ -100,10 +128,15 @@ def run_command(args):
         "release": version['tag'],
         "user_name": user.user_name,
         "tier": tier_config["tier"],
-        "tier_url": "'{}'".format(tier_url),
+        "tier_url": tiers_config_url,
     }
 
-    print "Using var:", var
+    if args.ubuntu:
+        var['setup_script'] = pkg_resources.resource_filename(__name__, "ubuntu-packer.sh")
+    else:
+        var['setup_script'] = pkg_resources.resource_filename(__name__, "driftapp-packer.sh")
+
+    print "Using var:\n", json.dumps(var, indent=4)
 
     packer_cmd = "packer"
     try:
@@ -122,11 +155,14 @@ def run_command(args):
 
     cmd += "-only=amazon-ebs "
     for k, v in var.iteritems():
-        cmd += "-var {}={} ".format(k, v)
+        cmd += "-var {}=\"{}\" ".format(k, v)
 
-    # Use generic packer script if project doesn't specify one    
+    # Use generic packer script if project doesn't specify one
     pkg_resources.cleanup_resources()
-    if os.path.exists("config/packer.json"):
+    if args.ubuntu:
+        scriptfile = pkg_resources.resource_filename(__name__, "ubuntu-packer.json")
+        cmd += scriptfile
+    elif os.path.exists("config/packer.json"):
         cmd += "config/packer.json"
     else:
         scriptfile = pkg_resources.resource_filename(__name__, "driftapp-packer.json")
@@ -142,7 +178,7 @@ def run_command(args):
     # will pick it up and bake it into the AMI.
     deployment_manifest_filename = os.path.join("dist", "deployment-manifest.json")
     deployment_manifest_json = json.dumps(create_deployment_manifest('bakeami'), indent=4)
-    print "Deployment Manifest:\n", deployment_manifest_json    
+    print "Deployment Manifest:\n", deployment_manifest_json
     with open(deployment_manifest_filename, "w") as dif:
         dif.write(deployment_manifest_json)
 
@@ -153,4 +189,5 @@ def run_command(args):
         pkg_resources.cleanup_resources()
     duration = time.time() - start_time
     print "Done after %.0f seconds" % (duration)
-    slackbot.post_message("Successfully baked a new AMI for '{}' on tier '{}' in %.0f seconds".format(service_info["name"], get_tier_name(), duration))
+    slackbot.post_message("Successfully baked a new AMI for '{}' on tier '{}' in %.0f seconds"
+                          .format(service_info["name"], get_tier_name(), duration))

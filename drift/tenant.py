@@ -6,6 +6,7 @@ import importlib
 from sqlalchemy import create_engine
 from alembic.config import Config
 from alembic import command
+from flask import _app_ctx_stack, current_app
 
 from drift.flaskfactory import load_config, TenantNotFoundError
 from drift.utils import get_tier_name
@@ -144,12 +145,28 @@ def drop_db(tenant, db_host=None, tier_name=None):
     log.info("Tenant %s has been dropped on %s", tenant, db_host or get_db_info()['server'])
 
 
+def safe_get_config():
+    """
+    If working inside of a flask application context,
+    return the cooked config in the app. Otherwise
+    load the config from disk and return it (without host
+    and request context overrides)
+    """
+    if _app_ctx_stack.top:
+        return current_app.config
+    else:
+        log.info("Outside application. Loading config from disk.")
+        return load_config()
+
+
 def get_connection_string(tenant_config, conn_info=None, service_name=None, tier_name=None):
     """
     Returns a connection string for the current tenant and
     raises TenantNotFoundError if none is found
     """
-    config = load_config()
+
+    # If in Flask request context, use current_app, else load the config straight up
+    config = safe_get_config()
 
     if not tier_name:
         tier_name = get_tier_name()

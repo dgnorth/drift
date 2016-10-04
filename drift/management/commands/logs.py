@@ -100,6 +100,7 @@ def run_command(args):
             client = paramiko.SSHClient()
             client.load_system_host_keys()
             client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            key_path = os.path.expanduser(key_path)
             client.connect(ip_address, username=EC2_USERNAME, key_filename=key_path)
             #client.connect(ip_address)
             channel = client.get_transport().open_session()

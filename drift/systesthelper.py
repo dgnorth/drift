@@ -89,6 +89,37 @@ def setup_tenant():
     # TODO: _get_env assumes "*" is the last tenant and screws things up
     # if you append something else at the end. Fix this plz.
 
+    # Add public and private key for jwt.
+
+    app.config['private_key'] = private_test_key
+    app.config['jwt_trusted_issuers'] = [
+        {
+            "iss": app.config['name'],
+            "pub_rsa": public_test_key,
+        }
+    ]
+
+private_test_key = '''
+-----BEGIN RSA PRIVATE KEY-----
+MIIBygIBAAJhAOOEkKLzpVY5zNbn2zZlz/JlRe383fdnsuy2mOThXpJc9Tq+GuI+
+PJJXsNa5wuPBy32r46/N8voe/zUG4qYrrRCRyjmV0yu4kZeNPSdO4uM4K98P1obr
+UaYrik9cpwnu8QIDAQABAmA+BSAMW5CBfcYZ+yAlpwFVmUfDxT+YtpruriPlmI3Y
+JiDvP21CqSaH2gGptv+qaGQVq8E1xcxv9jT1qK3b7wm7+xoxTYyU0XqZC3K+lGeW
+5L+77H59RwQznG21FvjtRgECMQDzihOiirv8LI2S7yg11/DjC4c4lIzupjnhX2ZH
+weaLJcjGogS/labJO3b2Q8RUimECMQDvKKKl1KiAPNvuylcrDw6+yXOBDw+qcwiP
+rKysATJ2iCsOgnLC//Rk3+SN3R2+TpECMGjAglOOsu7zxu1levk16cHu6nm2w6u+
+yfSbkSXaTCyb0vFFLR+u4e96aV/hpCfs4QIwd/I0aOFYRUDAuWmoAEOEDLHyiSbp
+n34kLBLZY0cSbRpsJdHNBvniM/mKoo/ki/7RAjEAtpt6ixFoEP3w/2VLh5cut61x
+E74vGa3+G/KdGO94ZnI9uxySb/czhnhvOGkpd9/p
+-----END RSA PRIVATE KEY-----
+'''
+
+public_test_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDjhJCi86VWOc" \
+    "zW59s2Zc/yZUXt/N33Z7Lstpjk4V6SXPU6vhriPjySV7DWucLjwct9q+Ovz" \
+    "fL6Hv81BuKmK60Qkco5ldMruJGXjT0nTuLjOCvfD9aG61GmK4pPXKcJ7vE=" \
+    " unittest@dg-api.com"
+
+
 
 def remove_tenant():
     """
@@ -282,8 +313,8 @@ class DriftBaseTestCase(unittest.TestCase):
             jti = resp.json()["jti"]
         else:
             payload.update(create_standard_claims_for_test())
-            from auth_mixin import private_key
-            token = jwt.encode(payload, private_key(), algorithm='RS256')
+            from appmodule import app
+            token = jwt.encode(payload, app.config['private_key'], algorithm='RS256')
             jti = payload["jti"]
         self.token = token
         self.jti = jti

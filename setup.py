@@ -52,6 +52,7 @@ install_requires=[
         "Flask-Testing",
         "oss2",
         "gevent",
+        "alembic",
         ]
 
 tests_require = [

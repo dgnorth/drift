@@ -104,7 +104,7 @@ E74vGa3+G/KdGO94ZnI9uxySb/czhnhvOGkpd9/p
 -----END RSA PRIVATE KEY-----
 '''
 
-public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDjhJCi86VWOc" \
+public_test_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDjhJCi86VWOc" \
     "zW59s2Zc/yZUXt/N33Z7Lstpjk4V6SXPU6vhriPjySV7DWucLjwct9q+Ovz" \
     "fL6Hv81BuKmK60Qkco5ldMruJGXjT0nTuLjOCvfD9aG61GmK4pPXKcJ7vE=" \
     " unittest@dg-api.com"
@@ -126,9 +126,9 @@ class JWTCase(DriftTestCase):
         # Deployables implement the authenticate() callback function
         # as well as providing a private key for signing tokens. Here
         # we do this as Drift is not a deployable by itself.
+        app.config['private_key'] = private_key
         import drift.core.extensions.jwt as jwtsetupmodule
         jwtsetupmodule.authenticate = self.authenticate
-        jwtsetupmodule.private_key = self.private_key
 
         return app
 
@@ -155,7 +155,7 @@ class JWTCase(DriftTestCase):
         # Make myself a trusted issuer
         issuer = {
             'iss': self.app.config["name"],
-            'pub_rsa': public_key,
+            'pub_rsa': public_test_key,
         }
         self.app.config["jwt_trusted_issuers"] = [issuer]
 

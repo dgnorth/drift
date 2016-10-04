@@ -29,6 +29,10 @@ def get_commands():
 
 
 def execute_cmd():
+    return do_execute_cmd(sys.argv[1:])
+
+
+def do_execute_cmd(argv):
     valid_commands = get_commands()
     parser = argparse.ArgumentParser(description="")
     parser.add_argument("-v", "--verbose", help="I am verbose!", action="store_true")
@@ -41,9 +45,9 @@ def execute_cmd():
             module.get_options(subparser)
         subparser.set_defaults(func=module.run_command)
 
-    args = parser.parse_args()
-    if args.tier:
+    args = parser.parse_args(argv)
 
+    if args.tier:
         os.environ["drift_TIER"] = args.tier
 
     args.func(args)
@@ -104,13 +108,6 @@ def get_tiers_config(display_title=True):
 
     return tiers_config
 
-
-def get_tier_config_url(tier_config=None):
-    """Returns the 'url' used in tier init command."""
-    tier_config = tier_config or get_tier_config()
-    tier_url = "{}/{}/{}".format(tier_config['region'], tier_config['bucket'], TIERS_CONFIG_FILENAME)
-    return tier_url
-    
 
 def fetch(path):
     """Read the contents of the file or url pointed to by 'path'."""
