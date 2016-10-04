@@ -122,13 +122,13 @@ def run_command(args):
         "service": UBUNTU_BASE_IMAGE_NAME if args.ubuntu else service_info["name"],
         "versionNumber": service_info["version"],
         "region": tier_config["region"],
-        "source_ami": ami.id,
+        "source_ami": str(ami.id),
         "branch": branch,
         "commit": sha_commit,
         "release": version['tag'],
-        "user_name": user.user_name,
+        "user_name": str(user.user_name),
         "tier": tier_config["tier"],
-        "tier_url": tiers_config_url,
+        "tier_url": str(tiers_config_url),
     }
 
     if args.ubuntu:
