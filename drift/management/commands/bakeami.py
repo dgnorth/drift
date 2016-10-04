@@ -133,6 +133,8 @@ def run_command(args):
 
     if args.ubuntu:
         var['setup_script'] = pkg_resources.resource_filename(__name__, "ubuntu-packer.sh")
+    else:
+        var['setup_script'] = pkg_resources.resource_filename(__name__, "driftapp-packer.sh")
 
     print "Using var:\n", json.dumps(var, indent=4)
 
