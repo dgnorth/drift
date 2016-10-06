@@ -158,6 +158,7 @@ def _bake_command(args):
             sha_commit = get_commit()
             branch = get_branch()
             version = get_git_version()
+            service_info = get_service_info()    
             if not args.preview:
                 os.system(cmd)
         finally:
@@ -169,7 +170,6 @@ def _bake_command(args):
 
     print "git version:", version
 
-    service_info = get_service_info()    
     user = iam_conn.get_user()  # The current IAM user running this command
 
     # Need to generate a pre-signed url to the tiers root config file on S3
