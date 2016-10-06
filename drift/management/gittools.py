@@ -67,7 +67,6 @@ def get_git_version():
     if stdout.endswith("-dirty"):
         stdout = stdout.replace("-dirty", "")
         is_dirty = True
-    print stdout.rsplit("-", 2)
     tag, commits_after_tag, sha = stdout.rsplit("-", 2)
     if is_dirty or int(commits_after_tag) > 0:
         tag = canonical
