@@ -9,6 +9,7 @@ import pkg_resources
 from drift.management import create_deployment_manifest
 import json
 from datetime import datetime
+import random
 
 try:
     # boto library is not a hard requirement for drift.
@@ -29,6 +30,7 @@ from drift import slackbot
 # ap-southeast-1: ami-ca381398
 
 UBUNTU_BASE_IMAGE_NAME = 'ubuntu-base-image'
+UBUNTU_TRUSTY_IMAGE_NAME = 'ubuntu/images/hvm/ubuntu-trusty-14.04*'
 IAM_ROLE = "ec2"
 
 # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
@@ -99,48 +101,53 @@ def run_command(args):
     fn(args)
 
 
-def fold_tags(tags):
+def fold_tags(tags, key_name=None, value_name=None):
     """Fold boto3 resource tags array into a dictionary."""
     return {tag['Key']: tag['Value'] for tag in tags}
+
+
+def filterize(d):
+    """
+    Return dictionary 'd' as a boto3 "filters" object by unfolding it to a list of
+    dict with 'Name' and 'Values' entries.
+    """
+    return [{'Name': k, 'Values': [v]} for k, v in d.items()]
 
 
 def _bake_command(args):
     service_info = get_service_info()
     tier_config = get_tier_config()
-    ec2_conn = boto.ec2.connect_to_region(tier_config["region"])
     iam_conn = boto.iam.connect_to_region(tier_config["region"])
 
     if args.ubuntu:
         # Get all Ubuntu Trusty 14.04 images from the appropriate region and
         # pick the most recent one.
         # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
-        print "Finding the latest AMI on AWS that matches 'ubuntu-trusty-14.04*'"
+        print "Finding the latest AMI on AWS that matches", UBUNTU_TRUSTY_IMAGE_NAME
         ec2 = boto3.resource('ec2', region_name=tier_config["region"])
         filters = [
-            {'Name': 'name', 'Values': ['ubuntu/images/hvm/ubuntu-trusty-14.04*']}, 
+            {'Name': 'name', 'Values': [UBUNTU_TRUSTY_IMAGE_NAME]}, 
         ]
         amis = ec2.images.filter(Owners=[AMI_OWNER_CANONICAL], Filters=filters)
         ami = max(amis, key=operator.attrgetter("creation_date"))
     else:
+        ec2 = boto3.resource('ec2', region_name=tier_config["region"])
+        filters = [
+            {'Name': 'tag:service-name', 'Values': [UBUNTU_BASE_IMAGE_NAME]},
+            {'Name': 'tag:tier', 'Values': [tier_config["tier"]]},
+        ]
+        amis = ec2.images.filter(Owners=['self'], Filters=filters)
+        ami = max(amis, key=operator.attrgetter("creation_date"))
 
-        amis = ec2_conn.get_all_images(
-            owners=['self'],  # The current organization
-            filters={
-                'tag:service-name': UBUNTU_BASE_IMAGE_NAME,
-                'tag:tier': tier_config["tier"],
-            },
-        )
         if not amis:
-            print "No '{}' AMI found for tier {}. Bake one using this command: {} bakeami --ubuntu".format(UBUNTU_BASE_IMAGE_NAME, tier_config["tier"], sys.argv[0])
-            sys.exit(1)
-
-        ami = max(amis, key=operator.attrgetter("creationDate"))
-        print "{} AMI(s) found.".format(len(amis))
+            print "No '{}' AMI found for tier {}. Bake one using this command: {} bakeami --ubuntu".format(
+                UBUNTU_BASE_IMAGE_NAME, tier_config["tier"], sys.argv[0])
+            sys.exit(1)        
 
     print "Using source AMI:"
     print "\tID:\t", ami.id
     print "\tName:\t", ami.name
-    print "\tDate:\t", ami.creationDate
+    print "\tDate:\t", ami.creation_date
 
     if args.ubuntu:
         version = None
@@ -361,27 +368,27 @@ def _run_command(args):
     ec2 = boto3.resource('ec2', region_name=tier_config["region"])
 
     # Get all 'private' subnets
-    filters = [
-        {'Name': 'tag:tier', 'Values': [tier_name]}, 
-        {'Name': 'tag:realm', 'Values': ['private']},
-    ]
-    subnets = list(ec2.subnets.filter(Filters=filters))
-    print "Subnets:", [fold_tags(subnet.tags)['Name'] for subnet in subnets]
-    
+    filters = {'tag:tier': tier_name, 'tag:realm': 'private'}
+    subnets = list(ec2.subnets.filter(Filters=filterize(filters)))
+    if not subnets:
+        print "Error: No subnet available matching filter", filters
+        sys.exit(1)
+
+    print "Subnets:"
+    for subnet in subnets:
+        print "\t{} - {}".format(fold_tags(subnet.tags)['Name'], subnet.id)
+
     # Get the "one size fits all" security group
-    filters = [
-        {'Name': 'tag:tier', 'Values': [tier_name]}, 
-        {'Name': 'tag:Name', 'Values': ['{}-private-sg'.format(tier_name)]},
-    ]
-    security_group = list(ec2.security_groups.filter(Filters=filters))[0]
-    print "Security Group: {} [{} {}]".format(fold_tags(security_group.tags)["Name"], security_group.id, security_group.vpc_id)
+    filters = {'tag:tier': tier_name, 'tag:Name': '{}-private-sg'.format(tier_name)}
+    security_group = list(ec2.security_groups.filter(Filters=filterize(filters)))[0]
+    print "Security Group:\n\t{} [{} {}]".format(fold_tags(security_group.tags)["Name"], security_group.id, security_group.vpc_id)
 
     # The key pair name for SSH
     key_name = deployable["ssh_key"]
     if "." in key_name:
         key_name = key_name.split(".", 1)[0]  # TODO: Distinguish between key name and .pem key file name
 
-    print "\tSSH Key:\t", key_name
+    print "SSH Key:\t", key_name
 
     '''
     autoscaling group:
@@ -479,6 +486,11 @@ def _run_command(args):
         print "Done!"
         print "YOU MUST TERMINATE THE OLD EC2 INSTANCES YOURSELF!"
     else:
+        # Pick a random subnet from list of available subnets
+        subnet = random.choice(subnets)
+        print "Randomly picked this subnet to use: ", subnet
+
+        print "Launching EC2 instance..."
         reservation = ec2_conn.run_instances(
             ami.id,
             instance_type=args.instance_type,
