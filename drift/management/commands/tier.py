@@ -298,9 +298,10 @@ def use_command(args):
     tier_name_upper = args.tier.upper()
     tiers_config = get_tiers_config(display_title=False)
     bucket = get_s3_bucket(tiers_config)
-    key = bucket.get_key("tiers/{}.json".format(tier_name_upper))
+    key_name = "tiers/{}.json".format(tier_name_upper)
+    key = bucket.get_key(key_name)
     if not key:
-        print "Tier configuration '{}' not found!".format(tier_name_upper)
+        print "Tier configuration '{}' not found at '{}'".format(tier_name_upper, key_name)
         return
 
     json_text = key.get_contents_as_string()
@@ -311,9 +312,12 @@ def use_command(args):
     # Install config files for tier
     for file_key in bucket.list("tiers/{}/".format(tier_name_upper), "/"):
         head, tail = os.path.split(file_key.name)
+        if not tail:
+            print "Note! No configuration file found in ", head
+            break
         config_filename = get_config_path(tail, '.drift/tiers/{}/'.format(tier_name_upper))
-        file_key.get_contents_to_filename(config_filename)
         print "Installing configuration file:", config_filename
+        file_key.get_contents_to_filename(config_filename)
 
     # Install ssh keys referenced by the master config and deployables in the tier config.
     ssh_keys = [tiers_config["default_ssh_key"]]
