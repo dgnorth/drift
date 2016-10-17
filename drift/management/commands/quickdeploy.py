@@ -86,7 +86,7 @@ def run_command(args):
 
         if os.path.exists(build_fullpath):
             for filename in os.listdir(build_fullpath):
-                if filename.startswith("python-drift"):
+                if filename.startswith("Drift-"):
                     os.remove(os.path.join(build_fullpath, filename))
         drift_filename = None
 
@@ -99,7 +99,7 @@ def run_command(args):
             sys.exit(p.returncode)
         drift_filename = None
         for filename in os.listdir(build_fullpath):
-            if filename.startswith("python-drift"):
+            if filename.startswith("Drift-"):
                 drift_filename = filename
 
         if not drift_filename:
