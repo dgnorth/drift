@@ -43,7 +43,7 @@ tests_require = [
 
 setup(
     name='Drift',
-    version='0.1.0-dev',
+    version='0.1.0.dev0',
     license='MIT',
     author='Directive Games North',
     author_email="info@directivegames.com",
