@@ -313,8 +313,8 @@ def use_command(args):
     for file_key in bucket.list("tiers/{}/".format(tier_name_upper), "/"):
         head, tail = os.path.split(file_key.name)
         if not tail:
-            print "Note! No configuration file found in ", head
-            break
+            continue  # Skip over directory entry
+            
         config_filename = get_config_path(tail, '.drift/tiers/{}/'.format(tier_name_upper))
         print "Installing configuration file:", config_filename
         file_key.get_contents_to_filename(config_filename)
