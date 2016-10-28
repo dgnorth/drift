@@ -23,7 +23,7 @@ install_requires=[
         "celery",
         "responses",
         "SQLAlchemy",
-        "paramiko",
+        "paramiko==1.15.2",
         "fabric",
         "colorama",
         "slacker",
