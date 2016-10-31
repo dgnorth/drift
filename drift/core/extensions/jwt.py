@@ -229,6 +229,10 @@ def jwtsetup(app):
             identity_id = validate_steam_ticket()
             username = "steam:" + identity_id
             identity = authenticate(username, "")
+        elif auth_info['provider'] == "oculus" and provider_details.get('provisional', False):
+            username = "oculus:" + provider_details['username']
+            password = provider_details['password']
+            identity = authenticate(username, password)
         else:
             abort_unauthorized("Bad Request. Unknown provider '%s'." %
                                auth_info['provider'])

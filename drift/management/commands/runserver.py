@@ -20,7 +20,9 @@ def get_options(parser):
     parser.add_argument("--nodebug",
                         help="Do not run Flask server in DEBUG mode.",
                         action='store_false')
-
+    parser.add_argument("--profile",
+                        help="The the server with profiler active (only works in DEBUG mode)",
+                        action='store_true')
 
 def run_command(args):
     if args.server == 'celery':
@@ -65,7 +67,13 @@ def run_command(args):
         log.info("Running Flask in DEBUG mode. Use 'runserver --nodebug' to run in RELEASE mode.")
     else:
         app.debug = False
-        logging.root.info("Running Flask in RELEASE mode because of --nodebug "
+        log.info("Running Flask in RELEASE mode because of --nodebug "
                           "command line argument.")
 
+    if args.profile and app.debug:
+        log.info("Starting profiler")
+        from werkzeug.contrib.profiler import ProfilerMiddleware
+        app.config["PROFILE"] = True
+        app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
+        
     webservers.run_app(app, args.server)

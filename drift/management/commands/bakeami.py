@@ -122,13 +122,13 @@ def run_command(args):
         "service": UBUNTU_BASE_IMAGE_NAME if args.ubuntu else service_info["name"],
         "versionNumber": service_info["version"],
         "region": tier_config["region"],
-        "source_ami": ami.id,
+        "source_ami": str(ami.id),
         "branch": branch,
         "commit": sha_commit,
         "release": version['tag'],
-        "user_name": user.user_name,
+        "user_name": str(user.user_name),
         "tier": tier_config["tier"],
-        "tier_url": tiers_config_url,
+        "tier_url": str(tiers_config_url),
     }
 
     if args.ubuntu:
@@ -136,7 +136,7 @@ def run_command(args):
     else:
         var['setup_script'] = pkg_resources.resource_filename(__name__, "driftapp-packer.sh")
 
-    print "Using var:\n", json.dumps(var, indent=4)
+    print "Using var:\n", json.dumps({k: str(v) for k, v in var.iteritems()}, indent=4)
 
     packer_cmd = "packer"
     try:
