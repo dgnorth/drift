@@ -24,6 +24,4 @@ cp -v /usr/local/bin/${service}/config/splunk/inputs.conf /opt/splunkforwarder/e
 cp -v /usr/local/bin/${service}/config/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/
 pip install six --upgrade
 drift-admin tier init ${tier_url} --activate ${tier}
-echo -------- Changing owner of service install to user ubuntu ------------
-chown ubuntu /usr/local/bin/${service} -R
 echo ----------------- All done -----------------
