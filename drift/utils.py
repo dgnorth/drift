@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import pytds
 import httplib
 import logging
 import requests
@@ -26,6 +27,36 @@ def uuid_string():
 def is_ec2():
     """Naive check if this is an ec2 instance"""
     return host_name and host_name.startswith("ip")
+
+
+def _get_db_connection(conn_info, app_name, row_strategy=None):
+    """
+    Return a DB connection for 'conn_info'. The connection is cached.
+    'conn_info' is a dict containing "server", "database", "user" and
+    "password".
+    'app_name' is to identify the connection on the SQL server.
+    """
+    canonical_conn_str = "dbconn_{server}_{database}".format(**conn_info)
+    # !TODO disabled so that we don't cache connections for now
+    if canonical_conn_str in g.driftenv and 0:
+        log.debug(
+            "_get_db_connection: returning cached '%s'", canonical_conn_str)
+        # TODO: Note that this cache is tenant specific. We may want to move it
+        # to a global cache.
+        return g.driftenv[canonical_conn_str]
+
+    db_conn = pytds.connect(
+        conn_info["server"],
+        conn_info["database"],
+        conn_info["user"],
+        conn_info["user"],  # TODO: should be conn_info["password"]?
+        autocommit=True,
+        appname=app_name,
+        row_strategy=row_strategy or pytds.dict_row_strategy,
+    )
+
+    log.debug("_get_db_connection: initializing '%s'", canonical_conn_str)
+    return db_conn
 
 
 class TenantNotFoundError(ValueError):
