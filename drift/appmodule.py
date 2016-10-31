@@ -3,7 +3,6 @@
 # the real app
 from flask import Flask
 from flaskfactory import make_app, load_config, install_extras
-from flask_cors import CORS
 
 from drift.configsetup import rig_tenants
 from .urlregistry import urlregistrysetup
@@ -12,8 +11,6 @@ import logging
 log = logging.getLogger(__name__)
 
 app = Flask("drift")
-cors = CORS(app)
-
 
 def bootstrap():
 
