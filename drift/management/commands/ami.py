@@ -31,6 +31,9 @@ from drift import slackbot
 
 UBUNTU_BASE_IMAGE_NAME = 'ubuntu-base-image'
 UBUNTU_TRUSTY_IMAGE_NAME = 'ubuntu/images/hvm/ubuntu-trusty-14.04*'
+UBUNTU_XENIAL_IMAGE_NAME = 'ubuntu/images/hvm-ssd/ubuntu-xenial-16.04*'
+UBUNTU_RELEASE = UBUNTU_TRUSTY_IMAGE_NAME
+
 IAM_ROLE = "ec2"
 
 # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
@@ -123,12 +126,16 @@ def _bake_command(args):
         # Get all Ubuntu Trusty 14.04 images from the appropriate region and
         # pick the most recent one.
         # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
-        print "Finding the latest AMI on AWS that matches", UBUNTU_TRUSTY_IMAGE_NAME
+        print "Finding the latest AMI on AWS that matches", UBUNTU_RELEASE
         ec2 = boto3.resource('ec2', region_name=tier_config["region"])
         filters = [
-            {'Name': 'name', 'Values': [UBUNTU_TRUSTY_IMAGE_NAME]}, 
+            {'Name': 'name', 'Values': [UBUNTU_RELEASE]}, 
         ]
-        amis = ec2.images.filter(Owners=[AMI_OWNER_CANONICAL], Filters=filters)
+        amis = list(ec2.images.filter(Owners=[AMI_OWNER_CANONICAL], Filters=filters))
+        if not amis:
+            print "No AMI found matching '{}'. Not sure what to do now.".format(
+                UBUNTU_RELEASE, tier_config["tier"], sys.argv[0])
+            sys.exit(1)        
         ami = max(amis, key=operator.attrgetter("creation_date"))
     else:
         ec2 = boto3.resource('ec2', region_name=tier_config["region"])
@@ -136,13 +143,12 @@ def _bake_command(args):
             {'Name': 'tag:service-name', 'Values': [UBUNTU_BASE_IMAGE_NAME]},
             {'Name': 'tag:tier', 'Values': [tier_config["tier"]]},
         ]
-        amis = ec2.images.filter(Owners=['self'], Filters=filters)
-        ami = max(amis, key=operator.attrgetter("creation_date"))
-
+        amis = list(ec2.images.filter(Owners=['self'], Filters=filters))
         if not amis:
-            print "No '{}' AMI found for tier {}. Bake one using this command: {} bakeami --ubuntu".format(
+            print "No '{}' AMI found for tier {}. Bake one using this command: {} ami bake --ubuntu".format(
                 UBUNTU_BASE_IMAGE_NAME, tier_config["tier"], sys.argv[0])
             sys.exit(1)        
+        ami = max(amis, key=operator.attrgetter("creation_date"))
 
     print "Using source AMI:"
     print "\tID:\t", ami.id
