@@ -402,6 +402,7 @@ def _run_command(args):
     api-port        10080
     api-target      themachines-backend
     service-name    themachines-backend
+    service-type    rest-api
     tier            LIVENORTH
 
     ec2:
@@ -410,6 +411,7 @@ def _run_command(args):
     api-port        10080
     api-target      drift-base
     service-name    drift-base
+    service-type    rest-api
     tier            DEVNORTH
     '''
 
@@ -421,6 +423,7 @@ def _run_command(args):
         "Name": target_name,
         "tier": tier_name,
         "service-name": service_info["name"],
+        "service-type": "rest-api",  # TODO: Assume there are more types to come.
         "launched-by": iam_conn.get_user().user_name,
         
         # Make instance part of api-router round-robin load balancing
