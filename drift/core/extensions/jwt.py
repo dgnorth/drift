@@ -233,8 +233,8 @@ def jwtsetup(app):
             username = "oculus:" + provider_details['username']
             password = provider_details['password']
             identity = authenticate(username, password)
-        elif auth_info['provider'] == "vr7663":
-            username = "vr7663:" + provider_details['username']
+        elif auth_info['provider'] == "7663":
+            username = "7663:" + provider_details['username']
             password = provider_details['password']
             identity = authenticate(username, password)
         else:
