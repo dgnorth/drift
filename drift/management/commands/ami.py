@@ -159,15 +159,34 @@ def _bake_command(args):
         version = None
         branch = ''
         sha_commit = ''
+        deployment_manifest = create_deployment_manifest('bakeami')  # Todo: Should be elsewhere or different
     else:
         cmd = "python setup.py sdist --formats=zip"
         current_branch = get_branch()
+        
+        if not args.tag:
+            # See if service is tagged to a specific version for this tier
+            for si in tier_config['deployables']:
+                if si['name'] == service_info['name']:
+                    if 'release' in si:
+                        text = "Error: As deployable '{}' for tier '{}' is pegged to a particular " \
+                            "release, you must specify a release tag to which to bake from.\n" \
+                            "Note that this is merely a safety measure.\n" \
+                            "For reference, the current deployable for this tier is pegged at " \
+                            "release tag '{}'."
+                        print text.format(service_info['name'], tier_config['tier'], si['release'])
+                        sys.exit(1)
+                    break
+
         if not args.tag:
             args.tag = current_branch
 
         print "Using branch/tag", args.tag
+
+
         checkout(args.tag)
         try:
+            deployment_manifest = create_deployment_manifest('bakeami')  # Todo: Should be elsewhere or different
             sha_commit = get_commit()
             branch = get_branch()
             version = get_git_version()
@@ -244,19 +263,21 @@ def _bake_command(args):
         cmd += scriptfile
     print "Baking AMI with: {}".format(cmd)
 
-    if args.preview:
-        print "Not building or packaging because --preview is on. Exiting now."
-        return
 
-    start_time = time.time()
     # Dump deployment manifest into dist folder temporarily. The packer script
     # will pick it up and bake it into the AMI.
     deployment_manifest_filename = os.path.join("dist", "deployment-manifest.json")
-    deployment_manifest_json = json.dumps(create_deployment_manifest('bakeami'), indent=4)
+    deployment_manifest_json = json.dumps(deployment_manifest, indent=4)
     print "Deployment Manifest:\n", deployment_manifest_json
+
+    if args.preview:
+        print "Not building or packaging because --preview is on. Exiting now."
+        return
+    
     with open(deployment_manifest_filename, "w") as dif:
         dif.write(deployment_manifest_json)
 
+    start_time = time.time()
     try:
         os.system(cmd)
     finally:
