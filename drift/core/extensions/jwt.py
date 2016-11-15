@@ -230,6 +230,8 @@ def jwtsetup(app):
             username = "steam:" + identity_id
             identity = authenticate(username, "")
         elif auth_info['provider'] == "oculus" and provider_details.get('provisional', False):
+            if len(provider_details['username']) < 1:
+                abort_unauthorized("Bad Request. 'username' cannot be an empty string.") 
             username = "oculus:" + provider_details['username']
             password = provider_details['password']
             identity = authenticate(username, password)
