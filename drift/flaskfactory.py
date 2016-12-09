@@ -44,12 +44,13 @@ def load_config(tier_name=None):
 
 
 def load_config_files(tier_name, config_values, log_progress):
+    tier_name_normalized = tier_name.upper()
     # Apply global tier config
-    host_config = _get_local_config('tiers/{}/tierconfig.json'.format(tier_name), log_progress)
+    host_config = _get_local_config('tiers/{}/tierconfig.json'.format(tier_name_normalized), log_progress)
     config_values.update(host_config)
 
     # Apply deployable config specific to current tier
-    host_config = _get_local_config('tiers/{}/{}.json'.format(tier_name.upper(), config_values['name']), log_progress)
+    host_config = _get_local_config('tiers/{}/{}.json'.format(tier_name_normalized, config_values['name']), log_progress)
     config_values.update(host_config)
 
     # Apply local host config
