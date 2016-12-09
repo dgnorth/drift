@@ -31,6 +31,9 @@ from drift import slackbot
 
 UBUNTU_BASE_IMAGE_NAME = 'ubuntu-base-image'
 UBUNTU_TRUSTY_IMAGE_NAME = 'ubuntu/images/hvm/ubuntu-trusty-14.04*'
+UBUNTU_XENIAL_IMAGE_NAME = 'ubuntu/images/hvm-ssd/ubuntu-xenial-16.04*'
+UBUNTU_RELEASE = UBUNTU_TRUSTY_IMAGE_NAME
+
 IAM_ROLE = "ec2"
 
 # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
@@ -123,12 +126,16 @@ def _bake_command(args):
         # Get all Ubuntu Trusty 14.04 images from the appropriate region and
         # pick the most recent one.
         # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
-        print "Finding the latest AMI on AWS that matches", UBUNTU_TRUSTY_IMAGE_NAME
+        print "Finding the latest AMI on AWS that matches", UBUNTU_RELEASE
         ec2 = boto3.resource('ec2', region_name=tier_config["region"])
         filters = [
-            {'Name': 'name', 'Values': [UBUNTU_TRUSTY_IMAGE_NAME]}, 
+            {'Name': 'name', 'Values': [UBUNTU_RELEASE]}, 
         ]
-        amis = ec2.images.filter(Owners=[AMI_OWNER_CANONICAL], Filters=filters)
+        amis = list(ec2.images.filter(Owners=[AMI_OWNER_CANONICAL], Filters=filters))
+        if not amis:
+            print "No AMI found matching '{}'. Not sure what to do now.".format(
+                UBUNTU_RELEASE, tier_config["tier"], sys.argv[0])
+            sys.exit(1)        
         ami = max(amis, key=operator.attrgetter("creation_date"))
     else:
         ec2 = boto3.resource('ec2', region_name=tier_config["region"])
@@ -136,13 +143,12 @@ def _bake_command(args):
             {'Name': 'tag:service-name', 'Values': [UBUNTU_BASE_IMAGE_NAME]},
             {'Name': 'tag:tier', 'Values': [tier_config["tier"]]},
         ]
-        amis = ec2.images.filter(Owners=['self'], Filters=filters)
-        ami = max(amis, key=operator.attrgetter("creation_date"))
-
+        amis = list(ec2.images.filter(Owners=['self'], Filters=filters))
         if not amis:
-            print "No '{}' AMI found for tier {}. Bake one using this command: {} bakeami --ubuntu".format(
+            print "No '{}' AMI found for tier {}. Bake one using this command: {} ami bake --ubuntu".format(
                 UBUNTU_BASE_IMAGE_NAME, tier_config["tier"], sys.argv[0])
             sys.exit(1)        
+        ami = max(amis, key=operator.attrgetter("creation_date"))
 
     print "Using source AMI:"
     print "\tID:\t", ami.id
@@ -153,15 +159,34 @@ def _bake_command(args):
         version = None
         branch = ''
         sha_commit = ''
+        deployment_manifest = create_deployment_manifest('bakeami')  # Todo: Should be elsewhere or different
     else:
         cmd = "python setup.py sdist --formats=zip"
         current_branch = get_branch()
+        
+        if not args.tag:
+            # See if service is tagged to a specific version for this tier
+            for si in tier_config['deployables']:
+                if si['name'] == service_info['name']:
+                    if 'release' in si:
+                        text = "Error: As deployable '{}' for tier '{}' is pegged to a particular " \
+                            "release, you must specify a release tag to which to bake from.\n" \
+                            "Note that this is merely a safety measure.\n" \
+                            "For reference, the current deployable for this tier is pegged at " \
+                            "release tag '{}'."
+                        print text.format(service_info['name'], tier_config['tier'], si['release'])
+                        sys.exit(1)
+                    break
+
         if not args.tag:
             args.tag = current_branch
 
         print "Using branch/tag", args.tag
+
+
         checkout(args.tag)
         try:
+            deployment_manifest = create_deployment_manifest('bakeami')  # Todo: Should be elsewhere or different
             sha_commit = get_commit()
             branch = get_branch()
             version = get_git_version()
@@ -238,19 +263,21 @@ def _bake_command(args):
         cmd += scriptfile
     print "Baking AMI with: {}".format(cmd)
 
-    if args.preview:
-        print "Not building or packaging because --preview is on. Exiting now."
-        return
 
-    start_time = time.time()
     # Dump deployment manifest into dist folder temporarily. The packer script
     # will pick it up and bake it into the AMI.
     deployment_manifest_filename = os.path.join("dist", "deployment-manifest.json")
-    deployment_manifest_json = json.dumps(create_deployment_manifest('bakeami'), indent=4)
+    deployment_manifest_json = json.dumps(deployment_manifest, indent=4)
     print "Deployment Manifest:\n", deployment_manifest_json
+
+    if args.preview:
+        print "Not building or packaging because --preview is on. Exiting now."
+        return
+    
     with open(deployment_manifest_filename, "w") as dif:
         dif.write(deployment_manifest_json)
 
+    start_time = time.time()
     try:
         os.system(cmd)
     finally:
@@ -396,6 +423,7 @@ def _run_command(args):
     api-port        10080
     api-target      themachines-backend
     service-name    themachines-backend
+    service-type    rest-api
     tier            LIVENORTH
 
     ec2:
@@ -404,6 +432,7 @@ def _run_command(args):
     api-port        10080
     api-target      drift-base
     service-name    drift-base
+    service-type    rest-api
     tier            DEVNORTH
     '''
 
@@ -415,6 +444,7 @@ def _run_command(args):
         "Name": target_name,
         "tier": tier_name,
         "service-name": service_info["name"],
+        "service-type": "rest-api",  # TODO: Assume there are more types to come.
         "launched-by": iam_conn.get_user().user_name,
         
         # Make instance part of api-router round-robin load balancing

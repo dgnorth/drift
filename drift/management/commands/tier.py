@@ -320,8 +320,7 @@ def use_command(args):
         file_key.get_contents_to_filename(config_filename)
 
     # Install ssh keys referenced by the master config and deployables in the tier config.
-    ssh_keys = [tiers_config["default_ssh_key"]]
-    ssh_keys += [
+    ssh_keys = [
         deployable["ssh_key"]
         for deployable in tier_config["deployables"]
         if "ssh_key" in deployable
