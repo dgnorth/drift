@@ -274,7 +274,7 @@ def issue_token(payload, expire=None):
                            ', '.join(missing_claims))
 
     access_token = jwt.encode(payload, current_app.config['private_key'], algorithm=algorithm)
-    cache_token(payload)
+    cache_token(payload, expire=expire)
     log.debug("Issuing a new token: %s.", payload)
     ret = {
         'token': access_token.decode('utf-8'),
@@ -414,8 +414,12 @@ def create_standard_claims(expire=None):
 
 
 def cache_token(payload, expire=None):
-    # keep this in redis for a while
     expire = expire or 86400
+
+    # Add fudge to 'expire' so the token will live at least a little bit longer in the
+    # Redis cache than the actual expiration date.
+    expire += 60*10  # Ten minutes
+
     try:
         jti = payload['jti']
         key = "jwt:{}".format(jti)
