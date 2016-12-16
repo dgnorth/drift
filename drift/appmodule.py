@@ -15,9 +15,8 @@ app = Flask("drift")
 def bootstrap():
 
     make_app(app)
-    app.config.update(load_config())
-    app.env_objects = {}  # Environment specific object store.    
-    rig_tenants(app)
+    app.env_objects = {}  # Environment specific object store.
+    #shortcut this rig_tenants(app)
     urlregistrysetup(app)
     install_extras(app)
 

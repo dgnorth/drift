@@ -1,4 +1,4 @@
-7# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import os
 import logging
@@ -25,20 +25,62 @@ from drift.management import get_config_path
 log = logging.getLogger(__name__)
 
 
-def load_config(tier_name=None):
-    if not tier_name:
-        tier_name = get_tier_name()
-    config_filename = os.environ["drift_CONFIG"]
-    config_values = {}
+def discover_config():
+    """
+    Discover automatically where the config file for the active app is located and
+    returns a path to the file.
 
+    Also sets 'drift_CONFIG' environment variable to the path for temporary backward
+    compatibility.
+    """
+
+    # Path to the config file can be discovered from these two hints:
+    # 1. current working directory
+    # 2. location of current executable.
+    config_pathname = os.path.join('config', 'config.json')
+    search_path = ''  # First search from current directory
+    config = None
+    log.info("Looking for app root in '%s' and '%s'", os.path.abspath('.'), sys.argv[0])
+
+    while True:
+        parent = os.path.abspath(os.path.join(search_path, config_pathname))
+        if parent == config:  # No change after traversing up
+            raise RuntimeError("Can't locate app root.")
+
+        config = parent
+        if os.path.exists(config):
+            break
+
+        log.debug("App static config not found at: %s", config)
+
+        if search_path == '':
+            search_path, exe = os.path.split(sys.argv[0])
+        else:
+            search_path = os.path.join(search_path, '..')
+
+    log.info("App root found, static config file is at '%s'", config)
+    if 'drift_CONFIG' in os.environ:
+        if os.environ['drift_CONFIG'] != config:
+            log.error("'drift_CONFIG' already set, but differs from auto-discovered one: '%s'", os.environ['drift_CONFIG'])
+            raise RuntimeError("'drift_CONFIG' already set, but differs")
+        log.warning("'drift_CONFIG' already set. It's deprecated now!")
+
+    os.environ['drift_CONFIG'] = config
+    return config
+
+
+def load_config(tier_name=None):
+
+    config_filename = discover_config()
     log.info("Loading configuration from %s", config_filename)
-   
     with open(config_filename) as f:
         config_values = json.load(f)
-    config_values["config_filename"] = config_filename
-    config_values["tier_name"] = tier_name
 
-    load_config_files(tier_name, config_values, log_progress=False)
+    # BELOW IS TO LOAD FANCY PANTS CONFIG FROM HERE AND THERE
+    if 0:  # shortcut it for now
+        if not tier_name:
+            tier_name = get_tier_name()
+        load_config_files(tier_name, config_values, log_progress=False)
 
     return config_values
 
@@ -84,17 +126,29 @@ def _get_local_config(file_name, log_progress):
 
 
 def make_app(app):
+
+    # Load static app configuration
+    app.config.update(load_config())
+
+    # Set up Relib config
+    from driftconfig.flask_relib import FlaskRelib
+    app.config['RELIB_CONFIG_URL'] = 'file://~/.drift/config/dgnorth'
+    FlaskRelib(app)
+
     instance_path = None
     if "drift_CONFIG" in os.environ:
         instance_path = os.path.split(os.environ["drift_CONFIG"])[0]
         app.instance_path = instance_path
         app.static_folder = os.path.join(instance_path, "..", "static")
         sys.path.append(os.path.join(instance_path, "..", ".."))
+
     _apply_patches(app)
 
 
 def install_extras(app):
     """Install built-in and product specific apps and extensions."""
+
+    # TODO: Use package manager to enumerate and load the modules.
 
     # Include all core extensions and those referenced in the config.
     pkgpath = os.path.dirname(drift.core.extensions.__file__)
@@ -196,3 +250,8 @@ def _apply_patches(app):
 
 class TenantNotFoundError(ValueError):
     pass
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level='INFO')
+    discover_config()
