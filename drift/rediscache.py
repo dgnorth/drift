@@ -8,6 +8,16 @@ log = logging.getLogger(__name__)
 
 REDIS_DB = 0  # We always use the main redis db for now
 
+def _get_redis_connection_info():
+    """
+    Return tenant specific Redis connection info, if available, else use one that's
+    specified for the tier.
+    """
+    ci = g.conf.tier.get('redis_connection_info')
+    if not ci and g.conf.tenant:
+        ci = g.conf.tenant.get('redis_connection_info')
+    return ci
+
 
 class RedisCache(object):
     """
@@ -19,9 +29,12 @@ class RedisCache(object):
     redlock = None
 
     def __init__(self, tenant=None, service_name=None, redis_server=None):
-        conn_info = current_app.config.get("redis_connection_info")
+        conn_info = _get_redis_connection_info()
+        if not conn_info:
+            log.warning("No Redis connection info available!")
+            return
         if not redis_server:
-            redis_server = current_app.config.get("redis_server", None)
+            redis_server = conn_info['host']  # current_app.config.get("redis_server", None)
         self.disabled = conn_info.get("disabled", False)
         if self.disabled:
             log.warning("Redis is disabled!")

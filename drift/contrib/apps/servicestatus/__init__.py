@@ -52,18 +52,18 @@ class InfoPageAPI(Resource):
             tenants = [t["name"] for t in current_app.config["tenants"] if t.get("db_server")]
         else:
             tenants = None
-            
+
         ret = {
             'service_name': current_app.config['name'],
             "host_info": host_info,
             "endpoints": endpoints,
             "current_user": dict(current_user) if current_user else None,
             "tier_name": get_tier_name(),
-            "tenant_name": g.driftenv["name"],
+            "tenant_name": g.conf.tenant_name['tenant_name'],
             "server_time": datetime.datetime.utcnow().isoformat("T") + "Z",
             "tenants": tenants,
         }
-        
+
         path = os.path.join(current_app.instance_path, "..", "deployment-manifest.json")
         if not os.path.exists(path):
             if current_app.debug:
@@ -87,7 +87,7 @@ class InfoPageAPI(Resource):
             d = collections.OrderedDict(sorted(d.items()))
             d['private_key'] = '...'  # Just to be safe(r)
             ret['config_dump'] = json.dumps(d, indent=4)
-        
+
         if request_wants_json():
             return make_response(jsonify(ret))
         else:

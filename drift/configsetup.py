@@ -25,13 +25,13 @@ log = logging.getLogger(__name__)
 
 
 def activate_environment(*args, **kw):
-
-    deployable_name = current_app.config['name']
     tier_name = get_tier_name()
-    #tenants = g.ts.get_table('tenants').get()
-    tenants = current_app.extensions['relib'].table_store.get_table('tenants')
+    deployable_name = current_app.config['name']
 
-    # Figure out tenant name. Normally it's embedded in the hostname.
+    ts = current_app.extensions['relib'].table_store
+    tenants = ts.get_table('tenants')
+
+    # Figure out tenant. Normally the tenant name is embedded in the hostname.
     host = request.headers.get("Host")
     # Two dots minimum required if tenant is to be specified in the hostname.
     if host and host.count('.') >= 2:
@@ -42,24 +42,67 @@ def activate_environment(*args, **kw):
                 "No tenant found for tier '{}' and deployable '{}'".format(tier_name, deployable_name)
             )
     else:
-        # Fall back on default tenant name
+        # Fall back on default tenant, if possible.
         for tenant in tenants.find({'tier_name': tier_name, 'deployable_name': deployable_name}):
             if tenant.get('is_default'):
-                tenant_name = tenant['tenant_name']
                 break
         else:
-            raise RuntimeError(
+            tenant = None
+            log.info(
                 "No tenant specified and no default tenant available for tier '{}' and "
                 "deployable '{}'".format(tier_name, deployable_name)
             )
 
-    print "WHEEEEEEEEEEEEE GOT TENANT", tenant
-    if tenant['state'] != 'active':
-            raise RuntimeError(
-                "Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
-                    tenant_name, tier_name, deployable_name, tenant['state'])
-            )
+    if tenant and tenant['state'] != 'active':
+        raise RuntimeError(
+            "Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
+                tenant_name, tier_name, deployable_name, tenant['state'])
+        )
 
+    # Add applicable config tables to 'g'
+    g.conf = collections.namedtuple(
+        'driftconfig',
+        ['organization', 'product', 'tenant_name', 'tier', 'deployable', 'tenant']
+    )
+
+    g.conf.tenant = tenant
+    g.conf.tier = ts.get_table('tiers').get({'tier_name': tier_name})
+    g.conf.deployable = ts.get_table('deployables').get({'deployable_name': deployable_name})
+
+    if tenant:
+        g.conf.tenant_name = tenants.get_foreign_row(tenant, 'tenant_names')[0]
+        g.conf.product = ts.get_table('tenant_names').get_foreign_row(g.conf.tenant, 'products')[0]
+        g.conf.organization = ts.get_table('deployables').get_foreign_row(g.conf.deployable, 'organizations')[0]
+    else:
+        g.conf.tenant_name = None
+        g.conf.product = None
+        g.conf.organization = None
+
+    # Put the Redis connection into g so that we can reuse it throughout the request.
+    print "tenant:\n", json.dumps(g.conf.tenant, indent=4)
+    print "tier:\n", json.dumps(g.conf.tier, indent=4)
+    print "deployable:\n", json.dumps(g.conf.deployable, indent=4)
+    print "tenant_name:\n", json.dumps(g.conf.tenant_name, indent=4)
+    print "product:\n", json.dumps(g.conf.product, indent=4)
+    print "organization:\n", json.dumps(g.conf.organization, indent=4)
+
+    g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'])
+
+    # Check for a valid JWT/JTI access token in the request header and populate current_user.
+    check_jwt_authorization()
+
+    # initialize the list for messages to the debug client
+    g.client_debug_messages = []
+
+    # Set up a db session to our tenant DB
+    from drift.orm import get_sqlalchemy_session
+    g.db = get_sqlalchemy_session()
+
+    try:
+        from request_mixin import before_request
+        return before_request(request)
+    except ImportError:
+        pass
 
 
 def rig_tenants(app):

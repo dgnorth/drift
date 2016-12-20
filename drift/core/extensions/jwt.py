@@ -231,7 +231,7 @@ def jwtsetup(app):
             identity = authenticate(username, "")
         elif auth_info['provider'] == "oculus" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
-                abort_unauthorized("Bad Request. 'username' cannot be an empty string.") 
+                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "oculus:" + provider_details['username']
             password = provider_details['password']
             identity = authenticate(username, password)
@@ -279,7 +279,13 @@ def issue_token(payload, expire=None):
         raise RuntimeError('Payload is missing required claims: %s' %
                            ', '.join(missing_claims))
 
-    access_token = jwt.encode(payload, current_app.config['private_key'], algorithm=algorithm)
+    ts = current_app.extensions['relib'].table_store
+    public_keys = ts.get_table('public-keys')
+    row = public_keys.get({
+        'tier_name': g.conf.tier['tier_name'], 'deployable_name': g.conf.deployable['deployable_name']
+    })
+    key_info = row['keys'][0]  # HACK, just select the first one
+    access_token = jwt.encode(payload, key_info['private_key'], algorithm=algorithm)
     cache_token(payload, expire=expire)
     log.debug("Issuing a new token: %s.", payload)
     ret = {
@@ -382,10 +388,9 @@ def verify_token(token, auth_type):
         if not tenant or not tier:
             abort_unauthorized("Invalid JWT. "
                                "Token must specify both 'tenant' and 'tier'.")
-
-        if tenant != g.driftenv["name"]:
+        if tenant != g.conf.tenant_name['tenant_name']:
             abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
-                               " is tenant '%s'" % (tenant, g.driftenv["name"]))
+                               " is tenant '%s'" % (tenant, g.conf.tenant_name['tenant_name']))
 
         cfg_tier_name = get_tier_name()
         if tier != cfg_tier_name:
@@ -412,8 +417,8 @@ def create_standard_claims(expire=None):
         'iss': iss,
 
         # Drift fields
-        'tier': g.driftenv["tier_name"],
-        'tenant': g.driftenv["name"],
+        'tier': g.conf.tier['tier_name'],
+        'tenant': g.conf.tenant_name['tenant_name'],
     }
 
     return standard_claims

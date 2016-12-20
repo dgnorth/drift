@@ -132,7 +132,6 @@ def make_app(app):
 
     # Set up Relib config
     from driftconfig.flask_relib import FlaskRelib
-    app.config['RELIB_CONFIG_URL'] = 'file://~/.drift/config/dgnorth'
     FlaskRelib(app)
 
     instance_path = None
