@@ -17,13 +17,56 @@ from flask import request, g, jsonify, current_app
 from drift.rediscache import RedisCache
 from drift.core.extensions.jwt import check_jwt_authorization
 from drift.core.extensions.jwt import jwt_not_required
+from drift.utils import get_tier_name
 
 DEFAULT_TENANT = "global"
 
 log = logging.getLogger(__name__)
 
 
+def activate_environment(*args, **kw):
+
+    deployable_name = current_app.config['name']
+    tier_name = get_tier_name()
+    #tenants = g.ts.get_table('tenants').get()
+    tenants = current_app.extensions['relib'].table_store.get_table('tenants')
+
+    # Figure out tenant name. Normally it's embedded in the hostname.
+    host = request.headers.get("Host")
+    # Two dots minimum required if tenant is to be specified in the hostname.
+    if host and host.count('.') >= 2:
+        tenant_name, domain = host.split('.', 1)
+        tenant = tenants.get({'tier_name': tier_name, 'deployable_name': deployable_name, 'tenant_name': tenant_name})
+        if not tenant:
+            raise RuntimeError(
+                "No tenant found for tier '{}' and deployable '{}'".format(tier_name, deployable_name)
+            )
+    else:
+        # Fall back on default tenant name
+        for tenant in tenants.find({'tier_name': tier_name, 'deployable_name': deployable_name}):
+            if tenant.get('is_default'):
+                tenant_name = tenant['tenant_name']
+                break
+        else:
+            raise RuntimeError(
+                "No tenant specified and no default tenant available for tier '{}' and "
+                "deployable '{}'".format(tier_name, deployable_name)
+            )
+
+    print "WHEEEEEEEEEEEEE GOT TENANT", tenant
+    if tenant['state'] != 'active':
+            raise RuntimeError(
+                "Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
+                    tenant_name, tier_name, deployable_name, tenant['state'])
+            )
+
+
+
 def rig_tenants(app):
+    app.before_request(activate_environment)
+
+
+def old_rig_tenants(app):
     if app.config.get('DEBUG'):
         def json_serial(obj):
             """JSON serializer for objects not serializable by default json code"""

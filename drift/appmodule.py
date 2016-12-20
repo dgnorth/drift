@@ -16,7 +16,7 @@ def bootstrap():
 
     make_app(app)
     app.env_objects = {}  # Environment specific object store.
-    #shortcut this rig_tenants(app)
+    rig_tenants(app)
     urlregistrysetup(app)
     install_extras(app)
 
