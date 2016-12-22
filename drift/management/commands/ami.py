@@ -19,7 +19,7 @@ try:
 except ImportError:
     pass
 
-from drift.management import get_tier_config, get_service_info, get_tiers_config, TIERS_CONFIG_FILENAME
+from drift.management import get_tier_config, get_service_info, get_tiers_config, TIERS_CONFIG_FILENAME, get_origin_url
 from drift.management.gittools import get_branch, get_commit, get_git_version, checkout
 from drift.utils import get_tier_name
 from drift import slackbot
@@ -223,6 +223,7 @@ def _bake_command(args):
         "user_name": user.user_name,
         "tier": tier_config["tier"],
         "tier_url": tiers_config_url,
+        "config_url": get_origin_url(),
     }
 
     if args.ubuntu:

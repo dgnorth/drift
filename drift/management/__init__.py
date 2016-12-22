@@ -14,10 +14,20 @@ from boto.s3.connection import OrdinaryCallingFormat
 
 from drift.utils import get_tier_name
 from drift.management.gittools import get_branch, get_commit, get_repo_url, get_git_version
-
+from driftconfig.config import get_domains
 
 TIERS_CONFIG_FILENAME = "tiers-config.json"
 
+
+def get_origin_url():
+    domains = get_domains().values()
+    if len(domains) != 1:
+        raise RuntimeError("You must have exactly 1 drift domain. %s domains found" % len(domains))
+    domain_table = domains[0]["table_store"].get_table("domain")
+    origin = domain_table["origin"]
+    if not origin.startswith("s3://"):
+        raise RuntimeError("Origin should be an s3 url. It is '%s'" % origin)
+    return origin
 
 def get_commands():
     commands = [

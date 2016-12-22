@@ -23,7 +23,10 @@ cp -v /usr/local/bin/${service}/config/rsyslog.d/*.conf /etc/rsyslog.d/
 cp -v /usr/local/bin/${service}/config/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/
 cp -v /usr/local/bin/${service}/config/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/
 pip install six --upgrade
+echo -------- Initializing Drift ----------------
 drift-admin tier init ${tier_url} --activate ${tier}
-echo -------- Changing owner of service install to user ubuntu ------------
+driftconfig init ${config_url}
 chown ubuntu /usr/local/bin/${service} -R
+chown ubuntu /home/ubuntu/.drift -R
+crontab -l -u ubuntu | { cat; echo "* * * * * /usr/local/bin/driftconfig pull --loop >> ~/driftconfig.log 2>&1"; } | crontab - -u ubuntu
 echo ----------------- All done -----------------
