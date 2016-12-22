@@ -13,9 +13,11 @@ def _get_redis_connection_info():
     Return tenant specific Redis connection info, if available, else use one that's
     specified for the tier.
     """
-    ci = g.conf.tier.get('redis_connection_info')
-    if not ci and g.conf.tenant:
+    ci = None
+    if g.conf.tenant:
         ci = g.conf.tenant.get('redis_connection_info')
+    if not ci:
+        ci = g.conf.tier.get('redis_connection_info')
     return ci
 
 

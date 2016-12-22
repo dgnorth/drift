@@ -27,9 +27,11 @@ def _get_db_connection_info():
     Return tenant specific DB connection info, if available, else use one that's
     specified for the tier.
     """
-    ci = g.conf.tier.get('db_connection_info')
-    if not ci and g.conf.tenant:
+    ci = None
+    if g.conf.tenant:
         ci = g.conf.tenant.get('db_connection_info')
+    if not ci:
+        ci = g.conf.tier.get('db_connection_info')
 
     return ci
 
