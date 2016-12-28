@@ -23,6 +23,8 @@ class InfoPageAPI(Resource):
     no_jwt_check = ["GET"]
 
     def get(self):
+        tier_name = get_tier_name()
+        deployable_name = current_app.config['name']
 
         host_info = collections.OrderedDict()
         host_info["host-name"] = socket.gethostname()
@@ -48,8 +50,13 @@ class InfoPageAPI(Resource):
                 log.exception("Failed to get endpoint registry from %s", func)
 
         # Only list out tenants which have a db, and only if caller has service role.
-        if current_user and ('service' in current_user['roles']):
-            tenants = [t["name"] for t in current_app.config["tenants"] if t.get("db_server")]
+        if (current_user and ('service' in current_user['roles'])) or current_app.debug:
+            ts = current_app.extensions['relib'].table_store
+            tenants_table = ts.get_table('tenants')
+            tenants = []
+            for tenant in tenants_table.find({'tier_name': tier_name, 'deployable_name': deployable_name}):
+                tenants.append(tenant['tenant_name'])
+
         else:
             tenants = None
 
@@ -58,8 +65,8 @@ class InfoPageAPI(Resource):
             "host_info": host_info,
             "endpoints": endpoints,
             "current_user": dict(current_user) if current_user else None,
-            "tier_name": get_tier_name(),
-            "tenant_name": g.conf.tenant_name['tenant_name'],
+            "tier_name": tier_name,
+            "tenant_name": g.conf.tenant_name['tenant_name'] if g.conf.tenant_name else '(none)',
             "server_time": datetime.datetime.utcnow().isoformat("T") + "Z",
             "tenants": tenants,
         }

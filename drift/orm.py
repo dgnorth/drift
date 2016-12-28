@@ -27,12 +27,9 @@ def _get_db_connection_info():
     Return tenant specific DB connection info, if available, else use one that's
     specified for the tier.
     """
-    ci = None
+    ci = g.conf.tier.get('db_connection_info')
     if g.conf.tenant:
-        ci = g.conf.tenant.get('db_connection_info')
-    if not ci:
-        ci = g.conf.tier.get('db_connection_info')
-
+        ci.update(g.conf.tenant.get('db_connection_info'))
     return ci
 
 def get_sqlalchemy_session(conn_string=None):
@@ -43,7 +40,7 @@ def get_sqlalchemy_session(conn_string=None):
         #from drift.tenant import get_connection_string
         #conn_string = get_connection_string(g.driftenv_objects)
         ci = _get_db_connection_info()
-        if not ci:
+        if not ci or not ci.get("db_name"):
             return
 
         conn_string = '{driver}://{user}:{password}@{server}/{db}'.format(
@@ -53,7 +50,6 @@ def get_sqlalchemy_session(conn_string=None):
             server=ci["db_server"],
             db=ci["db_name"]
         )
-
     engine = create_engine(conn_string, echo=False, poolclass=NullPool)
     session_factory = sessionmaker(bind=engine, expire_on_commit=True)
     session = session_factory()

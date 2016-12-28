@@ -13,7 +13,7 @@ from json import dumps
 import collections
 
 from flask import request, g, jsonify, current_app
-
+from drift.flaskfactory import TenantNotFoundError
 from drift.rediscache import RedisCache
 from drift.core.extensions.jwt import check_jwt_authorization
 from drift.core.extensions.jwt import jwt_not_required
@@ -34,12 +34,22 @@ def activate_environment(*args, **kw):
     # Figure out tenant. Normally the tenant name is embedded in the hostname.
     host = request.headers.get("Host")
     # Two dots minimum required if tenant is to be specified in the hostname.
+    host_has_tenant = False
     if host and host.count('.') >= 2:
+        host_has_tenant = True
+        for l in host.split(":")[0].split("."):
+            try:
+                l = int(l)
+            except:
+                break
+        else:
+            host_has_tenant = False
+    if host_has_tenant:
         tenant_name, domain = host.split('.', 1)
         tenant = tenants.get({'tier_name': tier_name, 'deployable_name': deployable_name, 'tenant_name': tenant_name})
         if not tenant:
-            raise RuntimeError(
-                "No tenant found for tier '{}' and deployable '{}'".format(tier_name, deployable_name)
+            raise TenantNotFoundError(
+                "Tenant '{}' not found for tier '{}' and deployable '{}'".format(tenant_name, tier_name, deployable_name)
             )
     else:
         # Fall back on default tenant, if possible.
@@ -52,11 +62,10 @@ def activate_environment(*args, **kw):
                 "No tenant specified and no default tenant available for tier '{}' and "
                 "deployable '{}'".format(tier_name, deployable_name)
             )
-
     if tenant and tenant['state'] != 'active':
-        raise RuntimeError(
+        raise TenantNotFoundError(
             "Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
-                tenant_name, tier_name, deployable_name, tenant['state'])
+                tenant['tenant_name'], tier_name, deployable_name, tenant['state'])
         )
 
     # Add applicable config tables to 'g'
@@ -73,20 +82,22 @@ def activate_environment(*args, **kw):
         g.conf.tenant_name = tenants.get_foreign_row(tenant, 'tenant_names')[0]
         g.conf.product = ts.get_table('tenant_names').get_foreign_row(g.conf.tenant, 'products')[0]
         g.conf.organization = ts.get_table('deployables').get_foreign_row(g.conf.deployable, 'organizations')[0]
+        # Put the Redis connection into g so that we can reuse it throughout the request.
+        g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'])
+
     else:
         g.conf.tenant_name = None
         g.conf.product = None
         g.conf.organization = None
+        g.redis = None
 
-    # Put the Redis connection into g so that we can reuse it throughout the request.
-    print "tenant:\n", json.dumps(g.conf.tenant, indent=4)
-    print "tier:\n", json.dumps(g.conf.tier, indent=4)
-    print "deployable:\n", json.dumps(g.conf.deployable, indent=4)
-    print "tenant_name:\n", json.dumps(g.conf.tenant_name, indent=4)
-    print "product:\n", json.dumps(g.conf.product, indent=4)
-    print "organization:\n", json.dumps(g.conf.organization, indent=4)
-
-    g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'])
+    if 0:
+        print "tenant:\n", json.dumps(g.conf.tenant, indent=4)
+        print "tier:\n", json.dumps(g.conf.tier, indent=4)
+        print "deployable:\n", json.dumps(g.conf.deployable, indent=4)
+        print "tenant_name:\n", json.dumps(g.conf.tenant_name, indent=4)
+        print "product:\n", json.dumps(g.conf.product, indent=4)
+        print "organization:\n", json.dumps(g.conf.organization, indent=4)
 
     # Check for a valid JWT/JTI access token in the request header and populate current_user.
     check_jwt_authorization()
