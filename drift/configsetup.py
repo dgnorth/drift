@@ -88,11 +88,9 @@ def get_current_config(ts, tenant_name=None, tier_name=None, deployable_name=Non
 
     if tenant:
         conf.tenant_name = tenants.get_foreign_row(tenant, 'tenant_names')[0]
-        conf.product = ts.get_table('tenant_names').get_foreign_row(conf.tenant, 'products')[0]
-        conf.organization = ts.get_table('deployables').get_foreign_row(conf.deployable, 'organizations')[0]
+        conf.organization = ts.get_table('tenant_names').get_foreign_row(conf.tenant_name, 'organizations')[0]
     else:
         conf.tenant_name = None
-        conf.product = None
         conf.organization = None
 
     return conf
@@ -121,7 +119,6 @@ def activate_environment(*args, **kw):
         print "tier:\n", json.dumps(g.conf.tier, indent=4)
         print "deployable:\n", json.dumps(g.conf.deployable, indent=4)
         print "tenant_name:\n", json.dumps(g.conf.tenant_name, indent=4)
-        print "product:\n", json.dumps(g.conf.product, indent=4)
         print "organization:\n", json.dumps(g.conf.organization, indent=4)
 
     # Check for a valid JWT/JTI access token in the request header and populate current_user.
