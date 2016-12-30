@@ -13,11 +13,6 @@ from drift.utils import get_tier_name
 
 log = logging.getLogger(__name__)
 
-# we need a single master db on all db instances to perform db maintenance
-MASTER_DB = 'postgres'
-MASTER_USER = 'postgres'
-MASTER_PASSWORD = 'postgres'
-
 ECHO_SQL = False
 
 
@@ -52,75 +47,6 @@ def connect(db_name, db_host=None):
     connection_string = 'postgresql://%s:%s@%s/%s' % (db_username, db_password, db_host, db_name)
     engine = create_engine(connection_string, echo=ECHO_SQL, isolation_level='AUTOCOMMIT')
     return engine
-
-
-def create_db(tenant, db_host=None, tier_name=None):
-
-    config = load_config()
-    service = config['name']
-    db_name = construct_db_name(tenant, service, tier_name)
-
-    username = get_db_info()['user']
-
-    engine = connect(MASTER_DB, db_host)
-    engine.execute('COMMIT')
-    sql = 'CREATE DATABASE "{}";'.format(db_name)
-    try:
-        engine.execute(sql)
-    except Exception as e:
-        print sql, e
-
-    # TODO: This will only run for the first time and fail in all other cases.
-    # Maybe test before instead?
-    sql = 'CREATE ROLE {user} LOGIN PASSWORD "{user}" VALID UNTIL "infinity";'.format(user=username)
-    try:
-        engine.execute(sql)
-    except Exception as e:
-        pass
-
-    engine = connect(db_name, db_host)
-
-    # TODO: Alembic (and sqlalchemy for that matter) don't like schemas. We should
-    # figure out a way to add these later
-
-    models = config.get("models", [])
-    if not models:
-        raise Exception("This app has no models defined in config")
-
-    for model_module_name in models:
-        log.info("Building models from %s", model_module_name)
-        models = importlib.import_module(model_module_name)
-        models.ModelBase.metadata.create_all(engine)
-
-    engine = connect(db_name, db_host)
-    for schema in schemas:
-        # Note that this does not automatically grant on tables added later
-        sql = '''
-                 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA "{schema}" TO {user};
-                 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA "{schema}" TO {user};
-                 GRANT ALL ON SCHEMA "{schema}" TO {user};'''.format(schema=schema, user=username)
-        try:
-            engine.execute(sql)
-        except Exception as e:
-            print sql, e
-
-    # stamp the db with the latest alembic upgrade version
-    ini_path = os.path.join(os.path.split(os.environ["drift_CONFIG"])[0], "..", "alembic.ini")
-    alembic_cfg = Config(ini_path)
-    db_names = alembic_cfg.get_main_option('databases')
-    connection_string = 'postgresql://%s:%s@%s/%s' % (username, username, db_host, db_name)
-    alembic_cfg.set_section_option(db_names, "sqlalchemy.url", connection_string)
-    command.stamp(alembic_cfg, "head")
-
-    sql = '''
-    ALTER TABLE alembic_version
-      OWNER TO postgres;
-    GRANT ALL ON TABLE alembic_version TO postgres;
-    GRANT SELECT, UPDATE, INSERT, DELETE ON TABLE alembic_version TO zzp_user;
-    '''
-    engine.execute(sql)
-
-    return db_name
 
 
 def drop_db(tenant, db_host=None, tier_name=None):

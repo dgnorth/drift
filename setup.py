@@ -20,7 +20,7 @@ install_requires=[
         "boto3",
         "oss2",
         "redis",
-        "celery",
+        "celery==3.1",
         "responses",
         "SQLAlchemy",
         "paramiko==1.15.2",

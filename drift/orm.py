@@ -14,6 +14,7 @@ from sqlalchemy.ext.declarative import declarative_base, declared_attr
 import datetime
 from sqlalchemy import Column, DateTime
 
+from drift.core.resources.postgres import format_connection_string
 import logging
 log = logging.getLogger(__name__)
 
@@ -21,35 +22,19 @@ utc_now = text("(now() at time zone 'utc')")
 
 Base = declarative_base()
 
-
-def _get_db_connection_info():
-    """
-    Return tenant specific DB connection info, if available, else use one that's
-    specified for the tier.
-    """
-    ci = g.conf.tier.get('db_connection_info')
-    if g.conf.tenant:
-        ci.update(g.conf.tenant.get('db_connection_info'))
-    return ci
+#! TODO: Move contents to resources.postgres
 
 def get_sqlalchemy_session(conn_string=None):
     """
     Return an SQLAlchemy session for the specified DB connection string
     """
     if not conn_string:
-        #from drift.tenant import get_connection_string
-        #conn_string = get_connection_string(g.driftenv_objects)
-        ci = _get_db_connection_info()
-        if not ci or not ci.get("db_name"):
+        ci = g.conf.tenant.get('postgres')
+        if not ci:
             return
 
-        conn_string = '{driver}://{user}:{password}@{server}/{db}'.format(
-            driver=ci.get("driver", "postgresql"),
-            user=ci.get("user", "zzp_user"),
-            password=ci.get("password", "zzp_user"),
-            server=ci["db_server"],
-            db=ci["db_name"]
-        )
+        conn_string = format_connection_string(ci)
+    log.info("Creating sqlalchemy session with connection string '%s'", conn_string)
     engine = create_engine(conn_string, echo=False, poolclass=NullPool)
     session_factory = sessionmaker(bind=engine, expire_on_commit=True)
     session = session_factory()

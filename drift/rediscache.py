@@ -15,9 +15,7 @@ def _get_redis_connection_info():
     """
     ci = None
     if g.conf.tenant:
-        ci = g.conf.tenant.get('redis_connection_info')
-    if not ci:
-        ci = g.conf.tier.get('redis_connection_info')
+        ci = g.conf.tenant.get('redis')
     return ci
 
 
@@ -30,34 +28,22 @@ class RedisCache(object):
     disabled = False
     redlock = None
 
-    def __init__(self, tenant=None, service_name=None, redis_server=None):
-        conn_info = _get_redis_connection_info()
-        if not conn_info:
-            log.warning("No Redis connection info available!")
-            return
-        if not redis_server:
-            redis_server = conn_info['host']  # current_app.config.get("redis_server", None)
-        self.disabled = conn_info.get("disabled", False)
+    def __init__(self, tenant, service_name, redis_config):
+        self.disabled = redis_config.get("disabled", False)
         if self.disabled:
             log.warning("Redis is disabled!")
             return
-        if not redis_server:
-            try:
-                redis_server = g.driftenv_objects["redis_server"]
-            except Exception:
-                log.info("'redis_server' not found in config. Using default server '%s'",
-                         conn_info["host"])
-                redis_server = conn_info["host"]
-        self.tenant = tenant or g.driftenv["name"]
-        self.service_name = service_name or current_app.config["name"]
-        self.host = redis_server
-        self.port = conn_info["port"]
+
+        self.tenant = tenant
+        self.service_name = service_name
+        self.host = redis_config["host"]
+        self.port = redis_config["port"]
         self.conn = redis.StrictRedis(
             host=self.host,
             port=self.port,
-            socket_timeout=conn_info.get("socket_timeout", 5),
-            socket_connect_timeout=conn_info.get("socket_connect_timeout", 5),
-            db=REDIS_DB,
+            socket_timeout=redis_config.get("socket_timeout", 5),
+            socket_connect_timeout=redis_config.get("socket_connect_timeout", 5),
+            db=redis_config.get("db_number", REDIS_DB),
         )
 
         self.key_prefix = "{}.{}:".format(self.tenant, self.service_name)
@@ -67,7 +53,7 @@ class RedisCache(object):
                 {
                     'host': self.host,
                     'port': self.port,
-                    'db': REDIS_DB,
+                    'db': redis_config.get("db_number", REDIS_DB),
                 }
             ],
         )

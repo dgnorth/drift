@@ -130,7 +130,7 @@ _open_endpoints = set()
 
 
 def jwt_not_required(fn):
-    log.debug("Registering open endpoint: %s", fn.__name__)
+    log.debug("Registering open endpoint in module : %s", fn.__module__)
     _open_endpoints.add(fn)
     return fn
 
@@ -284,6 +284,8 @@ def issue_token(payload, expire=None):
     row = public_keys.get({
         'tier_name': g.conf.tier['tier_name'], 'deployable_name': g.conf.deployable['deployable_name']
     })
+    if not row:
+        raise RuntimeError("No public key found in config for tier '{}', deployable '{}'".format(g.conf.tier['tier_name'], g.conf.deployable['deployable_name']))
     key_info = row['keys'][0]  # HACK, just select the first one
     access_token = jwt.encode(payload, key_info['private_key'], algorithm=algorithm)
     cache_token(payload, expire=expire)

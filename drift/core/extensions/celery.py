@@ -12,6 +12,8 @@ import logging
 from celery import Celery
 import kombu.serialization
 
+from drift.utils import get_tier_name
+from driftconfig.config import get_domains 
 log = logging.getLogger(__name__)
 
 CELERY_DB_NUMBER = 15
@@ -30,13 +32,11 @@ def make_celery(app):
 
     celery = Celery(app.import_name)
 
-    # if BROKER_URL is not set use the redis server
-    BROKER_URL = app.config.get("BROKER_URL", None)
-    if not BROKER_URL:
-        BROKER_URL = "redis://{}:6379/{}".format(app.config.get("redis_server"), CELERY_DB_NUMBER)
-        log.info("Using redis for celery broker: %s", BROKER_URL)
-    else:
-        log.info("celery broker set in config: %s", BROKER_URL)
+    ts = get_domains().values()[0]["table_store"]
+    tier_name = get_tier_name()
+    tier_config = ts.get_table('tiers').get({'tier_name': tier_name})
+    BROKER_URL = tier_config["celery_broker_url"]
+    log.info("celery broker from tier config: %s", BROKER_URL)
 
     celery.conf.update(app.config)
     celery.conf["BROKER_URL"] = BROKER_URL

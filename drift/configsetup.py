@@ -38,6 +38,24 @@ def get_current_config(ts, tenant_name=None, tier_name=None, deployable_name=Non
     deployable_name = deployable_name or current_app.config['name']
     tenants = ts.get_table('tenants')
 
+    if not tenant_name:
+        # Figure out tenant. Normally the tenant name is embedded in the hostname.
+        host = request.headers.get("Host")
+        # Two dots minimum required if tenant is to be specified in the hostname.
+        host_has_tenant = False
+        if host and host.count('.') >= 2:
+            host_has_tenant = True
+            for l in host.split(":")[0].split("."):
+                try:
+                    int(l)
+                except:
+                    break
+            else:
+                host_has_tenant = False
+
+        if host_has_tenant:
+            tenant_name, domain = host.split('.', 1)
+
     if tenant_name:
         tenant = tenants.get({'tier_name': tier_name, 'deployable_name': deployable_name, 'tenant_name': tenant_name})
         if not tenant:
@@ -45,6 +63,7 @@ def get_current_config(ts, tenant_name=None, tier_name=None, deployable_name=Non
                 "Tenant '{}' not found for tier '{}' and deployable '{}'".format(tenant_name, tier_name, deployable_name)
             )
     else:
+
         # Fall back on default tenant, if possible.
         for tenant in tenants.find({'tier_name': tier_name, 'deployable_name': deployable_name}):
             if tenant.get('is_default'):
@@ -58,13 +77,14 @@ def get_current_config(ts, tenant_name=None, tier_name=None, deployable_name=Non
 
     conf = collections.namedtuple(
         'driftconfig',
-        ['table_store', 'organization', 'product', 'tenant_name', 'tier', 'deployable', 'tenant']
+        ['table_store', 'organization', 'product', 'tenant_name', 'tier', 'deployable', 'tenant', 'domain']
     )
 
     conf.table_store = ts
     conf.tenant = tenant
     conf.tier = ts.get_table('tiers').get({'tier_name': tier_name})
     conf.deployable = ts.get_table('deployables').get({'deployable_name': deployable_name})
+    conf.domain = ts.get_table('domain')
 
     if tenant:
         conf.tenant_name = tenants.get_foreign_row(tenant, 'tenant_names')[0]
@@ -80,28 +100,9 @@ def get_current_config(ts, tenant_name=None, tier_name=None, deployable_name=Non
 
 def activate_environment(*args, **kw):
     ts = current_app.extensions['relib'].table_store
+    conf = get_current_config(ts)
 
-    # Figure out tenant. Normally the tenant name is embedded in the hostname.
-    host = request.headers.get("Host")
-    # Two dots minimum required if tenant is to be specified in the hostname.
-    host_has_tenant = False
-    if host and host.count('.') >= 2:
-        host_has_tenant = True
-        for l in host.split(":")[0].split("."):
-            try:
-                int(l)
-            except:
-                break
-        else:
-            host_has_tenant = False
-
-    if host_has_tenant:
-        tenant_name, domain = host.split('.', 1)
-        conf = get_current_config(ts, tenant_name)
-    else:
-        conf = get_current_config(ts)
-
-    if conf.tenant and conf.tenant['state'] != 'active':
+    if conf.tenant and conf.tenant['state'] != 'active' and request.endpoint != "admin.adminprovisionapi":
         raise TenantNotFoundError(
             "Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
                 conf.tenant['tenant_name'], get_tier_name(), current_app.config['name'], conf.tenant['state'])
@@ -110,8 +111,8 @@ def activate_environment(*args, **kw):
     # Add applicable config tables to 'g'
     g.conf = conf
 
-    if g.conf.tenant:
-        g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'])
+    if g.conf.tenant and g.conf.tenant.get("redis"):
+        g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'], g.conf.tenant.get("redis"))
     else:
         g.redis = None
 

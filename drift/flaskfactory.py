@@ -187,7 +187,10 @@ def install_extras(app):
             except Exception:
                 log.exception("Couldn't register blueprints for module '%s'", module_name)
 
-    log.info("Starting up on tier '%s'", app.config.get("tier_name"))
+    if not app.config.get("tier_name"):
+        log.warning("Warning! No tier found in config!")
+    else:
+        log.info("Starting up on tier '%s'", app.config.get("tier_name"))
     log.info("Default Redis Server: '%s' - Default DB Server: '%s'",
              app.config.get("redis_server"), app.config.get("db_server"))
     tenants_txt = ", ".join([str(t["name"]) for t in app.config.get("tenants", [])])
