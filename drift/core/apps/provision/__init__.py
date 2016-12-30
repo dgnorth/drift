@@ -37,11 +37,12 @@ class AdminProvisionAPI(Resource):
             abort(httplib.BAD_REQUEST, message="You can only provision tenants which are in state 'initializing'. Tenant '%s' is in state '%s'" % (tenant_name, g.conf.tenant["state"]))
 
         args_per_provisioner = {}
-        for arg in request.json.get("provisioners"):
-            if "provisioner" not in arg or "arguments" not in arg:
-                log.warning("Provisioner argument missing 'provisioner' or 'arguments'")
-                continue
-            args_per_provisioner[arg["provisioner"]] = arg["arguments"]
+        if request.json:
+            for arg in request.json.get("provisioners", {}):
+                if "provisioner" not in arg or "arguments" not in arg:
+                    log.warning("Provisioner argument missing 'provisioner' or 'arguments'")
+                    continue
+                args_per_provisioner[arg["provisioner"]] = arg["arguments"]
 
         origin = g.conf.domain['origin']
         ts = get_store_from_url(origin)

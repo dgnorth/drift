@@ -83,7 +83,7 @@ def get_current_config(ts, tenant_name=None, tier_name=None, deployable_name=Non
     conf.table_store = ts
     conf.tenant = tenant
     conf.tier = ts.get_table('tiers').get({'tier_name': tier_name})
-    conf.deployable = ts.get_table('deployables').get({'deployable_name': deployable_name})
+    conf.deployable = ts.get_table('deployables').get({'deployable_name': deployable_name, 'tier_name': tier_name})
     conf.domain = ts.get_table('domain')
 
     if tenant:
