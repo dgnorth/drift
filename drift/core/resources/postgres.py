@@ -6,7 +6,7 @@ from alembic.config import Config
 from alembic import command
 
 from sqlalchemy import create_engine
-from flask import current_app
+from flask import current_app, g
 
 from drift.core.resources import get_parameters
 
@@ -133,3 +133,13 @@ def provision(config, args):
         raise RuntimeError("Database already exists. %s" % repr(params))
 
     create_db(params)
+
+def healthcheck():
+    if "postgres" not in g.conf.tenant:
+        raise RuntimeError("Tenant config does not have 'postgres'")
+    for k in NEW_TIER_DEFAULTS.keys():
+        if not g.conf.tenant["postgres"].get(k):
+            raise RuntimeError("'postgres' config missing key '%s'" % k)
+
+    rows = g.db.execute("SELECT 1+1")
+    result = rows.fetchall()[0]

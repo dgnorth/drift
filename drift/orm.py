@@ -29,7 +29,9 @@ def get_sqlalchemy_session(conn_string=None):
     Return an SQLAlchemy session for the specified DB connection string
     """
     if not conn_string:
-        ci = g.conf.tenant.get('postgres')
+        ci = None
+        if g.conf.tenant:
+            ci = g.conf.tenant.get('postgres')
         if not ci:
             return
 

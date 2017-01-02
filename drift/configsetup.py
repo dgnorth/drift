@@ -38,24 +38,6 @@ def get_current_config(ts, tenant_name=None, tier_name=None, deployable_name=Non
     deployable_name = deployable_name or current_app.config['name']
     tenants = ts.get_table('tenants')
 
-    if not tenant_name:
-        # Figure out tenant. Normally the tenant name is embedded in the hostname.
-        host = request.headers.get("Host")
-        # Two dots minimum required if tenant is to be specified in the hostname.
-        host_has_tenant = False
-        if host and host.count('.') >= 2:
-            host_has_tenant = True
-            for l in host.split(":")[0].split("."):
-                try:
-                    int(l)
-                except:
-                    break
-            else:
-                host_has_tenant = False
-
-        if host_has_tenant:
-            tenant_name, domain = host.split('.', 1)
-
     if tenant_name:
         tenant = tenants.get({'tier_name': tier_name, 'deployable_name': deployable_name, 'tenant_name': tenant_name})
         if not tenant:
@@ -98,7 +80,27 @@ def get_current_config(ts, tenant_name=None, tier_name=None, deployable_name=Non
 
 def activate_environment(*args, **kw):
     ts = current_app.extensions['relib'].table_store
-    conf = get_current_config(ts)
+
+    tenant_name = None
+
+    # Figure out tenant. Normally the tenant name is embedded in the hostname.
+    host = request.headers.get("Host")
+    # Two dots minimum required if tenant is to be specified in the hostname.
+    host_has_tenant = False
+    if host and host.count('.') >= 2:
+        host_has_tenant = True
+        for l in host.split(":")[0].split("."):
+            try:
+                int(l)
+            except:
+                break
+        else:
+            host_has_tenant = False
+
+    if host_has_tenant:
+        tenant_name, domain = host.split('.', 1)
+
+    conf = get_current_config(ts, tenant_name=tenant_name)
 
     if conf.tenant and conf.tenant['state'] != 'active' and request.endpoint != "admin.adminprovisionapi":
         raise TenantNotFoundError(
