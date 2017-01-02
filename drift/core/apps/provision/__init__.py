@@ -46,7 +46,8 @@ class AdminProvisionAPI(Resource):
 
         origin = g.conf.domain['origin']
         ts = get_store_from_url(origin)
-        conf = get_current_config(ts)
+        conf = get_current_config(ts, tenant_name=tenant_name)
+
         if conf.tenant["state"] != "initializing":
             raise RuntimeError("Tenant unexpectedly found in state '%s': %s" % (conf.tenant["state"], conf.tenant))
 
