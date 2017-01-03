@@ -25,6 +25,8 @@ class HealthCheckAPI(Resource):
     no_jwt_check = ["GET"]
 
     def get(self):
+        ok = True
+        details = None
         try:
             tenant_name = g.conf.tenant_name['tenant_name']
             tier_name = g.conf.tier['tier_name']
@@ -32,6 +34,8 @@ class HealthCheckAPI(Resource):
                 raise RuntimeError("Tenant is in state '%s'" % g.conf.tenant["state"])
 
             resources = current_app.config.get("resources")
+            if not resources:
+                raise RuntimeError("Deployable has no resources in config")
             for module_name in resources:
                 m = importlib.import_module(module_name)
                 if hasattr(m, "healthcheck"):
@@ -40,8 +44,10 @@ class HealthCheckAPI(Resource):
                     except Exception as e:
                         raise RuntimeError("Healthcheck for '%s' failed: %s" % (module_name, getattr(e, "message", repr(e))))
 
-            return "OK"
         except Exception as e:
-            abort(httplib.INTERNAL_SERVER_ERROR, description=getattr(e, "message", repr(e)))
+            details = getattr(e, "message", repr(e))
+            abort(httplib.BAD_REQUEST, message=details)
+
+        return "OK"
 
 api.add_resource(HealthCheckAPI, "/healthcheck")

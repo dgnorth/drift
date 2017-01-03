@@ -36,7 +36,7 @@ def get_sqlalchemy_session(conn_string=None):
             return
 
         conn_string = format_connection_string(ci)
-    log.info("Creating sqlalchemy session with connection string '%s'", conn_string)
+    log.debug("Creating sqlalchemy session with connection string '%s'", conn_string)
     engine = create_engine(conn_string, echo=False, poolclass=NullPool)
     session_factory = sessionmaker(bind=engine, expire_on_commit=True)
     session = session_factory()
