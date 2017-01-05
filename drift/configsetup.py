@@ -70,9 +70,11 @@ def get_current_config(ts, tenant_name=None, tier_name=None, deployable_name=Non
 
     if tenant:
         conf.tenant_name = tenants.get_foreign_row(tenant, 'tenant_names')[0]
-        conf.organization = ts.get_table('tenant_names').get_foreign_row(conf.tenant_name, 'organizations')[0]
+        conf.product = ts.get_table('tenant_names').get_foreign_row(conf.tenant_name, 'products')[0]
+        conf.organization = ts.get_table('products').get_foreign_row(conf.product, 'organizations')[0]
     else:
         conf.tenant_name = None
+        conf.product = None
         conf.organization = None
 
     return conf

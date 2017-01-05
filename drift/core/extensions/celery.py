@@ -36,6 +36,7 @@ def make_celery(app):
     tier_name = get_tier_name()
     tier_config = ts.get_table('tiers').get({'tier_name': tier_name})
     BROKER_URL = tier_config["celery_broker_url"]
+    #BROKER_URL = "redis://localhost:6379/15"
     log.info("celery broker from tier config: %s", BROKER_URL)
 
     celery.conf.update(app.config)
