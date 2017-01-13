@@ -231,10 +231,15 @@ def jwtsetup(app):
             identity = authenticate(username, "")
         elif auth_info['provider'] == "oculus" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
-                abort_unauthorized("Bad Request. 'username' cannot be an empty string.") 
+                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "oculus:" + provider_details['username']
             password = provider_details['password']
             identity = authenticate(username, password)
+        elif auth_info['provider'] == "oculus":
+            from drift.auth.oculus import validate_oculus_ticket
+            identity_id = validate_oculus_ticket()
+            username = "oculus:" + identity_id
+            identity = authenticate(username, "")
         elif auth_info['provider'] == "7663":
             username = "7663:" + provider_details['username']
             password = provider_details['password']
