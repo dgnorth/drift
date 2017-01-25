@@ -49,28 +49,6 @@ def connect(db_name, db_host=None):
     return engine
 
 
-def drop_db(tenant, db_host=None, tier_name=None):
-    config = load_config()
-    service = config['name']
-    db_name = construct_db_name(tenant, service, tier_name)
-
-    engine = connect(MASTER_DB, db_host)
-
-    # disconnect connected clients
-    engine.execute("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{}';"
-                   .format(db_name))
-
-    sql = 'DROP DATABASE "{}";'.format(db_name)
-    engine.execute('COMMIT')
-
-    try:
-        engine.execute(sql)
-    except Exception as e:
-        print sql, e
-
-    log.info("Tenant %s has been dropped on %s", tenant, db_host or get_db_info()['server'])
-
-
 def safe_get_config():
     """
     If working inside of a flask application context,

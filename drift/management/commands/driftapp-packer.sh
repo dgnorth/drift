@@ -28,5 +28,5 @@ drift-admin tier init ${tier_url} --activate ${tier}
 driftconfig init ${config_url}
 chown ubuntu /usr/local/bin/${service} -R
 chown ubuntu /home/ubuntu/.drift -R
-crontab -l -u ubuntu | { cat; echo "* * * * * /usr/local/bin/driftconfig pull --loop >> ~/driftconfig.log 2>&1"; } | crontab - -u ubuntu
+crontab -l -u ubuntu | { cat; echo "* * * * * /usr/local/bin/driftconfig pull --loop --ignore-if-modified >> ~/driftconfig.log 2>&1"; } | crontab - -u ubuntu
 echo ----------------- All done -----------------

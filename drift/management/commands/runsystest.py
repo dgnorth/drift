@@ -60,11 +60,12 @@ def get_options(parser):
 def run_command(args):
     from drift.utils import uuid_string
     from drift.appmodule import app as _app
-    from drift.tenant import create_db, drop_db
+    from drift.core.resources.postgres import create_db, drop_db
     from drift.utils import get_tier_name
 
     tier_name = get_tier_name()
     tenant = None
+    postgres_config = {}
     if args.target:
         print "Using test target: {}".format(args.target)
         os.environ["drift_test_target"] = args.target
@@ -76,11 +77,18 @@ def run_command(args):
             print "Using database {} from commandline on host {}".format(
                 tenant, db_host
             )
-            create_db(tenant, db_host, tier_name)
         else:
             tenant = "test{}".format(uuid_string())
             print "Creating database {} on host {}".format(tenant, db_host)
-            create_db(tenant, db_host, tier_name)
+        postgres_config = {
+            "database": "DEVNORTH_%s_drift-base" % tenant,
+            "driver": "postgresql", 
+            "password": "zzp_user", 
+            "port": 5432, 
+            "server": "postgres.devnorth.dg-api.com", 
+            "username": "zzp_user"
+        }
+        create_db(postgres_config)
         os.environ["drift_test_database"] = tenant
 
     pick_tests = []
@@ -152,8 +160,8 @@ def run_command(args):
     results = cls(verbosity=verbosity, failfast=args.failfast).run(test_suite)
 
     # if a tenant was not specified on the commandline we destroy it
-    if not args.db and tenant:
-        drop_db(tenant, db_host, tier_name)
+    if not args.db and postgres_config:
+        drop_db(postgres_config)
         pass
 
     if not results.wasSuccessful():
