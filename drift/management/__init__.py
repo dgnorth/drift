@@ -14,7 +14,7 @@ from boto.s3.connection import OrdinaryCallingFormat
 
 from drift.utils import get_tier_name
 from drift.management.gittools import get_branch, get_commit, get_repo_url, get_git_version
-from driftconfig.config import get_domains
+from driftconfig.util import get_domains
 
 TIERS_CONFIG_FILENAME = "tiers-config.json"
 

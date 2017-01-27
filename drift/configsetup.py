@@ -13,6 +13,8 @@ from json import dumps
 import collections
 
 from flask import request, g, current_app
+
+from driftconfig.util import get_drift_config
 from drift.flaskfactory import TenantNotFoundError
 from drift.rediscache import RedisCache
 from drift.core.extensions.jwt import check_jwt_authorization
@@ -24,60 +26,16 @@ DEFAULT_TENANT = "global"
 log = logging.getLogger(__name__)
 
 
-# TODO: Move this function elsewhere
 def get_current_config(ts, tenant_name=None, tier_name=None, deployable_name=None):
     """
-    Return config tuple for given config context, containing the following properties:
-    ['organization', 'product', 'tenant_name', 'tier', 'deployable', 'tenant']
-
-    'ts' is the config TableStore object.
-    'tenant_name' is the name of the tenant, or None if not applicable.
-
+    Helper for calling get_drift_config() using the current caller context.
     """
-    tier_name = tier_name or get_tier_name()
-    deployable_name = deployable_name or current_app.config['name']
-    tenants = ts.get_table('tenants')
-
-    if tenant_name:
-        tenant = tenants.get({'tier_name': tier_name, 'deployable_name': deployable_name, 'tenant_name': tenant_name})
-        if not tenant:
-            raise TenantNotFoundError(
-                "Tenant '{}' not found for tier '{}' and deployable '{}'".format(tenant_name, tier_name, deployable_name)
-            )
-    else:
-
-        # Fall back on default tenant, if possible.
-        for tenant in tenants.find({'tier_name': tier_name, 'deployable_name': deployable_name}):
-            if tenant.get('is_default'):
-                break
-        else:
-            tenant = None
-            log.info(
-                "No tenant specified and no default tenant available for tier '{}' and "
-                "deployable '{}'".format(tier_name, deployable_name)
-            )
-
-    conf = collections.namedtuple(
-        'driftconfig',
-        ['table_store', 'organization', 'product', 'tenant_name', 'tier', 'deployable', 'tenant', 'domain']
+    return get_drift_config(
+        ts=ts or current_app.extensions['relib'].table_store,
+        tenant_name=tenant_name,
+        tier_name=tier_name or get_tier_name(),
+        deployable_name=deployable_name or current_app.config['name']
     )
-
-    conf.table_store = ts
-    conf.tenant = tenant
-    conf.tier = ts.get_table('tiers').get({'tier_name': tier_name})
-    conf.deployable = ts.get_table('deployables').get({'deployable_name': deployable_name, 'tier_name': tier_name})
-    conf.domain = ts.get_table('domain')
-
-    if tenant:
-        conf.tenant_name = tenants.get_foreign_row(tenant, 'tenant-names')[0]
-        conf.product = ts.get_table('tenant-names').get_foreign_row(conf.tenant_name, 'products')[0]
-        conf.organization = ts.get_table('products').get_foreign_row(conf.product, 'organizations')[0]
-    else:
-        conf.tenant_name = None
-        conf.product = None
-        conf.organization = None
-
-    return conf
 
 
 def activate_environment(*args, **kw):
