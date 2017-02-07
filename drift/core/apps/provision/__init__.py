@@ -7,9 +7,9 @@ import importlib
 import httplib
 
 from flask import Blueprint, current_app, url_for, abort, request, g
-from flask_restful import Api, Resource, abort
+from flask_restful import Api, Resource
 
-from drift.configsetup import get_current_config
+from driftconfig.util import get_drift_config
 from driftconfig.relib import create_backend, get_store_from_url
 from drift.core.extensions.jwt import jwt_not_required
 
@@ -46,7 +46,13 @@ class AdminProvisionAPI(Resource):
 
         origin = g.conf.domain['origin']
         ts = get_store_from_url(origin)
-        conf = get_current_config(ts, tenant_name=tenant_name)
+        conf = get_drift_config(
+            ts=ts,
+            tenant_name=tenant_name,
+            tier_name=tier_name,
+            deployable_name=current_app.config['name']
+        )
+
 
         if conf.tenant["state"] != "initializing":
             raise RuntimeError("Tenant unexpectedly found in state '%s': %s" % (conf.tenant["state"], conf.tenant))
@@ -67,12 +73,12 @@ class AdminProvisionAPI(Resource):
         # Save out config
         log.info("Saving config to %s", origin)
         origin_backend = create_backend(origin)
-        ts.save_to_backend(origin_backend)
+        origin_backend.save_table_store(ts)
 
         local_origin = 'file://~/.drift/config/' + g.conf.domain['domain_name']
         log.info("Saving config to %s", local_origin)
         local_store = create_backend(local_origin)
-        ts.save_to_backend(local_store)
+        local_store.save_table_store(ts)
 
         # invalidate flask config
         current_app.extensions['relib'].refresh()

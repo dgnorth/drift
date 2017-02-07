@@ -12,7 +12,7 @@ from boto.utils import get_instance_metadata
 import boto.ec2
 
 from flask.globals import _app_ctx_stack
-from flask import g, make_response, jsonify, request, url_for
+from flask import g, make_response, jsonify, request, url_for, current_app
 
 log = logging.getLogger(__name__)
 
@@ -111,15 +111,8 @@ def get_tier_name(config_path=None):
 
     Currently supports only DEV, STAGING, DGN-DEV and LIVE tiers.
     """
-    # cache the tier name if we have an app context
-    disable_cache = False
-    if not _app_ctx_stack.top or not hasattr(g, "driftenv"):
-        disable_cache = True
-    else:
-        try:
-            return g.driftenv["tier_name"]
-        except KeyError:
-            pass
+    if current_app and 'tier_name' in current_app.config:
+        return current_app.config['tier_name']
 
     tier_name = None
     metastore_url = "http://169.254.169.254/latest/meta-data"
@@ -170,30 +163,10 @@ def get_tier_name(config_path=None):
         raise RuntimeError("You do not have have a tier selected. Please run "
                            "kitrun.py tier [tier-name]")
 
-    if not disable_cache:
-        g.driftenv["tier_name"] = tier_name
-        log.debug("Caching tier '%s'", tier_name)
+    if current_app:
+        current_app.config['tier_name'] = tier_name
 
     return tier_name
-
-
-def merge_dicts(dict1, dict2):
-    """
-    Merges two nested dictionaries together into one.
-    Caller needs to cast the results to dict.
-    """
-    for k in set(dict1.keys()).union(dict2.keys()):
-        if k in dict1 and k in dict2:
-            if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
-                yield (k, dict(merge_dicts(dict1[k], dict2[k])))
-            else:
-                # If one of the values is not a dict, you can't continue merging it.
-                # Value from second dict overrides one in first and we move on.
-                yield (k, dict2[k])
-        elif k in dict1:
-            yield (k, dict1[k])
-        else:
-            yield (k, dict2[k])
 
 
 def request_wants_json():

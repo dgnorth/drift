@@ -9,43 +9,88 @@ import sys
 import os.path
 import pkgutil
 
-from flask import jsonify, current_app, _app_ctx_stack
+from flask import jsonify
 from flask_restful import Api
 from flask import make_response
 from flask.json import dumps
 import flask_restful
-
 from werkzeug.contrib.fixers import ProxyFix
 
-from drift.utils import get_tier_name, merge_dicts
 from drift.fixers import ReverseProxied, CustomJSONEncoder
 import drift.core.extensions
 from drift.management import get_config_path
 
+
 log = logging.getLogger(__name__)
 
 
-def discover_config():
-    """
-    Discover automatically where the config file for the active app is located and
-    returns a path to the file.
+def drift_app(app):
 
-    Also sets 'drift_CONFIG' environment variable to the path for temporary backward
-    compatibility.
-    """
+    # Find application root and initialize paths and search path
+    # for module imports
+    app_root = _find_app_root()
+    sys.path.append(app_root)
+    app.instance_path = app_root
+    app.static_folder = os.path.join(app_root, 'static')
 
-    # Path to the config file can be discovered from these two hints:
-    # 1. current working directory
-    # 2. location of current executable.
+    # Load in Flask config from config/config.json
+    app_config = load_flask_config(app_root)
+    app.config.update(app_config)
+
+    # Hook up driftconfig to app
+    from drift.configsetup import install_configuration_hooks
+    install_configuration_hooks(app)
+
+    _apply_patches(app)
+
+    # Install apps, api's and extensions.
+    install_extras(app)
+
+    # TODO: Remove this or find a better place for it
+    if not app.debug:
+        log.info("Flask server is running in RELEASE mode.")
+    else:
+        log.info("Flask server is running in DEBUG mode.")
+        try:
+            from flask_debugtoolbar import DebugToolbarExtension
+            DebugToolbarExtension(app)
+        except ImportError:
+            log.info("Flask DebugToolbar not available: Do 'pip install "
+                     "flask-debugtoolbar' to enable.")
+
+    return app
+
+
+def _find_app_root(_use_cwd=False):
+    """
+    Find the root of this application by searching for 'config/config.json' file.
+
+    The 'config/config.json' file must be found relative from the location of the current
+    executable script or the current working directory.
+    """
+    exe_path, exe = os.path.split(sys.argv[0])
+    if _use_cwd:
+        search_path = '.'
+    else:
+        search_path = exe_path
+    search_path = os.path.abspath(search_path)
     config_pathname = os.path.join('config', 'config.json')
-    search_path = ''  # First search from current directory
-    config = None
-    log.info("Looking for app root in '%s' and '%s'", os.path.abspath('.'), sys.argv[0])
+    start_path = search_path
+    config = ''
 
     while True:
         parent = os.path.abspath(os.path.join(search_path, config_pathname))
         if parent == config:  # No change after traversing up
-            raise RuntimeError("Can't locate app root.")
+            if not _use_cwd:
+                log.warning("Can't locate app root after starting from %s. Trying current dir now..",
+                    start_path
+                )
+                return _find_app_root(_use_cwd=True)
+            else:
+                raise RuntimeError(
+                    "Can't locate app root, neither from executable location %s and from current dir %s.",
+                    exe_path, start_path
+                )
 
         config = parent
         if os.path.exists(config):
@@ -53,57 +98,20 @@ def discover_config():
 
         log.debug("App static config not found at: %s", config)
 
-        if search_path == '':
-            search_path, exe = os.path.split(sys.argv[0])
-        else:
-            search_path = os.path.join(search_path, '..')
+        search_path = os.path.join(search_path, '..')
 
-    log.info("App root found, static config file is at '%s'", config)
-    if 'drift_CONFIG' in os.environ:
-        if os.environ['drift_CONFIG'] != config:
-            log.error("'drift_CONFIG' already set, but differs from auto-discovered one: '%s'", os.environ['drift_CONFIG'])
-            raise RuntimeError("'drift_CONFIG' already set, but differs")
-        log.warning("'drift_CONFIG' already set. It's deprecated now!")
-
-    os.environ['drift_CONFIG'] = config
-    return config
+    app_root = os.path.abspath(os.path.join(config, "..", ".."))
+    return app_root
 
 
-def load_config(tier_name=None):
-
-    config_filename = discover_config()
+def load_flask_config(app_root=None):
+    app_root = app_root or _find_app_root()
+    config_filename = os.path.join(app_root, 'config', 'config.json')
     log.info("Loading configuration from %s", config_filename)
     with open(config_filename) as f:
         config_values = json.load(f)
 
-    # BELOW IS TO LOAD FANCY PANTS CONFIG FROM HERE AND THERE
-    if 0:  # shortcut it for now
-        if not tier_name:
-            tier_name = get_tier_name()
-        load_config_files(tier_name, config_values, log_progress=False)
-
     return config_values
-
-
-def load_config_files(tier_name, config_values, log_progress):
-    tier_name_normalized = tier_name.upper()
-    # Apply global tier config
-    host_config = _get_local_config('tiers/{}/tierconfig.json'.format(tier_name_normalized), log_progress)
-    config_values.update(host_config)
-
-    # Apply deployable config specific to current tier
-    host_config = _get_local_config('tiers/{}/{}.json'.format(tier_name_normalized, config_values['name']), log_progress)
-    config_values.update(host_config)
-
-    # Apply local host config
-    host_config = _get_local_config('{}.json'.format(config_values['name']), log_progress)
-    config_values.update(host_config)
-
-    # update servers for tenants according to defaults
-    for tenant in config_values.get("tenants", []):
-        # if the tenant does not specify servers we use the defaults for the tier
-        tenant.setdefault('db_server', config_values.get('db_server'))
-        tenant.setdefault('redis_server', config_values.get('redis_server'))
 
 
 def _get_local_config(file_name, log_progress):
@@ -123,25 +131,6 @@ def _get_local_config(file_name, log_progress):
                 config_filename, len(host_configs)
             )
         return host_configs
-
-
-def make_app(app):
-
-    # Load static app configuration
-    app.config.update(load_config())
-
-    # Set up Relib config
-    from driftconfig.flask_relib import FlaskRelib
-    FlaskRelib(app)
-
-    instance_path = None
-    if "drift_CONFIG" in os.environ:
-        instance_path = os.path.split(os.environ["drift_CONFIG"])[0]
-        app.instance_path = instance_path
-        app.static_folder = os.path.join(instance_path, "..", "static")
-        sys.path.append(os.path.join(instance_path, "..", ".."))
-
-    _apply_patches(app)
 
 
 def install_extras(app):
@@ -187,15 +176,6 @@ def install_extras(app):
             except Exception:
                 log.exception("Couldn't register blueprints for module '%s'", module_name)
 
-    if not app.config.get("tier_name"):
-        log.warning("Warning! No tier found in config!")
-    else:
-        log.info("Starting up on tier '%s'", app.config.get("tier_name"))
-    log.info("Default Redis Server: '%s' - Default DB Server: '%s'",
-             app.config.get("redis_server"), app.config.get("db_server"))
-    tenants_txt = ", ".join([str(t["name"]) for t in app.config.get("tenants", [])])
-    log.info("This app supports the following tenants: %s", tenants_txt)
-
 
 def _apply_patches(app):
     """
@@ -203,12 +183,9 @@ def _apply_patches(app):
     become obsolete with proper fixes made to these libraries in the future.
     """
     # "X-Forwarded-For" remote_ip fixup when running behind a load balancer.
-    # Assuming we are running behind two proxies (or load balancers), the API
-    # router, and the auto-scaling group.
+    # Normal setup on AWS includes a single ELB which appends to "X-Forwarded-For"
+    # header value, thus one proxy.
     num_proxies = 1
-    import socket
-    if socket.gethostname().startswith("ip-10-60-"):
-        num_proxies = 2
     app.wsgi_app = ProxyFix(app.wsgi_app, num_proxies=num_proxies)
 
     # Fixing SCRIPT_NAME/url_scheme when behind reverse proxy (i.e. the
@@ -252,8 +229,3 @@ def _apply_patches(app):
 
 class TenantNotFoundError(ValueError):
     pass
-
-
-if __name__ == '__main__':
-    logging.basicConfig(level='INFO')
-    discover_config()
