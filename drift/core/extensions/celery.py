@@ -13,7 +13,7 @@ from celery import Celery
 import kombu.serialization
 
 from drift.utils import get_tier_name
-from driftconfig.util import get_domains
+from driftconfig.util import get_default_drift_config
 log = logging.getLogger(__name__)
 
 CELERY_DB_NUMBER = 15
@@ -32,7 +32,7 @@ def make_celery(app):
 
     celery = Celery(app.import_name)
 
-    ts = get_domains().values()[0]["table_store"]
+    ts = get_default_drift_config()
     tier_name = get_tier_name()
     tier_config = ts.get_table('tiers').get({'tier_name': tier_name})
     BROKER_URL = tier_config["celery_broker_url"]

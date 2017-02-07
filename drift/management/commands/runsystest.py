@@ -9,6 +9,9 @@ import importlib
 import unittest
 import logging
 
+from driftconfig.util import get_default_drift_config
+
+
 try:
     from teamcity import is_running_under_teamcity
     from teamcity.unittestpy import TeamcityTestRunner
@@ -63,7 +66,20 @@ def run_command(args):
     from drift.core.resources.postgres import create_db, drop_db
     from drift.utils import get_tier_name
 
-    tier_name = get_tier_name()
+    from drift.flaskfactory import load_flask_config
+    from driftconfig.util import get_drift_config
+
+    flask_config = load_flask_config()
+    conf = get_drift_config(
+        ts=get_default_drift_config(),
+        tenant_name=None,
+        tier_name=get_tier_name(),
+        deployable_name=flask_config['name']
+    )
+    print "got vonfig", conf._fields
+    conf.flask_config = flask_config
+    print "got vonfig2", conf._fields
+
     tenant = None
     postgres_config = {}
     if args.target:
@@ -82,10 +98,10 @@ def run_command(args):
             print "Creating database {} on host {}".format(tenant, db_host)
         postgres_config = {
             "database": "DEVNORTH_%s_drift-base" % tenant,
-            "driver": "postgresql", 
-            "password": "zzp_user", 
-            "port": 5432, 
-            "server": "postgres.devnorth.dg-api.com", 
+            "driver": "postgresql",
+            "password": "zzp_user",
+            "port": 5432,
+            "server": "postgres.devnorth.dg-api.com",
             "username": "zzp_user"
         }
         create_db(postgres_config)

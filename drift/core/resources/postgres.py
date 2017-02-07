@@ -8,7 +8,7 @@ from alembic import command
 from sqlalchemy import create_engine
 from flask import current_app, g
 
-from drift.flaskfactory import load_config
+from drift.flaskfactory import load_flask_config
 from drift.core.resources import get_parameters
 
 import logging
@@ -79,7 +79,7 @@ def create_db(params):
 
     # TODO: Alembic (and sqlalchemy for that matter) don't like schemas. We should
     # figure out a way to add these later
-    config = load_config()
+    config = load_flask_config()
     models = config.get("models", [])
     if not models:
         raise Exception("This app has no models defined in config")

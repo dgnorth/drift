@@ -8,7 +8,7 @@ from alembic.config import Config
 from alembic import command
 from flask import _app_ctx_stack, current_app
 
-from drift.flaskfactory import load_config, TenantNotFoundError
+from drift.flaskfactory import load_flask_config, TenantNotFoundError
 from drift.utils import get_tier_name
 
 log = logging.getLogger(__name__)
@@ -17,7 +17,7 @@ ECHO_SQL = False
 
 
 def get_db_info():
-    config = load_config()
+    config = load_flask_config()
     db_info = config.get('db_connection_info', {'user': 'zzp_user', 'password': 'zzp_user'})
     return db_info
 
@@ -60,7 +60,7 @@ def safe_get_config():
         return current_app.config
     else:
         log.info("Outside application. Loading config from disk.")
-        return load_config()
+        return load_flask_config()
 
 
 def get_connection_string(tenant_config, conn_info=None, service_name=None, tier_name=None):

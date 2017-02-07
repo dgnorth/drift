@@ -6,26 +6,20 @@ import logging
 import importlib
 import httplib
 
-from flask import Blueprint, current_app, url_for, abort, request, g
+from flask import Blueprint, current_app, g
 from flask_restful import Api, Resource, abort
 
-from drift.configsetup import get_current_config
-from driftconfig.relib import create_backend, get_store_from_url
-from drift.core.extensions.jwt import jwt_not_required
-
-from drift.auth.jwtchecker import requires_roles
-from drift.core.extensions.schemachecker import simple_schema_request
 
 log = logging.getLogger(__name__)
 bp = Blueprint("healthcheck", __name__)
 api = Api(bp)
+
 
 class HealthCheckAPI(Resource):
 
     no_jwt_check = ["GET"]
 
     def get(self):
-        ok = True
         details = None
         try:
             tenant_name = g.conf.tenant_name['tenant_name']
