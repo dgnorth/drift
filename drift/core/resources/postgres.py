@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import os.path
 import importlib
 
@@ -32,6 +33,10 @@ ECHO_SQL = False
 SCHEMAS = ["public"]
 
 def format_connection_string(postgres_parameters):
+    if os.environ.get('drift_use_local_servers', False):
+        # Override 'server'
+        postgres_parameters = postgres_parameters.copy()
+        postgres_parameters['server'] = 'localhost'
     connection_string = '{driver}://{username}:{password}@{server}/{database}'.format(**postgres_parameters)
     return connection_string
 
@@ -40,7 +45,7 @@ def connect(params):
     engine = create_engine(connection_string, echo=ECHO_SQL, isolation_level='AUTOCOMMIT')
     return engine
 
-def _db_exists(params):
+def db_exists(params):
     try:
         engine = connect(params)
         engine.execute("SELECT 1=1")
@@ -90,7 +95,9 @@ def create_db(params):
         models.ModelBase.metadata.create_all(engine)
 
     # stamp the db with the latest alembic upgrade version
-    ini_path = os.path.join(os.path.split(os.environ["drift_CONFIG"])[0], "..", "alembic.ini")
+    from drift.flaskfactory import _find_app_root
+    approot = _find_app_root()
+    ini_path = os.path.join(approot, "alembic.ini")
     alembic_cfg = Config(ini_path)
     script_path = os.path.join(os.path.split(os.path.abspath(ini_path))[0], "alembic")
     alembic_cfg.set_main_option("script_location", script_path)
@@ -139,7 +146,7 @@ def provision(config, args):
         params["database"] = "{}_{}_{}".format(config.tier['tier_name'], config.tenant_name['tenant_name'], config.deployable['deployable_name'])
     config.tenant["postgres"] = params
 
-    if _db_exists(params):
+    if db_exists(params):
         raise RuntimeError("Database already exists. %s" % repr(params))
 
     create_db(params)

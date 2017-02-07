@@ -2,6 +2,7 @@
 """
 This module contains generic and application-level sql logic.
 """
+import os
 
 from contextlib import contextmanager
 from flask import g, current_app
@@ -36,7 +37,7 @@ def get_sqlalchemy_session(conn_string=None):
             return
 
         # HACK: Ability to override Postgers hostname
-        if current_app.config.get('drift_use_local_servers', False):
+        if os.environ.get('drift_use_local_servers', False):
             ci['server'] = 'localhost'
         else:
             bork

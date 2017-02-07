@@ -27,10 +27,7 @@ def get_options(parser):
         help="The the server with profiler active.",
         action='store_true'
     )
-    parser.add_argument("--localservers", '-l',
-        help="Use local Postgres and Redis server (override hostname as 'localhost').",
-        action='store_true'
-    )
+
 
 def run_command(args):
     if args.server == 'celery':
@@ -79,10 +76,6 @@ def run_command(args):
     if args.tenant:
         app.config['default_drift_tenant'] = args.tenant
         log.info("Default tenant set to '%s'.", args.tenant)
-
-    if args.localservers:
-        app.config['drift_use_local_servers'] = True
-        log.info("Using localhost for Redis and Postgres connections.")
 
     if args.nodebug:
         app.debug = True

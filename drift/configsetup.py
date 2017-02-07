@@ -6,6 +6,7 @@
 """
 import logging
 import json
+import os
 
 from flask import request, g, current_app
 
@@ -65,7 +66,7 @@ def install_configuration_hooks(app):
         if g.conf.tenant and g.conf.tenant.get("redis"):
             # HACK: Ability to override Redis hostname
             redis_config = g.conf.tenant.get("redis")
-            if current_app.config.get('drift_use_local_servers', False):
+            if os.environ.get('drift_use_local_servers', False):
                 redis_config['host'] = 'localhost'
             g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'], redis_config)
         else:

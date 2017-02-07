@@ -5,18 +5,28 @@ import logging
 import requests
 from functools import wraps
 from socket import gethostname
-import json
 import uuid
 import time
-from boto.utils import get_instance_metadata
 import boto.ec2
 
-from flask.globals import _app_ctx_stack
 from flask import g, make_response, jsonify, request, url_for, current_app
+
+from driftconfig.util import get_drift_config
 
 log = logging.getLogger(__name__)
 
 host_name = gethostname()
+
+
+def get_config(tenant_name=None):
+    # Hack: Must delay import this
+    from drift.flaskfactory import load_flask_config
+    conf = get_drift_config(
+        tier_name=get_tier_name(),
+        tenant_name=tenant_name,
+        drift_app=load_flask_config(),
+    )
+    return conf
 
 
 def uuid_string():

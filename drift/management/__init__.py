@@ -67,9 +67,7 @@ def do_execute_cmd(argv):
         logging.basicConfig(level=args.loglevel)
 
     if args.localservers:
-        # Importing the app as late as possible
-        from drift.appmodule import app
-        app.config['drift_use_local_servers'] = True
+        os.environ['drift_use_local_servers'] = '1'
         print "Using localhost for Redis and Postgres connections."
 
     if args.tier:
