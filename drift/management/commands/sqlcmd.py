@@ -8,10 +8,10 @@ This is a small shim on psql which you must have install (brew install postgres)
 import os
 from drift.management import get_tier_config, get_service_info
 from fabric.api import env, run, settings, hide
-from fabric.operations import run, put
+from fabric.operations import put
 from drift.management import get_ec2_instances
-from drift.flaskfactory import load_config
-import subprocess
+from drift.flaskfactory import load_flask_config
+
 
 PORT = 5432
 
@@ -22,7 +22,7 @@ def get_options(parser):
         "--tier",
         help="Tier to run the command on (or ALL). Default is the current tier")
     parser.add_argument(
-        "--tenant", 
+        "--tenant",
         help="Tenant to run the command on. Default is all tenants")
 
 
@@ -34,7 +34,7 @@ def run_command(args):
     tier_config = get_tier_config()
     service_info = get_service_info()
     tier = args.tier or tier_config["tier"]
-    config = load_config()
+    config = load_flask_config()
     tiers = []
     if tier == "ALL":
         tiers = [t["name"] for t in config["tiers"]]
@@ -46,7 +46,7 @@ def run_command(args):
     tenant = args.tenant
     tenants = []
     for tier_name in tiers:
-        config = load_config(tier_name)
+        config = load_flask_config()  # does not work!
         for t in config.get("tenants", []):
             name = t["name"]
             if not t.get("db_server"): continue
