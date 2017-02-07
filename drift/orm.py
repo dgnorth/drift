@@ -4,7 +4,7 @@ This module contains generic and application-level sql logic.
 """
 
 from contextlib import contextmanager
-from flask import g
+from flask import g, current_app
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
@@ -35,7 +35,13 @@ def get_sqlalchemy_session(conn_string=None):
         if not ci:
             return
 
+        # HACK: Ability to override Postgers hostname
+        if current_app.config.get('drift_use_local_servers', False):
+            ci['server'] = 'localhost'
+        else:
+            bork
         conn_string = format_connection_string(ci)
+
     log.debug("Creating sqlalchemy session with connection string '%s'", conn_string)
     engine = create_engine(conn_string, echo=False, poolclass=NullPool)
     session_factory = sessionmaker(bind=engine, expire_on_commit=True)

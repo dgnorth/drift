@@ -6,6 +6,7 @@ import json
 import importlib
 import getpass
 from datetime import datetime
+import logging
 
 import requests
 import boto
@@ -45,8 +46,13 @@ def execute_cmd():
 def do_execute_cmd(argv):
     valid_commands = get_commands()
     parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--localservers",
+        help="Use local Postgres and Redis server (override hostname as 'localhost').",
+        action='store_true'
+    )
     parser.add_argument("-v", "--verbose", help="I am verbose!", action="store_true")
     parser.add_argument("-t", "--tier", help="Tier to use (overrides drift_TIER from environment)")
+    parser.add_argument("--loglevel", '-l', help="Logging level name. Default is INFO.", default='INFO')
     subparsers = parser.add_subparsers(help="sub-command help")
     for cmd in valid_commands:
         module = importlib.import_module("drift.management.commands." + cmd)
@@ -56,6 +62,15 @@ def do_execute_cmd(argv):
         subparser.set_defaults(func=module.run_command)
 
     args = parser.parse_args(argv)
+
+    if args.loglevel:
+        logging.basicConfig(level=args.loglevel)
+
+    if args.localservers:
+        # Importing the app as late as possible
+        from drift.appmodule import app
+        app.config['drift_use_local_servers'] = True
+        print "Using localhost for Redis and Postgres connections."
 
     if args.tier:
         os.environ["drift_TIER"] = args.tier

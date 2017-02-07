@@ -11,18 +11,26 @@ log = logging.getLogger(__name__)
 
 
 def get_options(parser):
+    parser.add_argument('--tenant', '-t',
+        help="The name of the default tenant in case it's not specified "
+        "in the Host request header."
+    )
     parser.add_argument("--server", '-s',
-                        help="Server type to run. Specify 'celery' to run a Celery worker.",
-                        default=None)
-    parser.add_argument("--loglevel", '-l',
-                        help="Logging level name. Default is INFO.",
-                        default='INFO')
+        help="Server type to run. Specify 'celery' to run a Celery worker.",
+        default=None
+    )
     parser.add_argument("--nodebug",
-                        help="Do not run Flask server in DEBUG mode.",
-                        action='store_false')
+        help="Do not run Flask server in DEBUG mode.",
+        action='store_false'
+    )
     parser.add_argument("--profile",
-                        help="The the server with profiler active (only works in DEBUG mode)",
-                        action='store_true')
+        help="The the server with profiler active.",
+        action='store_true'
+    )
+    parser.add_argument("--localservers", '-l',
+        help="Use local Postgres and Redis server (override hostname as 'localhost').",
+        action='store_true'
+    )
 
 def run_command(args):
     if args.server == 'celery':
@@ -48,6 +56,11 @@ def run_command(args):
 
         sys.exit(p.returncode)
 
+    # Turn off current stream handler to prevent duplicate logging
+    for handler in logging.root.handlers[:]:
+        if isinstance(handler, logging.StreamHandler):
+            logging.root.removeHandler(handler)
+
     # Log to console using Splunk friendly formatter
     stream_handler = logging.StreamHandler()
     stream_handler.name = "console"
@@ -57,10 +70,19 @@ def run_command(args):
     logging.root.addHandler(stream_handler)
     logging.root.setLevel(args.loglevel)
 
+
     log.info("\n\n--------------------- Drift server starting up.... --------------------\n", )
 
     # Importing the app as late as possible
     from drift.appmodule import app
+
+    if args.tenant:
+        app.config['default_drift_tenant'] = args.tenant
+        log.info("Default tenant set to '%s'.", args.tenant)
+
+    if args.localservers:
+        app.config['drift_use_local_servers'] = True
+        log.info("Using localhost for Redis and Postgres connections.")
 
     if args.nodebug:
         app.debug = True
@@ -70,10 +92,10 @@ def run_command(args):
         log.info("Running Flask in RELEASE mode because of --nodebug "
                           "command line argument.")
 
-    if args.profile and app.debug:
+    if args.profile:
         log.info("Starting profiler")
         from werkzeug.contrib.profiler import ProfilerMiddleware
         app.config["PROFILE"] = True
         app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
-        
+
     webservers.run_app(app, args.server)
