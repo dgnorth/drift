@@ -28,7 +28,7 @@ def install_configuration_hooks(app):
 
     @app.before_request
     def before_request(*args, **kw):
-        tenant_name = current_app.config.get('default_drift_tenant')
+        tenant_name = os.environ.get('default_drift_tenant')
 
         # Figure out tenant. Normally the tenant name is embedded in the hostname.
         host = request.headers.get("Host")

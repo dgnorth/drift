@@ -49,28 +49,46 @@ def connect(db_name, db_host=None):
     return engine
 
 
-def safe_get_config():
-    """
-    If working inside of a flask application context,
-    return the cooked config in the app. Otherwise
-    load the config from disk and return it (without host
-    and request context overrides)
-    """
-    if _app_ctx_stack.top:
-        return current_app.config
-    else:
-        log.info("Outside application. Loading config from disk.")
-        return load_flask_config()
-
-
 def get_connection_string(tenant_config, conn_info=None, service_name=None, tier_name=None):
+    borkoforko  # This is oooold, use resource.postgres instead.
     """
     Returns a connection string for the current tenant and
     raises TenantNotFoundError if none is found
     """
 
     # If in Flask request context, use current_app, else load the config straight up
-    config = safe_get_config()
+    ####config = safe_get_config()
+
+
+    '''
+{
+    "static_data_refs_legacy": {
+        "allow_client_pin": false,
+        "repository": "",
+        "revision": ""
+    },
+    "postgres": {
+        "username": "postgres",
+        "database": "DEVNORTH_dg-driftplugin-live2_drift-base",
+        "driver": "postgresql",
+        "server": "postgres.devnorth.dg-api.com",
+        "password": "postgres",
+        "port": 5432
+    },
+    "root_endpoint": "https://dg-driftplugin-live2.dg-api.com/drift",
+    "tenant_name": "dg-driftplugin-live2",
+    "tier_name": "DEVNORTH",
+    "redis": {
+        "socket_timeout": 5,
+        "host": "redis.devnorth.dg-api.com",
+        "port": 6379,
+        "socket_connect_timeout": 5
+    },
+    "state": "active",
+    "deployable_name": "drift-base"
+}    '''
+    db_name = construct_db_name(tenant_config["tenant_name"], service_name, tier_name=tier_name)
+
 
     if not tier_name:
         tier_name = get_tier_name()

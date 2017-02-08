@@ -4,6 +4,7 @@ Run all apps in this project as a console server.
 import subprocess
 import sys
 import logging
+import os
 
 from drift import webservers
 
@@ -11,10 +12,6 @@ log = logging.getLogger(__name__)
 
 
 def get_options(parser):
-    parser.add_argument('--tenant', '-t',
-        help="The name of the default tenant in case it's not specified "
-        "in the Host request header."
-    )
     parser.add_argument("--server", '-s',
         help="Server type to run. Specify 'celery' to run a Celery worker.",
         default=None
@@ -72,10 +69,6 @@ def run_command(args):
 
     # Importing the app as late as possible
     from drift.appmodule import app
-
-    if args.tenant:
-        app.config['default_drift_tenant'] = args.tenant
-        log.info("Default tenant set to '%s'.", args.tenant)
 
     if args.nodebug:
         app.debug = True

@@ -32,18 +32,30 @@ MASTER_PASSWORD = 'postgres'
 ECHO_SQL = False
 SCHEMAS = ["public"]
 
-def format_connection_string(postgres_parameters):
+
+def process_connection_values(postgres_parameters):
+    """
+    Returns a copy of 'postgres_parameters' where values have been
+    processed or or overridden if applicable.
+    """
+    postgres_parameters = postgres_parameters.copy()
     if os.environ.get('drift_use_local_servers', False):
         # Override 'server'
-        postgres_parameters = postgres_parameters.copy()
         postgres_parameters['server'] = 'localhost'
+    return postgres_parameters
+
+
+def format_connection_string(postgres_parameters):
+    postgres_parameters = process_connection_values(postgres_parameters)
     connection_string = '{driver}://{username}:{password}@{server}/{database}'.format(**postgres_parameters)
     return connection_string
+
 
 def connect(params):
     connection_string = format_connection_string(params)
     engine = create_engine(connection_string, echo=ECHO_SQL, isolation_level='AUTOCOMMIT')
     return engine
+
 
 def db_exists(params):
     try:
@@ -52,7 +64,23 @@ def db_exists(params):
     except Exception as e:
         if "does not exist" in repr(e):
             return False
+        else:
+            print "OOPS:", e
+            return False
     return True
+
+
+def db_check(params):
+    """
+    Do a simple check on DB referenced by 'params' and return a string describing any error
+    that may occur. If all is fine, None is returned.
+    """
+    try:
+        engine = connect(params)
+        engine.execute("SELECT 1=1")
+    except Exception as e:
+        return str(e)
+
 
 def create_db(params):
     db_name = params["database"]

@@ -15,6 +15,7 @@ from boto.s3.connection import OrdinaryCallingFormat
 
 from drift.utils import get_tier_name
 from drift.management.gittools import get_branch, get_commit, get_repo_url, get_git_version
+from drift.management.commands import set_pretty_settings, PRETTY_FORMATTER, PRETTY_STYLE
 from driftconfig.util import get_domains
 
 TIERS_CONFIG_FILENAME = "tiers-config.json"
@@ -46,13 +47,28 @@ def execute_cmd():
 def do_execute_cmd(argv):
     valid_commands = get_commands()
     parser = argparse.ArgumentParser(description="")
+
     parser.add_argument("--localservers",
         help="Use local Postgres and Redis server (override hostname as 'localhost').",
         action='store_true'
     )
+    parser.add_argument('--tenant', '-t',
+        help="Specify which tenant to use. Will override any other settings."
+    )
+    parser.add_argument("--loglevel", '-l',
+        help="Logging level name. Default is INFO.", default='WARNING'
+    )
+    parser.add_argument('--formatter',
+        help="Specify which formatter to use for text output. Default is {}.".format(
+            PRETTY_FORMATTER)
+    )
+    parser.add_argument('--style',
+        help="Specify which style to use for text output. Default is {}.".format(
+            PRETTY_STYLE)
+    )
+
     parser.add_argument("-v", "--verbose", help="I am verbose!", action="store_true")
-    parser.add_argument("-t", "--tier", help="Tier to use (overrides drift_TIER from environment)")
-    parser.add_argument("--loglevel", '-l', help="Logging level name. Default is INFO.", default='INFO')
+    parser.add_argument("--tier", help="Tier to use (overrides drift_TIER from environment)")
     subparsers = parser.add_subparsers(help="sub-command help")
     for cmd in valid_commands:
         module = importlib.import_module("drift.management.commands." + cmd)
@@ -69,6 +85,12 @@ def do_execute_cmd(argv):
     if args.localservers:
         os.environ['drift_use_local_servers'] = '1'
         print "Using localhost for Redis and Postgres connections."
+
+    set_pretty_settings(formatter=args.formatter, style=args.style)
+
+    if args.tenant:
+        os.environ['default_drift_tenant'] = args.tenant
+        print "Default tenant set to '%s'." % args.tenant
 
     if args.tier:
         os.environ["drift_TIER"] = args.tier

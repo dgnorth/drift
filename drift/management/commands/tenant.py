@@ -3,15 +3,26 @@
 Run all apps in this project as a console server.
 """
 import sys
-import json
 
 from sqlalchemy import create_engine
-from colorama import Fore
+from colorama import Fore, Style
 
 from driftconfig.util import get_default_drift_config
 from drift.utils import get_tier_name, get_config
+from drift.core.resources.postgres import db_exists, process_connection_values, db_check
+from drift.management.commands import pretty
 
 POSTGRES_PORT = 5432
+colors = {
+    color_name: getattr(Fore, color_name)
+    for color_name in dir(Fore)
+    if not color_name.startswith('_')
+}
+colors.update({
+    color_name: getattr(Style, color_name)
+    for color_name in dir(Style)
+    if not color_name.startswith('_')
+})
 
 
 def get_options(parser):
@@ -21,50 +32,43 @@ def get_options(parser):
                         choices=["create", "drop", "recreate"], nargs='?', default=None)
 
 
-def db_check(tenant_config):
-    from drift.core.resources.postgres import db_exists
-    try:
-        db_exists(tenant_config['postgres'])
-    except Exception as e:
-        return repr(e)
-    return None
-
-
 def tenant_report(conf):
 
-
-    from drift.core.resources.postgres import db_exists, format_connection_string
-    conn_string = format_connection_string(conf.tenant['postgres'])
-    print "Tenant configuration for '{}' on tier '{}':" \
-          .format(conf.tenant["tenant_name"], conf.tier['tier_name'])
-    print json.dumps(conf.tenant, indent=4)
-
-    print "Connection string:\n  {}".format(conn_string)
-    print "Database check... "
-    if not db_exists(conf.tenant['postgres']):
-        print Fore.RED + "  FAIL! DB does not exist"
-        print "  You can create this database by running this " \
-              "command again with the action 'create'"
-    else:
-        print Fore.GREEN + "  OK! Database is online and reachable"
+    print "Tenant configuration for {BRIGHT}{}{NORMAL} on tier {BRIGHT}{}{NORMAL}:".format(
+        conf.tenant["tenant_name"], conf.tier['tier_name'], **colors
+    )
+    print pretty(conf.tenant)
+    tenants_report(conf.tenant["tenant_name"])
 
 
 def tenants_report(tenant_name=None):
     conf = get_config()
-    print "The following active tenants are registered in config on tier '{}':".format(conf.tier['tier_name'])
-    ts = get_default_drift_config()
-    for tenant_config in ts.get_table('tenants').find({'tier_name': conf.tier['tier_name'], 'state': 'active'}):
-        name = tenant_config["tenant_name"]
-        db_host = tenant_config.get('postgres', {}).get('server', '?')
-        sys.stdout.write("   {} on {}... ".format(name, db_host))
-        db_error = db_check(tenant_config)
-        if not db_error:
-            print Fore.GREEN + "OK"
+
+    if not tenant_name:
+        print "The following active tenants are registered in config on tier '{}':".format(
+            conf.tier['tier_name']
+        )
+
+    criteria = {'tier_name': conf.tier['tier_name'], 'state': 'active'}
+    if tenant_name:
+        criteria['tenant_name'] = tenant_name
+    active_tenants = conf.table_store.get_table('tenants').find(criteria)
+
+    for tenant in active_tenants:
+        postgres_params = process_connection_values(tenant['postgres'])
+
+        sys.stdout.write("{} for {} on {}/{}... ".format(
+            tenant["tenant_name"],
+            tenant["deployable_name"],
+            postgres_params['server'],
+            postgres_params['database']),
+        )
+        db_err = db_check(tenant['postgres'])
+        if db_err:
+            print Fore.RED + "Error: %s" % db_err
         else:
-            if "does not exist" in db_error:
-                print Fore.RED + "FAIL! DB does not exist"
-            else:
-                print Fore.RED + "Error: %s" % db_error
+            print Fore.GREEN + "  OK! Database is online and reachable"
+
     print "To view more information about each tenant run this command again with the tenant name"
 
 

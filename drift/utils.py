@@ -21,12 +21,37 @@ host_name = gethostname()
 def get_config(tenant_name=None):
     # Hack: Must delay import this
     from drift.flaskfactory import load_flask_config
+    if current_app:
+        ts = current_app.extensions['relib'].table_store
+    else:
+        ts = None
+
     conf = get_drift_config(
+        ts=ts,
         tier_name=get_tier_name(),
         tenant_name=tenant_name,
         drift_app=load_flask_config(),
     )
     return conf
+
+
+def get_tenant_name():
+    """
+    Return the current tenant name.
+    If inside a Flask request context, it's the one defined by that context,
+    and if not, then it must be specified explicitly in the environment
+    variable 'default_drift_tenant'.
+    """
+    if g:
+        return g.conf.tier['tenant_name']
+    elif 'default_drift_tenant' in os.environ:
+        return os.environ['default_drift_tenant']
+    else:
+        raise RuntimeError(
+            "No default tenant available in this context. Specify one in "
+            "'default_drift_tenant' environment variable, or use the --tenant command "
+            "line argument."
+        )
 
 
 def uuid_string():
