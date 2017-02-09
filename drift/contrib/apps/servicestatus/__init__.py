@@ -73,8 +73,8 @@ class InfoPageAPI(Resource):
 
         path = os.path.join(current_app.instance_path, "..", "deployment-manifest.json")
         if not os.path.exists(path):
-            if current_app.debug:
-                # Running in debug mode usually means running on local dev machine, which
+            if current_app.debug or current_app.testing:
+                # Running in debug or testing mode usually means running on local dev machine, which
                 # usually means there is no deployment manifest, and no-one should care.
                 pass
             else:

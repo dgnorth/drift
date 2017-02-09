@@ -7,6 +7,7 @@ import logging
 import os
 
 from drift import webservers
+from drift.utils import pretty
 
 log = logging.getLogger(__name__)
 
@@ -72,16 +73,24 @@ def run_command(args):
 
     if args.nodebug:
         app.debug = True
-        log.info("Running Flask in DEBUG mode. Use 'runserver --nodebug' to run in RELEASE mode.")
+        print pretty("Running Flask in DEBUG mode. Use 'runserver --nodebug' to run in RELEASE mode.")
     else:
         app.debug = False
-        log.info("Running Flask in RELEASE mode because of --nodebug "
+        print pretty("Running Flask in RELEASE mode because of --nodebug "
                           "command line argument.")
 
     if args.profile:
-        log.info("Starting profiler")
+        print pretty("Starting profiler")
         from werkzeug.contrib.profiler import ProfilerMiddleware
         app.config["PROFILE"] = True
         app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
+
+    print ">>>", os.environ['drift_use_local_servers']
+
+    if not args.localservers and not os.environ.get('drift_use_local_servers', False):
+        log.warning("Running Flask without 'localservers' option. (See -h for help).")
+
+    if not args.tenant:
+        log.warning("Running Flask without specifying a tenant. (See -h for help).")
 
     webservers.run_app(app, args.server)

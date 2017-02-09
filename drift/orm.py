@@ -36,11 +36,6 @@ def get_sqlalchemy_session(conn_string=None):
         if not ci:
             return
 
-        # HACK: Ability to override Postgers hostname
-        if os.environ.get('drift_use_local_servers', False):
-            ci['server'] = 'localhost'
-        else:
-            bork
         conn_string = format_connection_string(ci)
 
     log.debug("Creating sqlalchemy session with connection string '%s'", conn_string)

@@ -10,7 +10,7 @@ from colorama import Fore, Style
 from driftconfig.util import get_default_drift_config
 from drift.utils import get_tier_name, get_config
 from drift.core.resources.postgres import db_exists, process_connection_values, db_check
-from drift.management.commands import pretty
+from drift.utils import pretty
 
 POSTGRES_PORT = 5432
 colors = {
@@ -73,7 +73,6 @@ def tenants_report(tenant_name=None):
 
 
 def run_command(args):
-    from drift import tenant
     tenant_name = args.tenant
     if not tenant_name:
         tenants_report()

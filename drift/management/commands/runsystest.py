@@ -22,11 +22,6 @@ except ImportError:
 
 def get_options(parser):
     parser.add_argument(
-        "--server",
-        help="Server type to run (e.g. tornado)",
-        default=None
-    )
-    parser.add_argument(
         "--db",
         help="Database to create and retain for later tests",
         default=None
@@ -64,48 +59,10 @@ def run_command(args):
     from drift.utils import uuid_string
     from drift.appmodule import app as _app
     from drift.core.resources.postgres import create_db, drop_db
-    from drift.utils import get_tier_name
+    from drift.utils import get_config
 
     from drift.flaskfactory import load_flask_config
     from driftconfig.util import get_drift_config
-
-    flask_config = load_flask_config()
-    conf = get_drift_config(
-        ts=get_default_drift_config(),
-        tenant_name=None,
-        tier_name=get_tier_name(),
-        deployable_name=flask_config['name']
-    )
-    print "got vonfig", conf._fields
-    conf.flask_config = flask_config
-    print "got vonfig2", conf._fields
-
-    tenant = None
-    postgres_config = {}
-    if args.target:
-        print "Using test target: {}".format(args.target)
-        os.environ["drift_test_target"] = args.target
-    else:
-        # only provision the DB is the test target is not specified
-        db_host = _app.config["systest_db"]["server"]
-        if args.db:
-            tenant = args.db
-            print "Using database {} from commandline on host {}".format(
-                tenant, db_host
-            )
-        else:
-            tenant = "test{}".format(uuid_string())
-            print "Creating database {} on host {}".format(tenant, db_host)
-        postgres_config = {
-            "database": "DEVNORTH_%s_drift-base" % tenant,
-            "driver": "postgresql",
-            "password": "zzp_user",
-            "port": 5432,
-            "server": "postgres.devnorth.dg-api.com",
-            "username": "zzp_user"
-        }
-        create_db(postgres_config)
-        os.environ["drift_test_database"] = tenant
 
     pick_tests = []
     if args.tests:
@@ -176,9 +133,6 @@ def run_command(args):
     results = cls(verbosity=verbosity, failfast=args.failfast).run(test_suite)
 
     # if a tenant was not specified on the commandline we destroy it
-    if not args.db and postgres_config:
-        drop_db(postgres_config)
-        pass
 
     if not results.wasSuccessful():
         sys.exit(1)

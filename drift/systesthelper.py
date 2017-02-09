@@ -11,9 +11,11 @@ import re
 from datetime import datetime, timedelta
 from os.path import abspath, join
 import jwt
+import importlib
 
-from drift.utils import get_tier_name
-from drift.tenant import construct_db_name
+from drift.utils import get_config, get_tenant_name
+from driftconfig.config import get_drift_table_store
+from driftconfig.util import set_sticky_config
 
 import logging
 log = logging.getLogger(__name__)
@@ -29,6 +31,11 @@ def uuid_string():
     return str(uuid.uuid4()).split("-")[0]
 
 
+def make_unique(name):
+    """Make 'name' unique by appending random numbers to it."""
+    return name + uuid_string()
+
+
 db_name = None
 
 
@@ -42,9 +49,67 @@ def _get_test_target():
     return target
 
 
-def _get_test_db():
-    db = os.environ.get("drift_test_database")
-    return db
+def _create_basic_domain():
+    ts = get_drift_table_store()
+    domain = ts.get_table('domain').add({
+        'domain_name': 'unit_test_domain',
+        'display_name': "Unit Test Domain",
+        'origin': ''
+    })
+
+    ts.get_table('organizations').add({
+        'organization_name': 'directivegames',
+        'short_name': 'dg',
+        'display_name': 'Directive Games',
+        })
+
+    ts.get_table('tiers').add({
+        'tier_name': 'UNITTEST',
+        'is_live': True,
+        })
+
+    ts.get_table('deployable-names').add({
+        'deployable_name': 'drift-base',
+        'display_name': "Drift Base Services",
+        })
+
+    ts.get_table('deployables').add({
+        'tier_name': 'UNITTEST',
+        'deployable_name': 'drift-base',
+        'is_active': True,
+        })
+
+    ts.get_table('products').add({
+        'product_name': 'dg-unittest-product',
+        'organization_name': 'directivegames',
+        })
+
+    ts.get_table('tenant-names').add({
+        'tenant_name': 'dg-unittest-product',
+        'product_name': 'dg-unittest-product',
+        'tier_name': 'UNITTEST',
+        'organization_name': 'directivegames',
+        })
+
+    ts.get_table('tenants').add({
+        'tier_name': 'UNITTEST',
+        'deployable_name': 'drift-base',
+        'tenant_name': 'dg-unittest-product',
+        'state': 'active',
+        })
+
+    ts.get_table('public-keys').add({
+        'tier_name': 'UNITTEST',
+        'deployable_name': 'drift-base',
+        'keys': [
+            {
+                'pub_rsa': public_test_key,
+                'private_key': private_test_key,
+            }
+        ]
+        })
+
+    return ts
 
 
 def setup_tenant():
@@ -55,49 +120,54 @@ def setup_tenant():
     (in which case drift_test_database has been set in environ)
     Also configure some basic parameters in the app
     """
-    from appmodule import app
-    global db_name
-    tenant_name = _get_test_db()
-    service_name = app.config["name"]
-    from drift.utils import get_tier_name
-    tier_name = get_tier_name()
 
-    db_name = construct_db_name(tenant_name, service_name, tier_name)
-    test_target = _get_test_target()
-    if test_target:
-        flushwrite(
-            "Skipping tenant setup due to "
-            "manually specified test target: %s" % test_target
-        )
-        return
+    # Always assume local servers
+    os.environ['drift_use_local_servers'] = '1'
 
-    db_host = app.config["systest_db"]["server"]
-    app.config["db_connection_info"]["server"] = db_host
-    app.config["default_tenant"] = tenant_name
-    app.config["service_user"] = {
-        "username": service_username,
-        "password": service_password
-    }
-    conn_string = "postgresql://zzp_user:zzp_user@{}/{}" \
-                  .format(db_host, db_name)
-    test_tenant = {
-        "name": tenant_name,
-        "db_connection_string": conn_string,
-    }
-    app.config["tenants"].insert(0, test_tenant)
-    # flushwrite("Adding test tenant '%s'" % test_tenant)
-    # TODO: _get_env assumes "*" is the last tenant and screws things up
-    # if you append something else at the end. Fix this plz.
+    ts = _create_basic_domain()
+    set_sticky_config(ts)
 
-    # Add public and private key for jwt.
+    # Create a test tenant
+    tier_name = 'UNITTEST'
+    tenant_name = 'dg-unittest-product'
+    os.environ['default_drift_tier'] = tier_name
+    os.environ['default_drift_tenant'] = tenant_name
+    conf = get_config(tenant_name)
 
-    app.config['private_key'] = private_test_key
-    app.config['jwt_trusted_issuers'] = [
-        {
-            "iss": app.config['name'],
-            "pub_rsa": public_test_key,
-        }
+    # Fixup tier defaults
+    conf.tier['resource_defaults'] = [
     ]
+
+    conf.tier['service_user'] = {
+        "password": "SERVICE",
+        "username": "user+pass:$SERVICE$"
+    }
+
+    # Provision resources
+    resources = conf.drift_app.get("resources")
+    for module_name in resources:
+        m = importlib.import_module(module_name)
+        if hasattr(m, "provision"):
+            provisioner_name = m.__name__.split('.')[-1]
+            log.info("Provisioning '%s' for tenant '%s' on tier '%s'", provisioner_name, tenant_name, tier_name)
+            conf.tier['resource_defaults'].append({
+                'resource_name': provisioner_name,
+                'parameters': getattr(m, 'NEW_TIER_DEFAULTS', {}),
+                })
+            m.provision(conf, {}, recreate='skip')
+
+
+    # skitamix
+    from drift.appmodule import app
+    app.config['jwt_trusted_issuers'] = [
+    {
+        "iss": app.config['name'],
+        "pub_rsa": public_test_key,
+    }]
+
+    # mixamix
+    app.config['TESTING'] = True
+
 
 private_test_key = '''
 -----BEGIN RSA PRIVATE KEY-----
@@ -118,7 +188,6 @@ public_test_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDjhJCi86VWOc" \
     "zW59s2Zc/yZUXt/N33Z7Lstpjk4V6SXPU6vhriPjySV7DWucLjwct9q+Ovz" \
     "fL6Hv81BuKmK60Qkco5ldMruJGXjT0nTuLjOCvfD9aG61GmK4pPXKcJ7vE=" \
     " unittest@dg-api.com"
-
 
 
 def remove_tenant():
@@ -185,7 +254,6 @@ def create_standard_claims_for_test():
 
 
 class DriftBaseTestCase(unittest.TestCase):
-
     headers = {}
     token = None
     current_user = {}
@@ -350,6 +418,7 @@ class DriftBaseTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        setup_tenant()
         target = _get_test_target()
         cls.host = target or "http://localhost"
         if not target:
@@ -358,4 +427,4 @@ class DriftBaseTestCase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        remove_tenant()

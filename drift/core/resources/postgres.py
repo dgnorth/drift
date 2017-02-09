@@ -33,6 +33,14 @@ ECHO_SQL = False
 SCHEMAS = ["public"]
 
 
+def init_app(app):
+    @app.before_request
+    def before_request(*args, **kw):
+        # Set up a db session to our tenant DB
+        from drift.orm import get_sqlalchemy_session
+        g.db = get_sqlalchemy_session()
+
+
 def process_connection_values(postgres_parameters):
     """
     Returns a copy of 'postgres_parameters' where values have been
@@ -83,6 +91,7 @@ def db_check(params):
 
 
 def create_db(params):
+    params = process_connection_values(params)
     db_name = params["database"]
     db_host = params["server"]
     username = params["username"]
@@ -147,10 +156,21 @@ def create_db(params):
 
     return db_name
 
-def drop_db(_params):
-    params = _params.copy()
+def drop_db(_params, force=False):
+
+    params = process_connection_values(_params)
     db_name = params["database"]
+    if 'test' not in db_name.lower() and not force:
+        raise RuntimeError("Will not drop database '{}' because it's not a test DB. Use 'force' to override".format(db_name))
+
     params["database"] = MASTER_DB
+    params["username"] = MASTER_USER
+    params["password"] = MASTER_PASSWORD
+
+    if db_exists(params):
+        print "Not dropping database '{}' as it doesn't seem to exist.".format(db_name)
+        return
+
     engine = connect(params)
 
     # disconnect connected clients
@@ -168,14 +188,20 @@ def drop_db(_params):
     log.info("Database '%s' has been dropped on '%s'", db_name, params["server"])
 
 
-def provision(config, args):
+def provision(config, args, recreate=None):
     params = get_parameters(config, args, NEW_TIER_DEFAULTS.keys(), "postgres")
+    params = process_connection_values(params)
     if not params["database"]:
-        params["database"] = "{}_{}_{}".format(config.tier['tier_name'], config.tenant_name['tenant_name'], config.deployable['deployable_name'])
+        params["database"] = "{}.{}.{}".format(config.tier['tier_name'], config.tenant_name['tenant_name'], config.deployable['deployable_name'])
     config.tenant["postgres"] = params
 
     if db_exists(params):
-        raise RuntimeError("Database already exists. %s" % repr(params))
+        if recreate == 'recreate':
+            drop_db(params)
+        elif recreate == 'skip':
+            return
+        else:
+            raise RuntimeError("Database already exists. %s" % format_connection_string(params))
 
     create_db(params)
 

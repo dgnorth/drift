@@ -8,6 +8,10 @@ import json
 from datetime import datetime
 from time import mktime
 import logging
+import os
+
+from drift.utils import get_config
+from flask import g
 
 from celery import Celery
 import kombu.serialization
@@ -22,6 +26,7 @@ CELERY_DB_NUMBER = 15
 # Global Celery instance
 celery = None
 
+
 def make_celery(app):
 
     kombu.serialization.register(
@@ -35,13 +40,17 @@ def make_celery(app):
     ts = get_default_drift_config()
     tier_name = get_tier_name()
     tier_config = ts.get_table('tiers').get({'tier_name': tier_name})
-    BROKER_URL = tier_config["celery_broker_url"]
-    #BROKER_URL = "redis://localhost:6379/15"
-    log.info("celery broker from tier config: %s", BROKER_URL)
+
+    if os.environ.get('drift_use_local_servers', False):
+        broker_url = "redis://localhost:6379/15"
+    else:
+        broker_url = tier_config["celery_broker_url"]
+
+    log.info("Celery broker from tier config: %s", broker_url)
 
     celery.conf.update(app.config)
-    celery.conf["BROKER_URL"] = BROKER_URL
-    celery.conf["CELERY_RESULT_BACKEND"] = BROKER_URL
+    celery.conf["BROKER_URL"] = broker_url
+    celery.conf["CELERY_RESULT_BACKEND"] = broker_url
     celery.conf["CELERY_TASK_SERIALIZER"] = "drift_celery_json"
     celery.conf["CELERY_RESULT_SERIALIZER"] = "drift_celery_json"
     celery.conf["CELERY_ACCEPT_CONTENT"] = ["drift_celery_json"]
@@ -53,7 +62,9 @@ def make_celery(app):
 
         def __call__(self, *args, **kwargs):
             with app.app_context():
+                g.conf = get_config()
                 return TaskBase.__call__(self, *args, **kwargs)
+
     celery.Task = ContextTask
     return celery
 

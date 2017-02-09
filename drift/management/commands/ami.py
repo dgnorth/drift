@@ -25,7 +25,7 @@ from drift.utils import get_tier_name
 from drift import slackbot
 
 # regions:
-# eu-west-1 : ami-234ecc54 
+# eu-west-1 : ami-234ecc54
 #             ready-made: ami-71196e06
 # ap-southeast-1: ami-ca381398
 
@@ -122,6 +122,9 @@ def _bake_command(args):
     tier_config = get_tier_config()
     iam_conn = boto.iam.connect_to_region(tier_config["region"])
 
+    print "WHAT IS HERE", os.environ.get("drift_CONFIG")
+    return
+
     if args.ubuntu:
         # Get all Ubuntu Trusty 14.04 images from the appropriate region and
         # pick the most recent one.
@@ -129,13 +132,13 @@ def _bake_command(args):
         print "Finding the latest AMI on AWS that matches", UBUNTU_RELEASE
         ec2 = boto3.resource('ec2', region_name=tier_config["region"])
         filters = [
-            {'Name': 'name', 'Values': [UBUNTU_RELEASE]}, 
+            {'Name': 'name', 'Values': [UBUNTU_RELEASE]},
         ]
         amis = list(ec2.images.filter(Owners=[AMI_OWNER_CANONICAL], Filters=filters))
         if not amis:
             print "No AMI found matching '{}'. Not sure what to do now.".format(
                 UBUNTU_RELEASE, tier_config["tier"], sys.argv[0])
-            sys.exit(1)        
+            sys.exit(1)
         ami = max(amis, key=operator.attrgetter("creation_date"))
     else:
         ec2 = boto3.resource('ec2', region_name=tier_config["region"])
@@ -147,7 +150,7 @@ def _bake_command(args):
         if not amis:
             print "No '{}' AMI found for tier {}. Bake one using this command: {} ami bake --ubuntu".format(
                 UBUNTU_BASE_IMAGE_NAME, tier_config["tier"], sys.argv[0])
-            sys.exit(1)        
+            sys.exit(1)
         ami = max(amis, key=operator.attrgetter("creation_date"))
 
     print "Using source AMI:"
@@ -163,7 +166,7 @@ def _bake_command(args):
     else:
         cmd = "python setup.py sdist --formats=zip"
         current_branch = get_branch()
-        
+
         if not args.tag:
             # See if service is tagged to a specific version for this tier
             for si in tier_config['deployables']:
@@ -190,7 +193,7 @@ def _bake_command(args):
             sha_commit = get_commit()
             branch = get_branch()
             version = get_git_version()
-            service_info = get_service_info()    
+            service_info = get_service_info()
             if not args.preview:
                 os.system(cmd)
         finally:
@@ -274,7 +277,7 @@ def _bake_command(args):
     if args.preview:
         print "Not building or packaging because --preview is on. Exiting now."
         return
-    
+
     with open(deployment_manifest_filename, "w") as dif:
         dif.write(deployment_manifest_json)
 
@@ -310,7 +313,7 @@ def _run_command(args):
     ec2_conn = boto.ec2.connect_to_region(tier_config["region"])
     iam_conn = boto.iam.connect_to_region(tier_config["region"])
     tier_name = tier_config["tier"].upper()  # Canonical name of tier
-    
+
     print "Launch an instance of '{}' on tier '{}'".format(
         service_info["name"], tier_config["tier"])
 
@@ -347,7 +350,7 @@ def _run_command(args):
         }
 
     # Find AMI
-    filters={
+    filters = {
         'tag:service-name': service_info["name"],
         'tag:tier': tier_name,
     }
@@ -360,7 +363,7 @@ def _run_command(args):
         filters=filters,
     )
     if not amis:
-        print "No AMI's found that match the tags."        
+        print "No AMI's found that match the tags."
         print "Bake a new one using this command: {} ami bake {}".format(sys.argv[0], release)
         ami = None
     else:
@@ -447,7 +450,7 @@ def _run_command(args):
         "service-name": service_info["name"],
         "service-type": "rest-api",  # TODO: Assume there are more types to come.
         "launched-by": iam_conn.get_user().user_name,
-        
+
         # Make instance part of api-router round-robin load balancing
         "api-target": service_info["name"],
         "api-port": "10080",
@@ -457,7 +460,7 @@ def _run_command(args):
     if args.preview:
         print "--preview specified, exiting now before actually doing anything."
         sys.exit(0)
-    
+
     if autoscaling:
         client = boto3.client('autoscaling', region_name=tier_config["region"])
         launch_config_name = '{}-{}-launchconfig-{}-{}'.format(tier_name, service_info["name"], datetime.utcnow(), release)
@@ -483,8 +486,8 @@ def _run_command(args):
         if not groups['AutoScalingGroups']:
             tagsarg = [
                 {
-                    'ResourceId': tags['Name'], 
-                    'ResourceType': 'auto-scaling-group', 
+                    'ResourceId': tags['Name'],
+                    'ResourceType': 'auto-scaling-group',
                     'Key': k,
                     'Value': v,
                     'PropagateAtLaunch': True,

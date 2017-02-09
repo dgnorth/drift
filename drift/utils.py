@@ -8,6 +8,17 @@ from socket import gethostname
 import uuid
 import time
 import boto.ec2
+import json
+
+# pygments is optional for now
+try:
+    got_pygments = True
+    from pygments import highlight, util
+    from pygments.lexers import get_lexer_by_name
+    from pygments.formatters import get_formatter_by_name, get_all_formatters
+    from pygments.styles import get_style_by_name, get_all_styles
+except ImportError:
+    got_pygments = False
 
 from flask import g, make_response, jsonify, request, url_for, current_app
 
@@ -42,8 +53,8 @@ def get_tenant_name():
     and if not, then it must be specified explicitly in the environment
     variable 'default_drift_tenant'.
     """
-    if g:
-        return g.conf.tier['tenant_name']
+    if g and hasattr(g, 'conf'):
+        return g.conf.tenant['tenant_name']
     elif 'default_drift_tenant' in os.environ:
         return os.environ['default_drift_tenant']
     else:
@@ -146,6 +157,12 @@ def get_tier_name(config_path=None):
 
     Currently supports only DEV, STAGING, DGN-DEV and LIVE tiers.
     """
+    if g and hasattr(g, 'conf'):
+        return g.conf.tier['tier_name']
+    elif 'default_drift_tier' in os.environ:
+        return os.environ['default_drift_tier']
+
+    # TODO: Remove this?
     if current_app and 'tier_name' in current_app.config:
         return current_app.config['tier_name']
 
@@ -229,3 +246,65 @@ def url_player(player_id):
 
 def url_client(client_id):
     return url_for("clients.client", client_id=client_id, _external=True)
+
+
+PRETTY_FORMATTER = 'console256'
+PRETTY_STYLE = 'tango'
+
+
+def pretty(ob, lexer=None):
+    """
+    Return a pretty console text representation of 'ob'.
+    If 'ob' is something else than plain text, specify it in 'lexer'.
+
+    If 'ob' is not string, Json lexer is assumed.
+
+    Command line switches can be used to control highlighting and style.
+    """
+    if lexer is None:
+        if isinstance(ob, basestring):
+            lexer = 'text'
+        else:
+            lexer = 'json'
+
+    if lexer == 'json':
+        ob = json.dumps(ob, indent=4, sort_keys=True)
+
+    if got_pygments:
+        lexerob = get_lexer_by_name(lexer)
+        formatter = get_formatter_by_name(PRETTY_FORMATTER, style=PRETTY_STYLE)
+        #from pygments.filters import *
+        #lexerob.add_filter(VisibleWhitespaceFilter())
+        ret = highlight(ob, lexerob, formatter)
+    else:
+        ret = ob
+
+    return ret
+
+
+def set_pretty_settings(formatter=None, style=None):
+    if not got_pygments:
+        return
+
+    global PRETTY_FORMATTER
+    global PRETTY_STYLE
+
+    try:
+        if formatter:
+            get_formatter_by_name(formatter)
+            PRETTY_FORMATTER = formatter
+
+        if style:
+            get_style_by_name(style)
+            PRETTY_STYLE = style
+
+    except util.ClassNotFound as e:
+        print "Note: ", e
+        print get_avaible_pretty_settings()
+
+
+def get_avaible_pretty_settings():
+    formatters = ', '.join([f.aliases[0] for f in get_all_formatters()])
+    styles = ', '.join(list(get_all_styles()))
+    s = "Available formatters: {}\nAvailable styles: {}".format(formatters, styles)
+    return s

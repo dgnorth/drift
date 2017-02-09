@@ -15,7 +15,7 @@ from boto.s3.connection import OrdinaryCallingFormat
 
 from drift.utils import get_tier_name
 from drift.management.gittools import get_branch, get_commit, get_repo_url, get_git_version
-from drift.management.commands import set_pretty_settings, PRETTY_FORMATTER, PRETTY_STYLE
+from drift.utils import pretty, set_pretty_settings, PRETTY_FORMATTER, PRETTY_STYLE
 from driftconfig.util import get_domains
 
 TIERS_CONFIG_FILENAME = "tiers-config.json"
@@ -82,9 +82,9 @@ def do_execute_cmd(argv):
     if args.loglevel:
         logging.basicConfig(level=args.loglevel)
 
-    if args.localservers:
+    if args.localservers or os.environ.get('drift_use_local_servers', False):
         os.environ['drift_use_local_servers'] = '1'
-        print "Using localhost for Redis and Postgres connections."
+        print pretty("[BOLD]Using localhost for Redis and Postgres connections.[RESET]")
 
     set_pretty_settings(formatter=args.formatter, style=args.style)
 
