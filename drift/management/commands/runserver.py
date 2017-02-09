@@ -85,10 +85,11 @@ def run_command(args):
         app.config["PROFILE"] = True
         app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
 
-    print ">>>", os.environ['drift_use_local_servers']
-
     if not args.localservers and not os.environ.get('drift_use_local_servers', False):
-        log.warning("Running Flask without 'localservers' option. (See -h for help).")
+        log.warning("Running Flask without 'localservers' option.\n"
+            "Either specify it on the command line using --locaservers\n"
+            "or set the environment variable drift_use_local_servers=1"
+        )
 
     if not args.tenant:
         log.warning("Running Flask without specifying a tenant. (See -h for help).")

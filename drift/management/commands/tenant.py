@@ -3,6 +3,7 @@
 Run all apps in this project as a console server.
 """
 import sys
+import importlib
 
 from sqlalchemy import create_engine
 from colorama import Fore, Style
@@ -45,11 +46,15 @@ def tenants_report(tenant_name=None):
     conf = get_config()
 
     if not tenant_name:
-        print "The following active tenants are registered in config on tier '{}':".format(
-            conf.tier['tier_name']
+        print "The following active tenants are registered in config on tier '{}' for deployable '{}:".format(
+            conf.tier['tier_name'], conf.deployable['deployable_name']
         )
 
-    criteria = {'tier_name': conf.tier['tier_name'], 'state': 'active'}
+    criteria = {
+        'tier_name': conf.tier['tier_name'],
+        'deployable_name': conf.deployable['deployable_name'],
+        'state': 'active'
+    }
     if tenant_name:
         criteria['tenant_name'] = tenant_name
     active_tenants = conf.table_store.get_table('tenants').find(criteria)
@@ -103,13 +108,19 @@ def run_command(args):
             tenant.drop_db(tenant_name, db_host, tier_name)
 
     if "create" in args.action:
-        from drift.core.resources.postgres import provision, db_exists
-        db_host = conf.tenant.get('postgres', {}).get('server', '?')
+        # Provision resources
+        resources = conf.drift_app.get("resources")
+        for module_name in resources:
+            m = importlib.import_module(module_name)
+            if hasattr(m, "provision"):
+                provisioner_name = m.__name__.split('.')[-1]
+                print "Provisioning '%s' for tenant '%s' on tier '%s'" % (provisioner_name, tenant_name, conf.tier['tier_name'])
+                conf.tier['resource_defaults'].append({
+                    'resource_name': provisioner_name,
+                    'parameters': getattr(m, 'NEW_TIER_DEFAULTS', {}),
+                })
+                m.provision(conf, {}, recreate='skip')
 
-        print "Creating tenant '{}' on server '{}'...".format(tenant_name, db_host)
-        if db_exists(conf.tenant['postgres']):
-            print Fore.RED + "ERROR: You cannot create the database because it already exists"
-            print "Use the command 'recreate' if you want to drop and create the db"
-        else:
-            provision(conf, conf.tenant['postgres'])
-            tenant_report(conf)
+        conf.tenant['state'] = 'active'
+        print "You must save your config now!"
+        tenant_report(conf)

@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import datetime
 from drift.core.resources import get_parameters
 from flask import g
@@ -15,6 +16,8 @@ NEW_TIER_DEFAULTS = {
 
 def provision(config, args, recreate=False):
     params = get_parameters(config, args, NEW_TIER_DEFAULTS.keys(), "redis")
+    if os.environ.get('drift_use_local_servers', False):
+        params['host'] = 'localhost'
     config.tenant["redis"] = params
 
 def healthcheck():
