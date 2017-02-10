@@ -81,7 +81,7 @@ class AdminProvisionAPI(Resource):
         local_store.save_table_store(ts)
 
         # invalidate flask config
-        current_app.extensions['relib'].refresh()
+        current_app.extensions['driftconfig'].refresh()
 
         return "OK"
 

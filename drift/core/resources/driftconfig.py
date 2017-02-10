@@ -10,9 +10,12 @@ import json
 import os
 
 from flask import request, g, current_app
+from flask import _app_ctx_stack as stack
 
-from driftconfig.util import get_drift_config
-from driftconfig.flask_relib import FlaskRelib
+from driftconfig.relib import CHECK_INTEGRITY
+from driftconfig.util import get_drift_config, get_default_drift_config
+
+
 from drift.flaskfactory import TenantNotFoundError
 from drift.rediscache import RedisCache
 from drift.core.extensions.jwt import check_jwt_authorization
@@ -38,7 +41,27 @@ class DriftConfig(object):
         app.before_request(self.before_request)
         app.after_request(self.after_request)
 
-        FlaskRelib(app)  # TODO: Find a more suitable place for this
+        # Turn off integrity checks in table stores.
+        if not app.debug:
+            del CHECK_INTEGRITY[:]
+
+    def refresh(self):
+        """Invalidate Redis cache, if in use, and fetch new config from source."""
+        ctx = stack.top
+        if ctx is not None and hasattr(ctx, 'table_store'):
+            delattr(ctx, 'table_store')
+
+    @property
+    def table_store(self):
+        ctx = stack.top
+        if ctx is not None:
+            if not hasattr(ctx, 'table_store'):
+                ctx.table_store = self._get_table_store()
+            return ctx.table_store
+
+    def _get_table_store(self):
+        ts = get_default_drift_config()
+        return ts
 
     def before_request(self, *args, **kw):
         tenant_name = os.environ.get('default_drift_tenant')
@@ -61,7 +84,7 @@ class DriftConfig(object):
             tenant_name, domain = host.split('.', 1)
 
         conf = get_drift_config(
-            ts=current_app.extensions['relib'].table_store,
+            ts=current_app.extensions['driftconfig'].table_store,
             tenant_name=tenant_name,
             tier_name=get_tier_name(),
             deployable_name=current_app.config['name']
@@ -84,13 +107,6 @@ class DriftConfig(object):
             g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'], redis_config)
         else:
             g.redis = None
-
-        if 0:
-            print "tenant:\n", json.dumps(g.conf.tenant, indent=4)
-            print "tier:\n", json.dumps(g.conf.tier, indent=4)
-            print "deployable:\n", json.dumps(g.conf.deployable, indent=4)
-            print "tenant_name:\n", json.dumps(g.conf.tenant_name, indent=4)
-            print "organization:\n", json.dumps(g.conf.organization, indent=4)
 
         # Check for a valid JWT/JTI access token in the request header and populate current_user.
         check_jwt_authorization()

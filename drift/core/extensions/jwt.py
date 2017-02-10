@@ -285,7 +285,7 @@ def issue_token(payload, expire=None):
         raise RuntimeError('Payload is missing required claims: %s' %
                            ', '.join(missing_claims))
 
-    ts = current_app.extensions['relib'].table_store
+    ts = g.conf.table_store
     public_keys = ts.get_table('public-keys')
     row = public_keys.get({
         'tier_name': g.conf.tier['tier_name'], 'deployable_name': g.conf.deployable['deployable_name']

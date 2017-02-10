@@ -33,7 +33,7 @@ def get_config(tenant_name=None):
     # Hack: Must delay import this
     from drift.flaskfactory import load_flask_config
     if current_app:
-        ts = current_app.extensions['relib'].table_store
+        ts = current_app.extensions['driftconfig'].table_store
     else:
         ts = None
 

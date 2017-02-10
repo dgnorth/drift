@@ -51,7 +51,7 @@ class InfoPageAPI(Resource):
 
         # Only list out tenants which have a db, and only if caller has service role.
         if (current_user and ('service' in current_user['roles'])) or current_app.debug:
-            ts = current_app.extensions['relib'].table_store
+            ts = g.conf.table_store
             tenants_table = ts.get_table('tenants')
             tenants = []
             for tenant in tenants_table.find({'tier_name': tier_name, 'deployable_name': deployable_name}):
