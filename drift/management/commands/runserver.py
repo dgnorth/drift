@@ -66,7 +66,7 @@ def run_command(args):
     logging.root.setLevel(args.loglevel)
 
 
-    log.info("\n\n--------------------- Drift server starting up.... --------------------\n", )
+    print pretty("\n\n--------------------- Drift server starting up.... --------------------\n", )
 
     # Importing the app as late as possible
     from drift.appmodule import app
@@ -86,12 +86,27 @@ def run_command(args):
         app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
 
     if not args.localservers and not os.environ.get('drift_use_local_servers', False):
-        log.warning("Running Flask without 'localservers' option.\n"
+        print pretty("Running Flask without 'localservers' option.\n"
             "Either specify it on the command line using --locaservers\n"
             "or set the environment variable drift_use_local_servers=1"
         )
 
     if not args.tenant:
-        log.warning("Running Flask without specifying a tenant. (See -h for help).")
+        from drift.utils import get_config
+        tenant_names = [t['tenant_name'] for t in get_config().tenants]
+        print pretty(
+            "WARNING: Running a server without specifying a tenant. That's madness.\n"
+            "Please pick a tenant on the command line using the -t option (See -h for help).\n"
+            "Available tenants: {}".format(", ".join(tenant_names))
+            )
+
+        for tenant_name in tenant_names:
+            if 'default' in tenant_name.lower():
+                print pretty("For now, this tenant here will be used as the default "
+                    "tenant: {}".format(tenant_name)
+                )
+                os.environ['default_drift_tenant'] = tenant_name
+
+    print pretty("Server ready!")
 
     webservers.run_app(app, args.server)

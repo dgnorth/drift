@@ -279,7 +279,7 @@ def pretty(ob, lexer=None):
     else:
         ret = ob
 
-    return ret
+    return ret.rstrip()
 
 
 def set_pretty_settings(formatter=None, style=None):
