@@ -98,11 +98,6 @@ class DriftConfig(object):
         # Add applicable config tables to 'g'
         g.conf = conf
 
-        try:
-            from request_mixin import before_request
-            return before_request(request)
-        except ImportError:
-            pass
 
     def after_request(self, response):
         if current_app.config.get("no_response_caching", False) or not response.cache_control.max_age:
@@ -110,12 +105,6 @@ class DriftConfig(object):
             response.cache_control.no_cache = True
             response.cache_control.no_store = True
             response.cache_control.max_age = 0
-
-        try:
-            from request_mixin import after_request
-            after_request(response)
-        except ImportError:
-            pass
 
         return response
 
