@@ -17,7 +17,6 @@ from driftconfig.util import get_drift_config, get_default_drift_config
 
 
 from drift.flaskfactory import TenantNotFoundError
-from drift.rediscache import RedisCache
 from drift.core.extensions.jwt import check_jwt_authorization
 from drift.utils import get_tier_name
 
@@ -99,15 +98,6 @@ class DriftConfig(object):
         # Add applicable config tables to 'g'
         g.conf = conf
 
-        if g.conf.tenant and g.conf.tenant.get("redis"):
-            # HACK: Ability to override Redis hostname
-            redis_config = g.conf.tenant.get("redis")
-            if os.environ.get('drift_use_local_servers', False):
-                redis_config['host'] = 'localhost'
-            g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'], redis_config)
-        else:
-            g.redis = None
-
         # Check for a valid JWT/JTI access token in the request header and populate current_user.
         check_jwt_authorization()
 
@@ -141,5 +131,5 @@ class DriftConfig(object):
         return response
 
 
-flask_extension = DriftConfig()
-
+def register_extension(app):
+    DriftConfig(app)

@@ -76,7 +76,8 @@ class Postgres(object):
             return ctx.sqlalchemy_session
 
 
-flask_extension = Postgres()
+def register_extension(app):
+    Postgres(app)
 
 
 def get_sqlalchemy_session(conn_string=None):

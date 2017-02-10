@@ -134,10 +134,6 @@ def install_modules(app):
     """Install built-in and product specific apps and extensions."""
 
     # TODO: Use package manager to enumerate and load the modules.
-    def register_flask_extension(m):
-        if hasattr(m, 'flask_extension'):
-            log.info("Registering Flask extension: %s", m.flask_extension)
-            m.flask_extension.init_app(app)
 
     resources = app.config.get("resources", [])
     resources.insert(0, 'drift.core.resources.driftconfig')
@@ -156,13 +152,8 @@ def install_modules(app):
         "\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps)
     )
 
-    for module_name in resources:
+    for module_name in resources + extensions:
         m = importlib.import_module(module_name)
-        register_flask_extension(m)
-
-    for module_name in extensions:
-        m = importlib.import_module(module_name)
-        register_flask_extension(m)
         if hasattr(m, "register_extension"):
             m.register_extension(app)
         else:
@@ -170,7 +161,6 @@ def install_modules(app):
 
     for module_name in apps:
         m = importlib.import_module(module_name)
-        register_flask_extension(m)
         blueprint_name = "{}.blueprints".format(module_name)
 
         try:
