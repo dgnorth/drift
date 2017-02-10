@@ -98,9 +98,6 @@ class DriftConfig(object):
         # Add applicable config tables to 'g'
         g.conf = conf
 
-        # Check for a valid JWT/JTI access token in the request header and populate current_user.
-        check_jwt_authorization()
-
         # initialize the list for messages to the debug client
         g.client_debug_messages = []
 

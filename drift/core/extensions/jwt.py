@@ -176,6 +176,11 @@ def jwtsetup(app):
 
     app.register_blueprint(bp)
 
+    @app.before_request
+    def before_request(*args, **kw):
+        # Check for a valid JWT/JTI access token in the request header and populate current_user.
+        check_jwt_authorization()
+
     # Authentication endpoint
     @jwt_not_required
     @app.route('/auth', methods=['GET', 'POST'])
