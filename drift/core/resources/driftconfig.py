@@ -98,9 +98,6 @@ class DriftConfig(object):
         # Add applicable config tables to 'g'
         g.conf = conf
 
-        # initialize the list for messages to the debug client
-        g.client_debug_messages = []
-
         try:
             from request_mixin import before_request
             return before_request(request)
@@ -108,12 +105,7 @@ class DriftConfig(object):
             pass
 
     def after_request(self, response):
-        """Add response headers"""
-        if getattr(g, "client_debug_messages", None):
-            response.headers["Drift-Debug-Message"] = "\\n".join(g.client_debug_messages)
-
-        if current_app.config.get("no_response_caching", False) \
-           or not response.cache_control.max_age:
+        if current_app.config.get("no_response_caching", False) or not response.cache_control.max_age:
             # Turn off all caching
             response.cache_control.no_cache = True
             response.cache_control.no_store = True
