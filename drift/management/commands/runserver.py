@@ -65,7 +65,6 @@ def run_command(args):
     logging.root.addHandler(stream_handler)
     logging.root.setLevel(args.loglevel)
 
-
     print pretty("\n\n--------------------- Drift server starting up.... --------------------\n", )
 
     # Importing the app as late as possible
@@ -77,7 +76,7 @@ def run_command(args):
     else:
         app.debug = False
         print pretty("Running Flask in RELEASE mode because of --nodebug "
-                          "command line argument.")
+            "command line argument.")
 
     if args.profile:
         print pretty("Starting profiler")
@@ -90,6 +89,11 @@ def run_command(args):
             "Either specify it on the command line using --locaservers\n"
             "or set the environment variable drift_use_local_servers=1"
         )
+    else:
+        print pretty(
+            "Running Flask with 'localserver' option. Host names of all servers "
+            "(Postgres, Redis, etc..) will be explicitly changed to 'localhost'."
+        )
 
     if not args.tenant:
         from drift.utils import get_config
@@ -98,7 +102,7 @@ def run_command(args):
             "WARNING: Running a server without specifying a tenant. That's madness.\n"
             "Please pick a tenant on the command line using the -t option (See -h for help).\n"
             "Available tenants: {}".format(", ".join(tenant_names))
-            )
+        )
 
         for tenant_name in tenant_names:
             if 'default' in tenant_name.lower():
