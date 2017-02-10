@@ -9,8 +9,8 @@ import importlib
 import unittest
 import logging
 
-from driftconfig.util import get_default_drift_config
-
+from drift.systesthelper import setup_tenant
+from drift.utils import get_config
 
 try:
     from teamcity import is_running_under_teamcity
@@ -53,24 +53,27 @@ def get_options(parser):
         default=False,
         action="store_true"
     )
+    parser.add_argument(
+        "--preview",
+        "-p",
+        help="Only list out which tests would be run.",
+        action="store_true"
+    )
 
 
 def run_command(args):
-    from drift.utils import uuid_string
-    from drift.appmodule import app as _app
-    from drift.core.resources.postgres import create_db, drop_db
-    from drift.utils import get_config
-
-    from drift.flaskfactory import load_flask_config
-    from driftconfig.util import get_drift_config
-
     pick_tests = []
     if args.tests:
         pick_tests = [t.lower() for t in args.tests.split(",")]
         print "Picking tests {}".format(pick_tests)
 
+    # Set up a mock tenant so we can bootstrap the app and inspect
+    # the modules within.
+    setup_tenant()
+    conf = get_config()
     test_modules = []
-    for app in _app.config["apps"]:
+
+    for app in conf.drift_app['apps']:
         m = importlib.import_module(app)
         path = dirname(m.__file__)
         tests_path = os.path.join(path, "tests")
@@ -103,20 +106,22 @@ def run_command(args):
                     for p in pick_tests:
                         if p in str(t).lower():
                             tests_to_run.append(t)
-                    else:
-                        tests_to_skip.append(t)
+                        else:
+                            tests_to_skip.append(t)
                 else:
                     tests_to_run.append(t)
 
     print "Running {} test(s) from {} module(s)".format(len(tests_to_run), len(suites))
-    if tests_to_skip:
-        print "Skipping {} test(s)".format(len(tests_to_skip))
+    print "Skipping {} test(s)".format(len(tests_to_skip))
     if pick_tests:
         print "Just running the following tests:"
         if not tests_to_run:
             print "   No tests found!"
         for t in tests_to_run:
             print "   {}".format(t)
+
+    if args.preview:
+        return
 
     test_suite = unittest.TestSuite(tests_to_run)
     verbosity = 1
