@@ -2,12 +2,18 @@
 import os
 import os.path
 import importlib
+from contextlib import contextmanager
+
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 from alembic.config import Config
 from alembic import command
 
+from werkzeug.local import LocalProxy
 from sqlalchemy import create_engine
-from flask import current_app, g
+from flask import g
+from flask import _app_ctx_stack as stack
 
 from drift.flaskfactory import load_flask_config
 from drift.core.resources import get_parameters
@@ -33,12 +39,78 @@ ECHO_SQL = False
 SCHEMAS = ["public"]
 
 
-def init_app(app):
-    @app.before_request
-    def before_request(*args, **kw):
-        # Set up a db session to our tenant DB
-        from drift.orm import get_sqlalchemy_session
-        g.db = get_sqlalchemy_session()
+class Postgres(object):
+    """Postgres Flask extension."""
+    def __init__(self, app=None):
+        self.app = app
+        if app is not None:
+            self.init_app(app)
+
+    def init_app(self, app):
+        if not hasattr(app, 'extensions'):
+            app.extensions = {}
+
+        app.extensions['postgres'] = self
+        app.before_request(self.before_request)
+        app.teardown_request(self.teardown_request)
+
+    def before_request(self, *args, **kw):
+        # Add a just-in-time getter for session
+        g.db = LocalProxy(self.get_session)
+
+    def teardown_request(self, exception):
+        """Return the database connection at the end of the request"""
+        ctx = stack.top
+        if ctx is not None:
+            if hasattr(ctx, 'sqlalchemy_session'):
+                try:
+                    ctx.sqlalchemy_session.close()
+                except Exception as e:
+                    log.error("Could not close sqlalchemy session: %s", e)
+
+    def get_session(self):
+        ctx = stack.top
+        if ctx is not None:
+            if not hasattr(ctx, 'sqlalchemy_session'):
+                ctx.sqlalchemy_session = get_sqlalchemy_session()
+            return ctx.sqlalchemy_session
+
+
+flask_extension = Postgres()
+
+
+def get_sqlalchemy_session(conn_string=None):
+    """
+    Return an SQLAlchemy session for the specified DB connection string
+    """
+    if not conn_string:
+        ci = None
+        if g.conf.tenant:
+            ci = g.conf.tenant.get('postgres')
+        if not ci:
+            return
+
+        conn_string = format_connection_string(ci)
+
+    log.debug("Creating sqlalchemy session with connection string '%s'", conn_string)
+    engine = create_engine(conn_string, echo=False, poolclass=NullPool)
+    session_factory = sessionmaker(bind=engine, expire_on_commit=True)
+    session = session_factory()
+    session.expire_on_commit = False
+    return session
+
+
+@contextmanager
+def sqlalchemy_session(conn_string=None):
+    session = get_sqlalchemy_session(conn_string)
+    try:
+        yield session
+        session.commit()
+    except BaseException:
+        session.rollback()
+        raise
+    finally:
+        session.close()
 
 
 def process_connection_values(postgres_parameters):
@@ -156,6 +228,7 @@ def create_db(params):
 
     return db_name
 
+
 def drop_db(_params, force=False):
 
     params = process_connection_values(_params)
@@ -204,6 +277,7 @@ def provision(config, args, recreate=None):
             raise RuntimeError("Database already exists. %s" % format_connection_string(params))
 
     create_db(params)
+
 
 def healthcheck():
     if "postgres" not in g.conf.tenant:

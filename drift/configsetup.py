@@ -85,10 +85,6 @@ def install_configuration_hooks(app):
         # initialize the list for messages to the debug client
         g.client_debug_messages = []
 
-        # Set up a db session to our tenant DB
-        from drift.orm import get_sqlalchemy_session
-        g.db = get_sqlalchemy_session()
-
         try:
             from request_mixin import before_request
             return before_request(request)
@@ -115,13 +111,3 @@ def install_configuration_hooks(app):
             pass
 
         return response
-
-    @app.teardown_request
-    def teardown_request(exception):
-        """Return the database connection at the end of the request"""
-        try:
-            if getattr(g, "db", None):
-                g.db.close()
-        except Exception as e:
-            log.error("Could not close db session: %s", e)
-
