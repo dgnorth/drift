@@ -113,11 +113,12 @@ def requires_roles(_roles):
             required_roles = set(_roles.split(","))
             user_roles = set(current_user.get("roles", []))
             if not required_roles.intersection(user_roles):
-                log.warning("User does not have the needed roles for this "
-                            "call. User roles = '%s', Required roles = "
-                            "'%s'. current_user = '%s'",
-                            current_user.get("roles", ""),
-                            _roles, repr(current_user))
+                if not current_app.testing:
+                    log.warning("User does not have the needed roles for this "
+                                "call. User roles = '%s', Required roles = "
+                                "'%s'. current_user = '%s'",
+                                current_user.get("roles", ""),
+                                _roles, repr(current_user))
                 abort_unauthorized("You do not have access to this resource. "
                                    "It requires role '%s'" % _roles)
             return fn(*args, **kwargs)
@@ -209,7 +210,7 @@ def jwtsetup(app):
             # Issue a JWT with same payload as the one we got
             log.debug("Authenticating using a JWT: %s", payload)
             identity = payload
-        elif auth_info['provider'] in ['device_id', 'user+pass', 'uuid']:
+        elif auth_info['provider'] in ['device_id', 'user+pass', 'uuid', 'unit_test']:
             # Authenticate using access key, secret key pair
             # (or username, password pair)
             identity = authenticate(auth_info['username'],

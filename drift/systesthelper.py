@@ -373,6 +373,7 @@ class DriftBaseTestCase(unittest.TestCase):
         """
         if not payload:
             payload = {
+                "provider": "unit_test",
                 "username": username,
                 "password": local_password,
             }

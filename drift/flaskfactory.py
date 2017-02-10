@@ -19,6 +19,7 @@ from werkzeug.contrib.fixers import ProxyFix
 from drift.fixers import ReverseProxied, CustomJSONEncoder
 import drift.core.extensions
 from drift.management import get_config_path
+from drift.utils import get_config
 
 
 log = logging.getLogger(__name__)
@@ -33,9 +34,9 @@ def drift_app(app):
     app.instance_path = app_root
     app.static_folder = os.path.join(app_root, 'static')
 
-    # Load in Flask config from config/config.json
-    app_config = load_flask_config(app_root)
-    app.config.update(app_config)
+    # Trigger loading of drift config
+    conf = get_config()
+    app.config.update(conf.drift_app)
 
     # Hook up driftconfig to app
     from drift.configsetup import install_configuration_hooks
@@ -82,7 +83,7 @@ def _find_app_root(_use_cwd=False):
         parent = os.path.abspath(os.path.join(search_path, config_pathname))
         if parent == config:  # No change after traversing up
             if not _use_cwd:
-                log.warning("Can't locate app root after starting from %s. Trying current dir now..",
+                log.info("Can't locate app root after starting from %s. Trying current dir now..",
                     start_path
                 )
                 return _find_app_root(_use_cwd=True)
