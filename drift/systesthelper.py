@@ -217,11 +217,6 @@ def user_payload(user_id=1, player_id=1, role="player", user_name="user_name", c
     }
 
 
-def set_config_file(test_filename):
-    config_file = abspath(join(test_filename, "..", "..", "..", "config", "config.json"))
-    os.environ.setdefault("drift_CONFIG", config_file)
-
-
 def create_standard_claims_for_test():
     """
     Duplicate of the code from jwtsetup but does not use the
