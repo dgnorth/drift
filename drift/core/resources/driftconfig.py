@@ -4,6 +4,7 @@
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Apply application configuration and initialize tenants.
 """
+from __future__ import absolute_import
 import logging
 import json
 import os
@@ -22,12 +23,24 @@ DEFAULT_TENANT = "global"
 log = logging.getLogger(__name__)
 
 
-def install_configuration_hooks(app):
+class DriftConfig(object):
+    """DriftConfig Flask extension."""
+    def __init__(self, app=None):
+        self.app = app
+        if app is not None:
+            self.init_app(app)
 
-    FlaskRelib(app)  # TODO: Find a more suitable place for this
+    def init_app(self, app):
+        if not hasattr(app, 'extensions'):
+            app.extensions = {}
 
-    @app.before_request
-    def before_request(*args, **kw):
+        app.extensions['driftconfig'] = self
+        app.before_request(self.before_request)
+        app.after_request(self.after_request)
+
+        FlaskRelib(app)  # TODO: Find a more suitable place for this
+
+    def before_request(self, *args, **kw):
         tenant_name = os.environ.get('default_drift_tenant')
 
         # Figure out tenant. Normally the tenant name is embedded in the hostname.
@@ -91,13 +104,12 @@ def install_configuration_hooks(app):
         except ImportError:
             pass
 
-    @app.after_request
-    def after_request(response):
+    def after_request(self, response):
         """Add response headers"""
         if getattr(g, "client_debug_messages", None):
             response.headers["Drift-Debug-Message"] = "\\n".join(g.client_debug_messages)
 
-        if app.config.get("no_response_caching", False) \
+        if current_app.config.get("no_response_caching", False) \
            or not response.cache_control.max_age:
             # Turn off all caching
             response.cache_control.no_cache = True
@@ -111,3 +123,7 @@ def install_configuration_hooks(app):
             pass
 
         return response
+
+
+flask_extension = DriftConfig()
+

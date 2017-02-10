@@ -38,14 +38,10 @@ def drift_app(app):
     conf = get_config()
     app.config.update(conf.drift_app)
 
-    # Hook up driftconfig to app
-    from drift.configsetup import install_configuration_hooks
-    install_configuration_hooks(app)
-
     _apply_patches(app)
 
     # Install apps, api's and extensions.
-    install_extras(app)
+    install_modules(app)
 
     # TODO: Remove this or find a better place for it
     if not app.debug:
@@ -134,7 +130,7 @@ def _get_local_config(file_name, log_progress):
         return host_configs
 
 
-def install_extras(app):
+def install_modules(app):
     """Install built-in and product specific apps and extensions."""
 
     # TODO: Use package manager to enumerate and load the modules.
@@ -144,6 +140,7 @@ def install_extras(app):
             m.flask_extension.init_app(app)
 
     resources = app.config.get("resources", [])
+    resources.insert(0, 'drift.core.resources.driftconfig')
     # Include all core extensions and those referenced in the config.
     pkgpath = os.path.dirname(drift.core.extensions.__file__)
     extensions = [
