@@ -18,6 +18,7 @@ from driftconfig.util import get_drift_config, get_default_drift_config
 
 from drift.flaskfactory import TenantNotFoundError
 from drift.core.extensions.jwt import check_jwt_authorization
+from drift.core.extensions.tenancy import current_tenant
 from drift.utils import get_tier_name
 
 DEFAULT_TENANT = "global"
@@ -63,28 +64,9 @@ class DriftConfig(object):
         return ts
 
     def before_request(self, *args, **kw):
-        tenant_name = os.environ.get('default_drift_tenant')
-
-        # Figure out tenant. Normally the tenant name is embedded in the hostname.
-        host = request.headers.get("Host")
-        # Two dots minimum required if tenant is to be specified in the hostname.
-        host_has_tenant = False
-        if host and host.count('.') >= 2:
-            host_has_tenant = True
-            for l in host.split(":")[0].split("."):
-                try:
-                    int(l)
-                except:
-                    break
-            else:
-                host_has_tenant = False
-
-        if host_has_tenant:
-            tenant_name, domain = host.split('.', 1)
-
         conf = get_drift_config(
             ts=current_app.extensions['driftconfig'].table_store,
-            tenant_name=tenant_name,
+            tenant_name=current_tenant,
             tier_name=get_tier_name(),
             deployable_name=current_app.config['name']
         )
@@ -100,6 +82,7 @@ class DriftConfig(object):
 
 
     def after_request(self, response):
+        # TODO: Move this logice elsewhere
         if current_app.config.get("no_response_caching", False) or not response.cache_control.max_age:
             # Turn off all caching
             response.cache_control.no_cache = True
