@@ -49,7 +49,7 @@ def _get_test_target():
     return target
 
 
-def _create_basic_domain():
+def _create_basic_domain(deployable_name):
     ts = get_drift_table_store()
     domain = ts.get_table('domain').add({
         'domain_name': 'unit_test_domain',
@@ -69,13 +69,13 @@ def _create_basic_domain():
         })
 
     ts.get_table('deployable-names').add({
-        'deployable_name': 'drift-base',
+        'deployable_name': deployable_name,
         'display_name': "Drift Base Services",
         })
 
     ts.get_table('deployables').add({
         'tier_name': 'UNITTEST',
-        'deployable_name': 'drift-base',
+        'deployable_name': deployable_name,
         'is_active': True,
         })
 
@@ -93,14 +93,14 @@ def _create_basic_domain():
 
     ts.get_table('tenants').add({
         'tier_name': 'UNITTEST',
-        'deployable_name': 'drift-base',
+        'deployable_name': deployable_name,
         'tenant_name': 'dg-unittest-product',
         'state': 'active',
         })
 
     ts.get_table('public-keys').add({
         'tier_name': 'UNITTEST',
-        'deployable_name': 'drift-base',
+        'deployable_name': deployable_name,
         'keys': [
             {
                 'pub_rsa': public_test_key,
@@ -124,7 +124,11 @@ def setup_tenant():
     # Always assume local servers
     os.environ['drift_use_local_servers'] = '1'
 
-    ts = _create_basic_domain()
+    # TODO: Refactor deployable name logic once it's out of flask config.
+    from drift.flaskfactory import load_flask_config
+    deployable_name = load_flask_config()['name']
+
+    ts = _create_basic_domain(deployable_name)
     set_sticky_config(ts)
 
     # Create a test tenant
