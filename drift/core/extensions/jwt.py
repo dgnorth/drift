@@ -4,7 +4,6 @@ from __future__ import absolute_import
 
 import logging
 from datetime import datetime, timedelta
-import uuid
 import json
 import httplib
 from functools import wraps
@@ -14,7 +13,7 @@ from flask import current_app, request, Blueprint, _request_ctx_stack, jsonify, 
 from flask_restful import Api, abort
 
 from werkzeug.local import LocalProxy
-from werkzeug.security import pbkdf2_hex
+from werkzeug.security import pbkdf2_hex, gen_salt
 from werkzeug.exceptions import HTTPException
 
 from drift.utils import get_tier_name
@@ -419,7 +418,7 @@ def create_standard_claims(expire=None):
 
     iat = datetime.utcnow()
     exp = iat + timedelta(seconds=expire)
-    jti = str(uuid.uuid4()).replace("-", "")
+    jti = gen_salt(20)
     iss = current_app.config["name"]
 
     standard_claims = {
