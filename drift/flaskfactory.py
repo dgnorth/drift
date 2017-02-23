@@ -18,11 +18,15 @@ from werkzeug.contrib.fixers import ProxyFix
 
 from drift.fixers import ReverseProxied, CustomJSONEncoder
 import drift.core.extensions
-from drift.management import get_config_path
 from drift.utils import get_config
 
 
 log = logging.getLogger(__name__)
+
+
+class AppRootNotFound(RuntimeError):
+    """To enable CLI to filter on this particular case."""
+    pass
 
 
 def drift_app(app):
@@ -84,9 +88,9 @@ def _find_app_root(_use_cwd=False):
                 )
                 return _find_app_root(_use_cwd=True)
             else:
-                raise RuntimeError(
-                    "Can't locate app root, neither from executable location %s and from current dir %s.",
-                    exe_path, start_path
+                raise AppRootNotFound(
+                    "Can't locate config/config.json, neither from executable location '{}' and from "
+                    "current dir '{}'.".format(exe_path, start_path)
                 )
 
         config = parent
@@ -108,26 +112,14 @@ def load_flask_config(app_root=None):
     with open(config_filename) as f:
         config_values = json.load(f)
 
+    # Figure out version
+    version_filename = os.path.join(app_root, 'config', 'VERSION')
+    if os.path.exists(version_filename):
+        with open(version_filename) as f:
+            version = f.read().strip()
+            config_values['version'] = version
+
     return config_values
-
-
-def _get_local_config(file_name, log_progress):
-    log_progress = True
-    config_filename = get_config_path(file_name=file_name)
-    if not os.path.exists(config_filename):
-        if log_progress:
-            log.warning("No config file found at '%s'.", config_filename)
-        return {}
-
-    with open(config_filename, "r") as f:
-        json_text = f.read()
-        host_configs = json.loads(json_text)
-        if log_progress:
-            log.info(
-                "Applying host config file '%s', contains %s keys.",
-                config_filename, len(host_configs)
-            )
-        return host_configs
 
 
 def install_modules(app):

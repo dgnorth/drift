@@ -17,6 +17,7 @@ from drift.utils import get_tier_name
 from drift.management.gittools import get_branch, get_commit, get_repo_url, get_git_version
 from drift.utils import pretty, set_pretty_settings, PRETTY_FORMATTER, PRETTY_STYLE
 from driftconfig.util import get_domains
+from drift.flaskfactory import AppRootNotFound
 
 TIERS_CONFIG_FILENAME = "tiers-config.json"
 
@@ -41,7 +42,11 @@ def get_commands():
 
 
 def execute_cmd():
-    return do_execute_cmd(sys.argv[1:])
+    try:
+        return do_execute_cmd(sys.argv[1:])
+    except AppRootNotFound as e:
+        # A very common case that needs pretty printing
+        print str(e)
 
 
 def do_execute_cmd(argv):
@@ -195,20 +200,9 @@ def get_tier_config():
 
 
 def get_service_info():
-    # TODO: error checking
-    config_filename = os.environ["drift_CONFIG"]
-
-    config = json.load(open(config_filename))
-    service_name = config["name"]
-
-    service_path = os.path.dirname(os.path.dirname(config_filename))
-    with open(os.path.join(service_path, "VERSION")) as f:
-        service_version = f.read().strip()
-
-    return {
-        "name": service_name,
-        "version": service_version,
-    }
+    from drift.utils import get_config
+    conf = get_config()
+    return conf.drift_app
 
 
 def get_ec2_instances(region, filters=None):
