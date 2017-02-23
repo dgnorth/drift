@@ -13,9 +13,6 @@ install_requires=[
         "requests",
         "python-dateutil",
         "jsonschema",
-        "tornado",
-        "gevent",
-        "coverage",
         "boto",
         "boto3",
         "oss2",
@@ -38,6 +35,7 @@ tests_require = [
     'mock',
     'nose2',
     'Flask-Testing',
+    "coverage",
     ]
 
 
