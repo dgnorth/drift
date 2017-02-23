@@ -15,7 +15,7 @@ from boto.s3.connection import OrdinaryCallingFormat
 
 from drift.utils import get_tier_name
 from drift.management.gittools import get_branch, get_commit, get_repo_url, get_git_version
-from drift.utils import pretty, set_pretty_settings, PRETTY_FORMATTER, PRETTY_STYLE
+from drift.utils import get_config, pretty, set_pretty_settings, PRETTY_FORMATTER, PRETTY_STYLE
 from driftconfig.util import get_domains
 from drift.flaskfactory import AppRootNotFound
 
@@ -200,7 +200,6 @@ def get_tier_config():
 
 
 def get_service_info():
-    from drift.utils import get_config
     conf = get_config()
     return conf.drift_app
 
