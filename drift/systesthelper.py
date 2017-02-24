@@ -210,17 +210,6 @@ def remove_tenant():
     # TODO: Not implemented!
 
 
-def user_payload(user_id=1, player_id=1, role="player", user_name="user_name", client_id=1):
-    """Returns a dictionary containing typical user data for a JWT"""
-    return {
-        "user_id": user_id,
-        "player_id": player_id,
-        "roles": [role],
-        "user_name": user_name,
-        "client_id": client_id,
-    }
-
-
 def create_standard_claims_for_test():
     """
     Duplicate of the code from jwtsetup but does not use the
@@ -363,33 +352,25 @@ class DriftBaseTestCase(unittest.TestCase):
     def setUp(self):
         pass
 
-    def auth(self, payload=None, username="systest"):
+    def auth(self, username=None):
         """
-        If payload is supplied we JWT encode it using the current
-        app's secret and add it to the headers.
-        If payload is not supplied we do an auth call against the
-        current app's /auth endpoint
+        Do an auth call against the current app's /auth endpoint and fetch the
+        root document which includes all user endpoints.
         """
-        if not payload:
-            payload = {
-                "provider": "unit_test",
-                "username": username,
-                "password": local_password,
-            }
-            resp = self.post("/auth", data=payload)
-            token = resp.json()["token"]
-            jti = resp.json()["jti"]
-        else:
-            payload.update(create_standard_claims_for_test())
-            from appmodule import app
-            token = jwt.encode(payload, app.config['private_key'], algorithm='RS256')
-            jti = payload["jti"]
-        self.token = token
-        self.jti = jti
+        username = username or "systest"
+        payload = {
+            "provider": "unit_test",
+            "username": username,
+            "password": local_password,
+        }
+        resp = self.post("/auth", data=payload)
+
+        self.token = resp.json()["token"]
+        self.jti = resp.json()["jti"]
         self.current_user = jwt.decode(self.token, verify=False)
         self.player_id = self.current_user["player_id"]
         self.user_id = self.current_user["user_id"]
-        self.headers = {"Authorization": "JWT " + token, }
+        self.headers = {"Authorization": "JWT " + self.token}
 
         r = self.get("/")
         self.endpoints = r.json()["endpoints"]
