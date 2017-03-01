@@ -22,6 +22,10 @@ def get_current_tenant(*args, **kw):
         if not hasattr(ctx, 'current_tenant'):
             ctx.current_tenant = _figure_out_tenant()
         return ctx.current_tenant
+    else:
+        # Not in a Flask request context, so the only way to specify any
+        # tenant is using the environment variable.
+        return os.environ.get('default_drift_tenant')
 
 
 current_tenant = LocalProxy(get_current_tenant)

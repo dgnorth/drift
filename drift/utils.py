@@ -23,6 +23,7 @@ except ImportError:
 from flask import g, make_response, jsonify, request, url_for, current_app
 
 from driftconfig.util import get_drift_config
+from drift.core.extensions.tenancy import current_tenant
 
 log = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ def get_config(tenant_name=None):
     conf = get_drift_config(
         ts=ts,
         tier_name=get_tier_name(),
-        tenant_name=tenant_name,
+        tenant_name=tenant_name or current_tenant,
         drift_app=load_flask_config(),
     )
     return conf
