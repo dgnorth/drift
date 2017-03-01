@@ -7,6 +7,7 @@ import importlib
 import getpass
 from datetime import datetime
 import logging
+import subprocess
 
 import requests
 import boto
@@ -201,7 +202,58 @@ def get_tier_config():
 
 def get_service_info():
     conf = get_config()
+    conf.drift_app['version'] = get_app_version()
     return conf.drift_app
+
+
+def get_app_name():
+    """
+    Return the name of the current app.
+    It's gotten by running: python setup.py --name
+    """
+
+    # HACK: Get app root:
+    from drift.flaskfactory import _find_app_root
+    app_root = _find_app_root()
+
+    p = subprocess.Popen(
+        ['python', 'setup.py', '--name'],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        cwd=app_root
+    )
+    out, err = p.communicate()
+    if p.returncode != 0:
+        raise RuntimeError(
+            "Can't get version of this deployable. Error: {} - {}".format(p.returncode, err)
+        )
+
+    name = out.strip()
+    return name
+
+
+def get_app_version():
+    """
+    Return the version of the current app.
+    It's gotten by running: python setup.py --version
+    """
+
+    # HACK: Get app root:
+    from drift.flaskfactory import _find_app_root
+    app_root = _find_app_root()
+
+    p = subprocess.Popen(
+        ['python', 'setup.py', '--version'],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        cwd=app_root
+    )
+    out, err = p.communicate()
+    if p.returncode != 0:
+        raise RuntimeError(
+            "Can't get version of this deployable. Error: {} - {}".format(p.returncode, err)
+        )
+
+    version = out.strip()
+    return version
 
 
 def get_ec2_instances(region, filters=None):

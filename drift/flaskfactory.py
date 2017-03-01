@@ -112,13 +112,6 @@ def load_flask_config(app_root=None):
     with open(config_filename) as f:
         config_values = json.load(f)
 
-    # Figure out version
-    version_filename = os.path.join(app_root, 'config', 'VERSION')
-    if os.path.exists(version_filename):
-        with open(version_filename) as f:
-            version = f.read().strip()
-            config_values['version'] = version
-
     return config_values
 
 
