@@ -45,10 +45,6 @@ def get_git_version():
     """Returns git version info bits in a dict, or None if there is no version
     to be found (i.e. no tag for instance).
     """
-    if not os.path.isdir(".git"):
-        print "This does not appear to be a Git repository."
-        sys.exit(1)
-
     p = subprocess.Popen(
         ["git", "describe", "--tags", "--dirty", "--long"],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT
