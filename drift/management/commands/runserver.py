@@ -84,10 +84,10 @@ def run_command(args):
         app.config["PROFILE"] = True
         app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
 
-    if not args.localservers and not os.environ.get('drift_use_local_servers', False):
+    if not args.localservers and not os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         print pretty("Running Flask without 'localservers' option.\n"
             "Either specify it on the command line using --locaservers\n"
-            "or set the environment variable drift_use_local_servers=1"
+            "or set the environment variable DRIFT_USE_LOCAL_SERVERS=1"
         )
     else:
         print pretty(
@@ -109,7 +109,7 @@ def run_command(args):
                 print pretty("For now, this tenant here will be used as the default "
                     "tenant: {}".format(tenant_name)
                 )
-                os.environ['default_drift_tenant'] = tenant_name
+                os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
 
     print pretty("Server ready!")
 

@@ -120,7 +120,7 @@ def process_connection_values(postgres_parameters):
     processed or or overridden if applicable.
     """
     postgres_parameters = postgres_parameters.copy()
-    if os.environ.get('drift_use_local_servers', False):
+    if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         # Override 'server'
         postgres_parameters['server'] = 'localhost'
     return postgres_parameters

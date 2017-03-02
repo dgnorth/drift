@@ -52,16 +52,16 @@ def get_tenant_name():
     Return the current tenant name.
     If inside a Flask request context, it's the one defined by that context,
     and if not, then it must be specified explicitly in the environment
-    variable 'default_drift_tenant'.
+    variable 'DRIFT_DEFAULT_TENANT'.
     """
     if g and hasattr(g, 'conf'):
         return g.conf.tenant['tenant_name']
-    elif 'default_drift_tenant' in os.environ:
-        return os.environ['default_drift_tenant']
+    elif 'DRIFT_DEFAULT_TENANT' in os.environ:
+        return os.environ['DRIFT_DEFAULT_TENANT']
     else:
         raise RuntimeError(
             "No default tenant available in this context. Specify one in "
-            "'default_drift_tenant' environment variable, or use the --tenant command "
+            "'DRIFT_DEFAULT_TENANT' environment variable, or use the --tenant command "
             "line argument."
         )
 
@@ -160,8 +160,8 @@ def get_tier_name(config_path=None):
     """
     if g and hasattr(g, 'conf'):
         return g.conf.tier['tier_name']
-    elif 'default_drift_tier' in os.environ:
-        return os.environ['default_drift_tier']
+    elif 'DRIFT_DEFAULT_TIER' in os.environ:
+        return os.environ['DRIFT_DEFAULT_TIER']
 
     # TODO: Remove this?
     if current_app and 'tier_name' in current_app.config:

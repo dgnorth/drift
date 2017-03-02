@@ -45,7 +45,7 @@ class RedisExtension(object):
         if g.conf.tenant and g.conf.tenant.get("redis"):
             # HACK: Ability to override Redis hostname
             redis_config = g.conf.tenant.get("redis")
-            if os.environ.get('drift_use_local_servers', False):
+            if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
                 redis_config['host'] = 'localhost'
             g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'], redis_config)
         else:
@@ -168,7 +168,7 @@ NEW_TIER_DEFAULTS = {
 
 def provision(config, args, recreate=False):
     params = get_parameters(config, args, NEW_TIER_DEFAULTS.keys(), "redis")
-    if os.environ.get('drift_use_local_servers', False):
+    if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         params['host'] = 'localhost'
     config.tenant["redis"] = params
 

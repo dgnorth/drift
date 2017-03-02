@@ -45,7 +45,7 @@ def flushwrite(text):
 
 
 def _get_test_target():
-    target = os.environ.get("drift_test_target")
+    target = os.environ.get("DRIFT_TEST_TARGET")
     return target
 
 
@@ -122,7 +122,7 @@ def setup_tenant():
     """
 
     # Always assume local servers
-    os.environ['drift_use_local_servers'] = '1'
+    os.environ['DRIFT_USE_LOCAL_SERVERS'] = '1'
 
     # TODO: Refactor deployable name logic once it's out of flask config.
     from drift.flaskfactory import load_flask_config
@@ -134,8 +134,8 @@ def setup_tenant():
     # Create a test tenant
     tier_name = 'UNITTEST'
     tenant_name = 'dg-unittest-product'
-    os.environ['default_drift_tier'] = tier_name
-    os.environ['default_drift_tenant'] = tenant_name
+    os.environ['DRIFT_DEFAULT_TIER'] = tier_name
+    os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
     conf = get_config(tenant_name)
 
     # Fixup tier defaults
@@ -270,7 +270,7 @@ class DriftBaseTestCase(unittest.TestCase):
         """
         Note that here we must use a inner function, otherwise mock
         will be evaluated at the module import time, by which time
-        the 'drift_test_target' environ variable has not been setup yet
+        the 'DRIFT_TEST_TARGET' environ variable has not been setup yet
         """
         @DriftBaseTestCase.mock
         def inner(self, method, endpoint, data, params, *args, **kw):

@@ -41,7 +41,7 @@ def make_celery(app):
     tier_name = get_tier_name()
     tier_config = ts.get_table('tiers').get({'tier_name': tier_name})
 
-    if os.environ.get('drift_use_local_servers', False):
+    if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         broker_url = "redis://localhost:6379/15"
     else:
         broker_url = tier_config["celery_broker_url"]

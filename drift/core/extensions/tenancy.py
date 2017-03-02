@@ -25,7 +25,7 @@ def get_current_tenant(*args, **kw):
     else:
         # Not in a Flask request context, so the only way to specify any
         # tenant is using the environment variable.
-        return os.environ.get('default_drift_tenant')
+        return os.environ.get('DRIFT_DEFAULT_TENANT')
 
 
 current_tenant = LocalProxy(get_current_tenant)
@@ -34,9 +34,9 @@ current_tenant = LocalProxy(get_current_tenant)
 def _figure_out_tenant():
     """
     Figure out the current tenant name. It's either set through an environment variable
-    'default_drift_tenant', or it's the left-most part of the host name.
+    'DRIFT_DEFAULT_TENANT', or it's the left-most part of the host name.
     """
-    tenant_name = os.environ.get('default_drift_tenant')
+    tenant_name = os.environ.get('DRIFT_DEFAULT_TENANT')
 
     # Figure out tenant. Normally the tenant name is embedded in the hostname.
     host = request.headers.get("Host")

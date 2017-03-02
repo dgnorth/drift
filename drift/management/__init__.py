@@ -52,7 +52,7 @@ def do_execute_cmd(argv):
         help="Specify which tenant to use. Will override any other settings."
     )
     parser.add_argument('--config',
-        help="Specify which config source to use. Will override 'drift_config_url' environment variable."
+        help="Specify which config source to use. Will override 'DRIFT_CONFIG_URL' environment variable."
     )
     parser.add_argument("--loglevel", '-l',
         help="Logging level name. Default is INFO.", default='WARNING'
@@ -81,19 +81,19 @@ def do_execute_cmd(argv):
         logging.basicConfig(level=args.loglevel)
 
     if args.config:
-        os.environ['drift_config_url'] = args.config
+        os.environ['DRIFT_CONFIG_URL'] = args.config
 
     conf, source =  get_default_drift_config_and_source()
     print pretty("[BOLD]Drift configuration source: {}[RESET]".format(source))
 
-    if args.localservers or os.environ.get('drift_use_local_servers', False):
-        os.environ['drift_use_local_servers'] = '1'
+    if args.localservers or os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
+        os.environ['DRIFT_USE_LOCAL_SERVERS'] = '1'
         print pretty("[BOLD]Using localhost for Redis and Postgres connections.[RESET]")
 
     set_pretty_settings(formatter=args.formatter, style=args.style)
 
     if args.tenant:
-        os.environ['default_drift_tenant'] = args.tenant
+        os.environ['DRIFT_DEFAULT_TENANT'] = args.tenant
         print "Default tenant set to '%s'." % args.tenant
 
     args.func(args)
