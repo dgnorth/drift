@@ -52,7 +52,7 @@ def do_execute_cmd(argv):
         help="Specify which tenant to use. Will override any other settings."
     )
     parser.add_argument('--config',
-        help="Specify which config source to use. Will override DRIFT_CONFIG_URL environment variable."
+        help="Specify which config source to use. Will override 'drift_config_url' environment variable."
     )
     parser.add_argument("--loglevel", '-l',
         help="Logging level name. Default is INFO.", default='WARNING'
@@ -81,7 +81,7 @@ def do_execute_cmd(argv):
         logging.basicConfig(level=args.loglevel)
 
     if args.config:
-        os.environ['DRIFT_CONFIG_URL'] = args.config
+        os.environ['drift_config_url'] = args.config
 
     conf, source =  get_default_drift_config_and_source()
     print pretty("[BOLD]Drift configuration source: {}[RESET]".format(source))
