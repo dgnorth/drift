@@ -17,21 +17,11 @@ from boto.s3.connection import OrdinaryCallingFormat
 from drift.utils import get_tier_name
 from drift.management.gittools import get_branch, get_commit, get_repo_url, get_git_version
 from drift.utils import get_config, pretty, set_pretty_settings, PRETTY_FORMATTER, PRETTY_STYLE
-from driftconfig.util import get_domains
+from driftconfig.util import get_domains, get_default_drift_config_and_source
 from drift.flaskfactory import AppRootNotFound
 
 TIERS_CONFIG_FILENAME = "tiers-config.json"
 
-
-def get_origin_url():
-    domains = get_domains().values()
-    if len(domains) != 1:
-        raise RuntimeError("You must have exactly 1 drift domain. %s domains found" % len(domains))
-    domain_table = domains[0]["table_store"].get_table("domain")
-    origin = domain_table["origin"]
-    if not origin.startswith("s3://"):
-        raise RuntimeError("Origin should be an s3 url. It is '%s'" % origin)
-    return origin
 
 def get_commands():
     commands = [
@@ -61,6 +51,9 @@ def do_execute_cmd(argv):
     parser.add_argument('--tenant', '-t',
         help="Specify which tenant to use. Will override any other settings."
     )
+    parser.add_argument('--config',
+        help="Specify which config source to use. Will override DRIFT_CONFIG_URL environment variable."
+    )
     parser.add_argument("--loglevel", '-l',
         help="Logging level name. Default is INFO.", default='WARNING'
     )
@@ -74,7 +67,6 @@ def do_execute_cmd(argv):
     )
 
     parser.add_argument("-v", "--verbose", help="I am verbose!", action="store_true")
-    parser.add_argument("--tier", help="Tier to use (overrides drift_TIER from environment)")
     subparsers = parser.add_subparsers(help="sub-command help")
     for cmd in valid_commands:
         module = importlib.import_module("drift.management.commands." + cmd)
@@ -88,6 +80,12 @@ def do_execute_cmd(argv):
     if args.loglevel:
         logging.basicConfig(level=args.loglevel)
 
+    if args.config:
+        os.environ['DRIFT_CONFIG_URL'] = args.config
+
+    conf, source =  get_default_drift_config_and_source()
+    print pretty("[BOLD]Drift configuration source: {}[RESET]".format(source))
+
     if args.localservers or os.environ.get('drift_use_local_servers', False):
         os.environ['drift_use_local_servers'] = '1'
         print pretty("[BOLD]Using localhost for Redis and Postgres connections.[RESET]")
@@ -97,9 +95,6 @@ def do_execute_cmd(argv):
     if args.tenant:
         os.environ['default_drift_tenant'] = args.tenant
         print "Default tenant set to '%s'." % args.tenant
-
-    if args.tier:
-        os.environ["drift_TIER"] = args.tier
 
     args.func(args)
 
