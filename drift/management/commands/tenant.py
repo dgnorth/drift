@@ -3,14 +3,17 @@
 Run all apps in this project as a console server.
 """
 import sys
+import os
 import importlib
 
 from sqlalchemy import create_engine
 from colorama import Fore, Style
 
-from driftconfig.util import get_default_drift_config
+from driftconfig.util import get_default_drift_config, TenantNotConfigured
+from driftconfig.config import TSTransaction
 from drift.utils import get_tier_name, get_config
 from drift.core.resources.postgres import db_exists, process_connection_values, db_check
+from drift.core.extensions.tenancy import current_tenant
 from drift.utils import pretty
 
 POSTGRES_PORT = 5432
@@ -82,11 +85,27 @@ def run_command(args):
     if not tenant_name:
         tenants_report()
         return
-    try:
-        conf = get_config(tenant_name=tenant_name)
-    except Exception as e:
-        print Fore.RED + str(e)
-        return
+
+    os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
+
+    # Minor hack:
+    from drift.flaskfactory import load_flask_config
+
+    with TSTransaction() as ts:
+        try:
+            conf = get_drift_config(
+                ts=ts,
+                tier_name=get_tier_name(),
+                tenant_name=tenant_name,
+                drift_app=load_flask_config(),
+            )
+        except TenantNotConfigured as e:
+            print "Tenant '{}' not found in config. Adding it in now.".format(tenant_name)
+            ts.get_table('tenant-names').add({'tenant_name': tenant_name, })
+            return
+        except Exception as e:
+            print Fore.RED + "'tenant {}' command failed: {}".format(args.action, e)
+            return
 
     if not args.action:
         tenant_report(conf)
@@ -115,10 +134,11 @@ def run_command(args):
             if hasattr(m, "provision"):
                 provisioner_name = m.__name__.split('.')[-1]
                 print "Provisioning '%s' for tenant '%s' on tier '%s'" % (provisioner_name, tenant_name, conf.tier['tier_name'])
-                conf.tier['resource_defaults'].append({
-                    'resource_name': provisioner_name,
-                    'parameters': getattr(m, 'NEW_TIER_DEFAULTS', {}),
-                })
+                if 0:  # THIS IS BONKERS LOGIC! FIIIIX!
+                    conf.tier['resource_defaults'].append({
+                        'resource_name': provisioner_name,
+                        'parameters': getattr(m, 'NEW_TIER_DEFAULTS', {}),
+                    })
                 m.provision(conf, {}, recreate='skip')
 
         conf.tenant['state'] = 'active'

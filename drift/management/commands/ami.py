@@ -19,10 +19,11 @@ try:
 except ImportError:
     pass
 
-from drift.management import get_tier_config, get_service_info, get_tiers_config, TIERS_CONFIG_FILENAME, get_origin_url
+from drift.management import get_tier_config, get_service_info, get_tiers_config, TIERS_CONFIG_FILENAME, get_app_version, get_app_name
 from drift.management.gittools import get_branch, get_commit, get_git_version, checkout
-from drift.utils import get_tier_name
+from drift.utils import get_tier_name, get_config
 from drift import slackbot
+from driftconfig.util import get_drift_config
 
 # regions:
 # eu-west-1 : ami-234ecc54
@@ -118,38 +119,46 @@ def filterize(d):
 
 
 def _bake_command(args):
-    service_info = get_service_info()
-    tier_config = get_tier_config()
-    iam_conn = boto.iam.connect_to_region(tier_config["region"])
+    name = get_app_name()
+    version = get_app_version()
 
-    print "WHAT IS HERE", os.environ.get("drift_CONFIG")
+    conf = get_drift_config(tier_name=get_tier_name(), deployable_name=name)
+    print "TIER:"
+    print json.dumps(conf.tier, indent=4)
+    print "DEPLOYABLE:", name
+    print json.dumps(conf.deployable, indent=4)
     return
+
+    tier_name = conf.tier['tier_name']
+    aws_region = conf.tier['aws']['region']
+
+    iam_conn = boto.iam.connect_to_region(aws_region)
 
     if args.ubuntu:
         # Get all Ubuntu Trusty 14.04 images from the appropriate region and
         # pick the most recent one.
         # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
         print "Finding the latest AMI on AWS that matches", UBUNTU_RELEASE
-        ec2 = boto3.resource('ec2', region_name=tier_config["region"])
+        ec2 = boto3.resource('ec2', region_name=aws_region)
         filters = [
             {'Name': 'name', 'Values': [UBUNTU_RELEASE]},
         ]
         amis = list(ec2.images.filter(Owners=[AMI_OWNER_CANONICAL], Filters=filters))
         if not amis:
             print "No AMI found matching '{}'. Not sure what to do now.".format(
-                UBUNTU_RELEASE, tier_config["tier"], sys.argv[0])
+                UBUNTU_RELEASE, tier_name, sys.argv[0])
             sys.exit(1)
         ami = max(amis, key=operator.attrgetter("creation_date"))
     else:
-        ec2 = boto3.resource('ec2', region_name=tier_config["region"])
+        ec2 = boto3.resource('ec2', region_name=aws_region)
         filters = [
             {'Name': 'tag:service-name', 'Values': [UBUNTU_BASE_IMAGE_NAME]},
-            {'Name': 'tag:tier', 'Values': [tier_config["tier"]]},
+            {'Name': 'tag:tier', 'Values': tier_name},
         ]
         amis = list(ec2.images.filter(Owners=['self'], Filters=filters))
         if not amis:
             print "No '{}' AMI found for tier {}. Bake one using this command: {} ami bake --ubuntu".format(
-                UBUNTU_BASE_IMAGE_NAME, tier_config["tier"], sys.argv[0])
+                UBUNTU_BASE_IMAGE_NAME, tier_name, sys.argv[0])
             sys.exit(1)
         ami = max(amis, key=operator.attrgetter("creation_date"))
 
@@ -164,7 +173,6 @@ def _bake_command(args):
         sha_commit = ''
         deployment_manifest = create_deployment_manifest('bakeami')  # Todo: Should be elsewhere or different
     else:
-        cmd = "python setup.py sdist --formats=zip"
         current_branch = get_branch()
 
         if not args.tag:
@@ -177,7 +185,7 @@ def _bake_command(args):
                             "Note that this is merely a safety measure.\n" \
                             "For reference, the current deployable for this tier is pegged at " \
                             "release tag '{}'."
-                        print text.format(service_info['name'], tier_config['tier'], si['release'])
+                        print text.format(service_info['name'], tier_name, si['release'])
                         sys.exit(1)
                     break
 
@@ -185,7 +193,6 @@ def _bake_command(args):
             args.tag = current_branch
 
         print "Using branch/tag", args.tag
-
 
         checkout(args.tag)
         try:
@@ -195,7 +202,11 @@ def _bake_command(args):
             version = get_git_version()
             service_info = get_service_info()
             if not args.preview:
-                os.system(cmd)
+                cmd = "python setup.py sdist --formats=zip"
+                ret = os.system(cmd)
+                if ret != 0:
+                    print "Failed to execute build command:", cmd
+                    sys.exit(ret)
         finally:
             print "Reverting to ", current_branch
             checkout(current_branch)
@@ -218,15 +229,15 @@ def _bake_command(args):
     var = {
         "service": UBUNTU_BASE_IMAGE_NAME if args.ubuntu else service_info["name"],
         "versionNumber": service_info["version"],
-        "region": tier_config["region"],
+        "region": aws_region,
         "source_ami": ami.id,
         "branch": branch,
         "commit": sha_commit,
         "release": version['tag'],
         "user_name": user.user_name,
-        "tier": tier_config["tier"],
+        "tier": tier_name,
         "tier_url": tiers_config_url,
-        "config_url": get_origin_url(),
+        "config_url": get_origin_url(),  ## this is bogus
     }
 
     if args.ubuntu:
@@ -266,7 +277,6 @@ def _bake_command(args):
         scriptfile = pkg_resources.resource_filename(__name__, "driftapp-packer.json")
         cmd += scriptfile
     print "Baking AMI with: {}".format(cmd)
-
 
     # Dump deployment manifest into dist folder temporarily. The packer script
     # will pick it up and bake it into the AMI.
