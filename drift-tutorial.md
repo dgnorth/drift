@@ -15,13 +15,34 @@ driftconfig create kdstudios s3://kdstudios-config/kdstudios
 # Note! If you opt for non-AWS based development, define a
 # different source for your configuration database.
 # Example: driftconfig create kdstudios file://~/kdstudios
-# Now assume this is the only config on the local machine, otherwise# point to it using DRIFT_CONFIG_URL environment variable.# Add a tier. It's a good practice to start with the live tier
-# and if necessary add a dev and staging tier later, even though
-# the live tier will only be used for development in the beginning.driftconfig tier add LIVE
-
-# Make the basic drift service available on LIVE tier.
-driftconfig deployable add drift-base
 ```
+
+We assume this is the only config on your local machine. You can list out all DB's using the command `driftconfig list`. If there is **more than one** on your local machine, you need to explicitly point to it using a command line option, or add a reference to it through environment variable: `DRIFT_CONFIG_URL=file://~/.drift/config/kdstudios`.
+
+### Set up a tier
+A tier is a single slice of development or operation environment. It's a good practice to start with the live tier and if necessary add a dev and staging tier later, even though the live tier will only be used for development in the beginning.
+
+For this tutorial however, we need a local development tier as well, so we will create one live and one local development tier:
+
+```bash
+dconf tier add LIVE --is-live
+dconf tier add LOCAL --is-dev
+```
+
+
+
+
+### Register plugins and set up a tier
+
+```bash
+# Register all available Drift plugins in the config DB
+dconf deployable register all# Add a tier. It's a good practice to start with the live tier
+# and if necessary add a dev and staging tier later, even though
+# the live tier will only be used for development in the beginning.
+# For this tutorial however, we just need a local development tier.dconf tier add LOCAL --is-dev
+```
+
+
 ### Register our organization and product
 Now we have our LIVE tier set up, but all services need to run in the context of a product. Next step is to set up our organization and product.
 
