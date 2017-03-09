@@ -1,23 +1,21 @@
 # Drift TutoralThis tutorial takes you through the initial steps in setting up a Drift development environment and run the basic Drift services on your local workstation.## Create a new everything from scratch.Scenario: A game company called **KneeDeep Studios** with a title called **Snowfall**.### Install Pre-requisites> Note: Drift is Python based. [Virtual envs](http://docs.python-guide.org/en/latest/dev/virtualenvs/) are nice. It's a good idea to `pip install virtualenv virtualenvwrapper` and do `mkvirtualenv drift` and work within that virtual environment.For local development, the following packages are needed:
-#### OSX```bashpip install driftpip install drift-basebrew install postgresqlbrew install redis```
+#### OSX```bashpip install git+https://github.com/dgnorth/drift-base.git@feature/drift-configbrew install postgresqlbrew install redis```
 
 Run the Redis server simply by executing `redis-server`.
 
-To set up the PostgreSQL server, see [PostgreSQL setup](postgres-setup.md).### AWS support
-If you want AWS development and operation environment, make sure you have the AWS CLI suite installed, and access and secret keys set up on your local computer.
+To set up the PostgreSQL server, see [PostgreSQL setup](postgres-setup.md).### Create Drift Configuration DatabaseA single configuration database covers all configuration settings for Drift based tiers and apps. Managing this database is done using the `dconf` command line suite (and `driftconfig` in some cases).Let's create a configuration database for **KneeDeep Studios**:
+```bash
+# We pick a location in our home directory
+driftconfig create kdstudios file://~/kdstudios
 
-```bash
-pip install awscli
-aws configure
-
-```### Create Drift Configuration DatabaseThere is a single configuration database that covers all static configuration of Drift based tiers and apps. Managing this database is done using the `driftconfig` command line suite.```bash
-driftconfig create kdstudios s3://kdstudios-config/kdstudios
-# Note! If you opt for non-AWS based development, define a
-# different source for your configuration database.
-# Example: driftconfig create kdstudios file://~/kdstudios
+# List out configuration DB's
+driftconfig list
 ```
 
-We assume this is the only config on your local machine. You can list out all DB's using the command `driftconfig list`. If there is **more than one** on your local machine, you need to explicitly point to it using a command line option, or add a reference to it through environment variable: `DRIFT_CONFIG_URL=file://~/.drift/config/kdstudios`.
+You can have multiple Drift configuration DB's active on your local workstation. To list them out, 
+
+
+list out all DB's using the command `driftconfig list`. If there is **more than one** on your local machine, you need to explicitly point to it using a command line option, or add a reference to it through environment variable: `DRIFT_CONFIG_URL=file://~/.drift/config/kdstudios`.
 
 ### Set up a tier
 A tier is a single slice of development or operation environment. It's a good practice to start with the live tier and if necessary add a dev and staging tier later, even though the live tier will only be used for development in the beginning.
@@ -80,6 +78,17 @@ Next up is to set up the LIVE tier on AWS. Please follow the steps described in 
 
 The final exercise is to create a new deployable/service. Please follow the steps described in [Drift Deployables](drift-deployables.md)
 
+
+## Appendix (and scratch pad)
+
+### AWS support
+If you want AWS development and operation environment, make sure you have the AWS CLI suite installed, and access and secret keys set up on your local computer.
+
+```bash
+pip install awscli
+aws configure
+
+```
 
 
 *(c) 2017 Directive Games North*
