@@ -5,6 +5,7 @@ import subprocess
 import sys
 import logging
 import os
+import socket
 
 from drift import webservers
 from drift.utils import pretty
@@ -111,6 +112,6 @@ def run_command(args):
                 )
                 os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
 
-    print pretty("Server ready!")
+    print pretty("Server ready: http://{}:{}".format(socket.gethostname(), app.config.get('PORT', 80)))
 
     webservers.run_app(app, args.server)
