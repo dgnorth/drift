@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from os.path import abspath, join
 import jwt
 import importlib
+from binascii import crc32
 
 from drift.utils import get_config, get_tenant_name
 from driftconfig.config import get_drift_table_store
@@ -420,10 +421,12 @@ class DriftBaseTestCase(unittest.TestCase):
 
 
 def _authenticate_mock(username, password):
-    return {
+    ret = {
         'user_name': username,
         'identity_id': username,
-        'user_id': username,
-        'player_id': username,
+        'user_id': crc32(username),
+        'player_id': crc32(username),
         'roles': [],
     }
+
+    return ret
