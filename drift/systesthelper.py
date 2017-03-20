@@ -406,6 +406,24 @@ class DriftBaseTestCase(unittest.TestCase):
             from appmodule import app
             cls.app = app.test_client()
 
+        import drift.core.extensions.jwt as jwtauth
+        if jwtauth.authenticate is None:
+            jwtauth.authenticate = _authenticate_mock
+
     @classmethod
     def tearDownClass(cls):
         remove_tenant()
+
+        import drift.core.extensions.jwt as jwtauth
+        if jwtauth.authenticate is _authenticate_mock:
+            jwtauth.authenticate = None
+
+
+def _authenticate_mock(username, password):
+    return {
+        'user_name': username,
+        'identity_id': username,
+        'user_id': username,
+        'player_id': username,
+        'roles': [],
+    }
