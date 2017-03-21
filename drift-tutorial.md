@@ -1,5 +1,6 @@
-# Drift TutoralThis tutorial takes you through the initial steps in setting up a Drift development environment and run the basic Drift services on your local workstation.## Create a new everything from scratch.Scenario: A game company called **KneeDeep Studios** with a title called **Snowfall**.### Install Pre-requisites> Note: Drift is Python based. [Virtual envs](http://docs.python-guide.org/en/latest/dev/virtualenvs/) are nice. It's a good idea to `pip install virtualenv virtualenvwrapper` and do `mkvirtualenv drift` and work within that virtual environment.For local development, the following packages are needed:
-#### OSX```bashpip install git+https://github.com/dgnorth/drift-base.git@feature/drift-configbrew install postgresqlbrew install redis```
+# Drift TutoralThis tutorial takes you through the initial steps in setting up a Drift development environment and run the basic Drift services on your local workstation.## Create a new everything from scratch.Scenario: A game company called **KneeDeep Studios** with a title called **Snowfall**.### Install Pre-requisitesThe tutorial assumes you are using [Oh My Zsh](https://github.com/robbyrussell/oh-my-zsh). Please install and use it before continuing. [OSX setup](http://sourabhbajaj.com/mac-setup/iTerm/zsh.html) is available as well.
+> Note: Drift is Python based. [Virtual envs](http://docs.python-guide.org/en/latest/dev/virtualenvs/) are nice. It's a good idea to `pip install virtualenv virtualenvwrapper` and do `mkvirtualenv drift` and work within that virtual environment.For local development, the following packages are needed:
+#### OSX```bashpip install git+https://github.com/dgnorth/drift-config.gitpip install git+https://github.com/dgnorth/drift-base.git@feature/drift-configbrew install postgresqlbrew install redis```
 
 Run the Redis server simply by executing `redis-server`.
 
@@ -7,6 +8,7 @@ To set up the PostgreSQL server, see [PostgreSQL setup](postgres-setup.md).##
 ```bash
 # We pick a location in our home directory
 driftconfig create kdstudios file://~/kdstudios
+driftconfig push kdstudios
 
 # List out configuration DB's
 driftconfig list
@@ -22,23 +24,17 @@ A tier is a single slice of development or operation environment. It's a good pr
 
 For this tutorial however, we need a local development tier as well, so we will create one live and one local development tier:
 
+
+### Register plugins and set up tiers
+
 ```bash
+# Add a live tier and a local development tier
 dconf tier add LIVE --is-live
 dconf tier add LOCAL --is-dev
-```
 
-
-
-
-### Register plugins and set up a tier
-
-```bash
-# Register all available Drift plugins in the config DB
-dconf deployable register all# Add a tier. It's a good practice to start with the live tier
-# and if necessary add a dev and staging tier later, even though
-# the live tier will only be used for development in the beginning.
-# For this tutorial however, we just need a local development tier.dconf tier add LOCAL --is-dev
-```
+# Register all available Drift plugins in the config DB and associate
+# with all available tiers
+dconf deployable register all -t all```
 
 
 ### Register our organization and product
