@@ -426,7 +426,7 @@ def _authenticate_mock(username, password):
         'identity_id': username,
         'user_id': crc32(username),
         'player_id': crc32(username),
-        'roles': [],
+        'roles': ['service'] if username == service_username else [],
     }
 
     return ret
