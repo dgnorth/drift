@@ -36,25 +36,23 @@ dconf tier add LOCAL --is-dev
 # with all available tiers
 dconf deployable register all -t all```
 
-
 ### Register our organization and product
 Now we have our LIVE tier set up, but all services need to run in the context of a product. Next step is to set up our organization and product.
 
 ```bash
-# Arguments: organization name, short name, display namedriftconfig organization add kd-studios kd "Knee Deep Studios"# Arguments: product name, organization namedriftconfig product add snowfall kd-studios```At this point we have all the necessarty bits registered in our configuration database. Next steps are all about provisioning and running the actual services.
-
-### Provision a tenant
+# Arguments: organization name, short name, display namedconf organization add kdstudios kd -d "Knee Deep Studios"# Arguments: product name prefixed with the organization short name
+dconf product add kd-snowfall```### Create a tenant
 Drift is a multi-tenant platform. For our scenario we just need to create a tenant for our local development. Additional tenants can be created at any time as well.
 
-> Note: We have already completed all the basic registration steps in the Drift configuration database. For provisioning and running services, we need to use the `drift-admin` command line suite.
+Tenant names must be prefixed with the organization short name. Having the word 'default' in the name will make it the default tenant when running a service locally.
 
 ```bash
-# Note: Tenant names MUST be prefixed with the organization short
-# name. Additionally, having the word 'default' in the name will
-# make it the default tenant when running a service locally.
-drift-admin tenant add kd-defaultdev
+# Arguments: tenant name, product name
+dconf tenant add kd-defaultdev kd-snowfall
 ```
-Now you have completed every setup steps.### Running a service locallyRun the following command to start the Drift web server on your machine:
+At this point we have all the necessarty bits registered in our configuration database. Next steps are all about provisioning and running the actual services.
+
+### Running a service locallyRun the following command to start the Drift web server on your machine:
 
 ```bash
 drift-admin runserver drift-base
