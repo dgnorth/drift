@@ -363,7 +363,7 @@ def _run_command(args):
         ami_id=ami.id,
         ami_name=ami.name,
         ami_created=ami.creation_date,
-        ami_tags=ami.tags,
+        ami_tags={d['Key']: d['Value'] for d in ami.tags},
     )
     print "AMI Info:\n", pretty(ami_info)
 
@@ -392,7 +392,7 @@ def _run_command(args):
     print "Security Group:\n\t{} [{} {}]".format(fold_tags(security_group.tags)["Name"], security_group.id, security_group.vpc_id)
 
     # The key pair name for SSH
-    key_name = deployable["ssh_key"]
+    key_name = conf.tier['aws']['ssh_key']
     if "." in key_name:
         key_name = key_name.split(".", 1)[0]  # TODO: Distinguish between key name and .pem key file name
 
@@ -417,19 +417,19 @@ def _run_command(args):
     tier            DEVNORTH
     '''
 
-    target_name = "{}-{}".format(tier_name, service_info["name"])
+    target_name = "{}-{}".format(tier_name, name)
     if autoscaling:
         target_name += "-auto"
 
     tags = {
         "Name": target_name,
         "tier": tier_name,
-        "service-name": service_info["name"],
+        "service-name": name,
         "service-type": "rest-api",  # TODO: Assume there are more types to come.
         "launched-by": iam_conn.get_user().user_name,
 
         # Make instance part of api-router round-robin load balancing
-        "api-target": service_info["name"],
+        "api-target": name,
         "api-port": "10080",
         "api-status": "online",
     }
@@ -440,9 +440,9 @@ def _run_command(args):
 
     if autoscaling:
         client = boto3.client('autoscaling', region_name=aws_region)
-        launch_config_name = '{}-{}-launchconfig-{}-{}'.format(tier_name, service_info["name"], datetime.utcnow(), release)
+        launch_config_name = '{}-{}-launchconfig-{}-{}'.format(tier_name, name, datetime.utcnow(), release)
         launch_config_name = launch_config_name.replace(':', '.')
-        launch_script ='''#!/bin/bash\nsudo bash -c "echo TIERCONFIGPATH='${TIERCONFIGPATH}' >> /etc/environment"'''
+        launch_script = '''#!/bin/bash\nsudo bash -c "echo TIERCONFIGPATH='${TIERCONFIGPATH}' >> /etc/environment"'''
 
         kwargs = dict(
             LaunchConfigurationName=launch_config_name,
@@ -529,7 +529,13 @@ def _run_command(args):
             for k, v in tags.items():
                 instance.add_tag(k, v)
             print "{} running at {}".format(instance, instance.private_ip_address)
-            slackbot.post_message("Started up AMI '{}' for '{}' on tier '{}' with ip '{}'".format(ami.id, service_info["name"], tier_config["tier"], instance.private_ip_address))
+            slackbot.post_message(
+                "Started up AMI '{}' for '{}' on tier '{}' with ip '{}'".format(
+                    ami.id, name, 
+                    tier_name, 
+                    instance.private_ip_address
+                )
+            )
 
         else:
             print "Instance was not created correctly"
