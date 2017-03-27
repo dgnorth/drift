@@ -83,8 +83,12 @@ def do_execute_cmd(argv):
     if args.config:
         os.environ['DRIFT_CONFIG_URL'] = args.config
 
-    conf, source =  get_default_drift_config_and_source()
-    print pretty("[BOLD]Drift configuration source: {}[RESET]".format(source))
+    try:
+        conf, source =  get_default_drift_config_and_source()
+        print pretty("[BOLD]Drift configuration source: {}[RESET]".format(source))
+    except RuntimeError as e:
+        if "No config found" not in repr(e):
+            raise
 
     if args.localservers or os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         os.environ['DRIFT_USE_LOCAL_SERVERS'] = '1'
