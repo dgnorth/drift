@@ -157,6 +157,14 @@ class RedisCache(object):
     def lock(self, lock_name):
         return self.redlock_factory.create_lock(self.make_key(lock_name))
 
+    def delete_all(self):
+        """remove all the keys for this tenant from redis"""
+        if self.disabled:
+            log.info("Redis disabled. Not deleting all keys")
+            return
+        compound_key = self.make_key("*")
+        for key in self.conn.scan_iter(compound_key):
+            self.conn.delete(key)
 
 # defaults when making a new tier
 NEW_TIER_DEFAULTS = {
@@ -166,11 +174,15 @@ NEW_TIER_DEFAULTS = {
     "socket_connect_timeout": 5
 }
 
-def provision(config, args, recreate=False):
+def provision(config, args, recreate=None):
     params = get_parameters(config, args, NEW_TIER_DEFAULTS.keys(), "redis")
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         params['host'] = 'localhost'
     config.tenant["redis"] = params
+
+    if recreate == 'recreate':
+        red = RedisCache(config.tenant_name['tenant_name'], config.deployable['deployable_name'], params)
+        red.delete_all()
 
 def healthcheck():
     if "redis" not in g.conf.tenant:

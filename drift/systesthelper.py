@@ -159,7 +159,7 @@ def setup_tenant():
                 'resource_name': provisioner_name,
                 'parameters': getattr(m, 'NEW_TIER_DEFAULTS', {}),
                 })
-            m.provision(conf, {}, recreate='skip')
+            m.provision(conf, {}, recreate='recreate')
 
 
     # skitamix

@@ -241,7 +241,7 @@ def drop_db(_params, force=False):
     params["username"] = MASTER_USER
     params["password"] = MASTER_PASSWORD
 
-    if db_exists(params):
+    if not db_exists(params):
         print "Not dropping database '{}' as it doesn't seem to exist.".format(db_name)
         return
 
