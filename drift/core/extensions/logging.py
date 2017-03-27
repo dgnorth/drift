@@ -21,8 +21,8 @@ from drift.core.extensions.jwt import current_user
 
 def get_log_details():
     details = OrderedDict()
-    tenant = None
-    tier = None
+    tenant_name = None
+    tier_name = None
     remote_addr = None
 
     try:
@@ -31,14 +31,17 @@ def get_log_details():
         pass
 
     try:
-        tenant = g.driftenv["name"]
-        tier = g.driftenv["tier_name"]
-    except Exception:
-        pass
+        tenant_name = g.conf.tenant_name['tenant_name'] if g.conf.tenant_name else '(none)'
+        tier_name = g.conf.tier['tier_name']
+    except RuntimeError as e:
+        if "Working outside of application context" in repr(e):
+            pass
+        else:
+            raise
     log_context = {}
     log_context["created"] = datetime.datetime.utcnow().isoformat() + "Z"
-    log_context["tenant"] = tenant
-    log_context["tier"] = tier
+    log_context["tenant"] = tenant_name
+    log_context["tier"] = tier_name
     log_context["remote_addr"] = remote_addr
     details["logger"] = log_context
     jwt_context = {}

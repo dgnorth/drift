@@ -7,7 +7,7 @@ def before_request(*args, **kw):
 
 
 def after_request(response):
-    if len(g.client_debug_messages) > 0:
+    if hasattr(g, "client_debug_messages") and len(g.client_debug_messages) > 0:
         response.headers["Drift-Debug-Message"] = "\\n".join(g.client_debug_messages)
     return response
 

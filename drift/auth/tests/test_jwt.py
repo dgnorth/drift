@@ -142,9 +142,6 @@ class JWTCase(DriftTestCase):
 
 
     def setUp(self):
-        g.driftenv = {}
-        g.driftenv["tier_name"] = 'unittest_tier'
-        g.driftenv["name"] = 'unittest_tenant'
 
         # Make myself a trusted issuer
         issuer = {
