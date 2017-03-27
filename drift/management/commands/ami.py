@@ -20,7 +20,7 @@ except ImportError:
     pass
 
 from drift.management import get_tier_config, get_service_info, get_tiers_config, TIERS_CONFIG_FILENAME, get_app_version, get_app_name
-from drift.management.gittools import get_branch, get_commit, get_git_version, checkout
+from drift.management.gittools import get_branch, get_commit, get_git_version, checkout, get_repo_url
 from drift.utils import get_tier_name, get_config
 from drift import slackbot
 from driftconfig.util import get_drift_config
@@ -59,7 +59,7 @@ def get_options(parser):
         help='Bake a new AMI for the current current service.',
     )
     p.add_argument(
-        'tag', action='store', help='Git release tag to bake.', nargs='?', default=None)
+        'tag', action='store', help='Git release tag to bake. (Run "git tag" to get available tags).', nargs='?', default=None)
 
     p.add_argument(
         "--ubuntu", action="store_true",
@@ -122,7 +122,6 @@ def filterize(d):
 
 
 def _bake_command(args):
-
     if args.ubuntu:
         name = UBUNTU_BASE_IMAGE_NAME
     else:
@@ -130,12 +129,12 @@ def _bake_command(args):
 
     conf = get_drift_config()
     domain = conf.domain.get()
-    print "DOMAIN:"
-    print json.dumps(domain, indent=4)
+    aws_region = domain.get('aws_ami_region', AWS_DEFAULT_AMI_REGION)
+
+    print "DOMAIN:\n", json.dumps(domain, indent=4)
     if not args.ubuntu:
         print "DEPLOYABLE:", name
-
-    aws_region = domain.get('aws_ami_region', AWS_DEFAULT_AMI_REGION)
+    print "AWS REGION:", aws_region
 
     if args.ubuntu:
         # Get all Ubuntu images from the appropriate region and pick the most recent one.
@@ -170,19 +169,33 @@ def _bake_command(args):
     print "\tName:\t", ami.name
     print "\tDate:\t", ami.creation_date
 
-    # For deployables, run Python build command
-    if not args.ubuntu:
+    if args.ubuntu:
+        packer_vars = {
+            'setup_script': pkg_resources.resource_filename(__name__, "ubuntu-packer.sh")
+        }
+    else:
         current_branch = get_branch()
         if not args.tag:
             args.tag = current_branch
 
         print "Using branch/tag", args.tag
 
+        # Wrap git branch modification in RAII.
         checkout(args.tag)
         try:
+            packer_vars = {
+                'git_branch': get_branch(),
+                'git_commit': get_commit(),
+                'git_release': get_git_version()['tag'],
+                'git_url': get_repo_url(),
+                'config_url': conf.domain['origin'],
+                'version': get_app_version(),
+                'setup_script': pkg_resources.resource_filename(__name__, "driftapp-packer.sh"),
+            }
+            manifest = create_deployment_manifest('bakeami')
             if not args.preview:
                 cmd = "python setup.py sdist --formats=zip"
-                ret = os.system(cmd)
+                ret = subprocess.call(['python', 'setup.py', 'sdist', '--formats=zip'])
                 if ret != 0:
                     print "Failed to execute build command:", cmd
                     sys.exit(ret)
@@ -191,55 +204,38 @@ def _bake_command(args):
             checkout(current_branch)
 
         manifest_filename = os.path.join("dist", "deployment-manifest.json")
-        manifest_json = json.dumps(create_deployment_manifest('bakeami'), indent=4)
+        manifest_json = json.dumps(manifest, indent=4)
         print "Deployment Manifest:\n", manifest_json
         with open(manifest_filename, "w") as f:
             f.write(manifest_json)
 
     user = boto.iam.connect_to_region(aws_region).get_user()  # The current IAM user running this command
 
-    var = {
+    packer_vars.update({
         "service": name,
         "region": aws_region,
         "source_ami": ami.id,
         "user_name": user.user_name,
         "domain_name": domain['domain_name'],
-    }
+    })
 
-    if args.ubuntu:
-        extra_vars = {
-            'setup_script': pkg_resources.resource_filename(__name__, "ubuntu-packer.sh")
-        }
-    else:
-        extra_vars = {
-            'branch': get_branch(),
-            'git_commit': get_commit(),
-            'git_release': get_git_version()['tag'],
-            'config_url': conf.domain['origin'],
-            'version': get_app_version(),
-            'setup_script': pkg_resources.resource_filename(__name__, "driftapp-packer.sh"),
-        }
+    print "Packer variables:\n", pretty(packer_vars)
 
-    var.update(extra_vars)
-    print "Using var:\n", pretty(var)
-
-    packer_cmd = "packer"
+    # See if Packer is installed and generate sensible error code if something is off.
+    # This will also write the Packer version to the terminal which is useful info.
     try:
-        result = subprocess.call(packer_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.call(['packer', 'version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except Exception as e:
         print "Error:", e
-        print "%s was not found. Please install using the following method:" % packer_cmd
-        print "  brew tap homebrew/binary\n  brew install %s" % packer_cmd
-        sys.exit(1)
-    else:
-        print "Packer process returned", result
+        print "'packer' command failed. Please install it if it's missing."
+        sys.exit(127)
 
-    cmd = "%s build " % packer_cmd
+    cmd = "packer build "
     if args.debug:
         cmd += "-debug "
 
     cmd += "-only=amazon-ebs "
-    for k, v in var.iteritems():
+    for k, v in packer_vars.iteritems():
         cmd += "-var {}=\"{}\" ".format(k, v)
 
     # Use generic packer script if project doesn't specify one
@@ -290,30 +286,25 @@ def _run_command(args):
         print "Error: Can't use --launch and --autoscale together."
         sys.exit(1)
 
-    service_info = get_service_info()
-    tier_config = get_tier_config()
-    ec2_conn = boto.ec2.connect_to_region(tier_config["region"])
-    iam_conn = boto.iam.connect_to_region(tier_config["region"])
-    tier_name = tier_config["tier"].upper()  # Canonical name of tier
+    name = get_app_name()
+    tier_name = get_tier_name()
+    conf = get_drift_config(tier_name=tier_name, deployable_name=name)
+    domain = conf.domain.get()
+    aws_region = conf.tier['aws']['region']
 
-    print "Launch an instance of '{}' on tier '{}'".format(
-        service_info["name"], tier_config["tier"])
+    print "AWS REGION:", aws_region
+    print "DOMAIN:\n", json.dumps(domain, indent=4)
+    print "DEPLOYABLE:\n", json.dumps(conf.deployable, indent=4)
 
-    if tier_config.get('is_live', True):
+    ec2_conn = boto.ec2.connect_to_region(aws_region)
+    iam_conn = boto.iam.connect_to_region(aws_region)
+
+
+    if conf.tier['is_live']:
         print "NOTE! This tier is marked as LIVE. Special restrictions may apply. Use --force to override."
 
-    for deployable in tier_config["deployables"]:
-        if deployable["name"] == service_info["name"]:
-            break
-    else:
-        print "Error: Deployable '{}' not found in tier config:".format(
-            service_info["name"])
-        print pretty(tier_config)
-        sys.exit(1)
-
-    print "Deployable:\n", pretty(deployable)
-    autoscaling = deployable.get('autoscaling')
-    release = deployable.get('release', '')
+    autoscaling = conf.deployable.get('autoscaling')
+    release = conf.deployable.get('release', '')
 
     if args.launch and autoscaling and not args.force:
         print "--launch specified, but tier config specifies 'use_autoscaling'. Use --force to override."
@@ -322,7 +313,7 @@ def _run_command(args):
         print "--autoscale specified, but tier config doesn't specify 'use_autoscaling'. Use --force to override."
         sys.exit(1)
 
-    if args.autoscale and not autoscaling:
+    if args.autoscale and autoscaling is None:
         # Fill using default params
         autoscaling = {
             "min": 1,
@@ -331,35 +322,39 @@ def _run_command(args):
             "instance_type": args.instance_type,
         }
 
-    # Find AMI
-    filters = {
-        'tag:service-name': service_info["name"],
-        'tag:tier': tier_name,
-    }
+    print "Launch an instance of '{}' on tier '{}'".format(name, tier_name)
     if release:
-        filters['tag:release'] = release
-
-    print "Searching for AMIs matching the following tags:\n", pretty(filters)
-    amis = ec2_conn.get_all_images(
-        owners=['self'],  # The current organization
-        filters=filters,
-    )
-    if not amis:
-        print "No AMI's found that match the tags."
-        print "Bake a new one using this command: {} ami bake {}".format(sys.argv[0], release)
-        ami = None
+        print "Using AMI with release tag: ", release
     else:
-        print "{} AMI(s) found.".format(len(amis))
-        ami = max(amis, key=operator.attrgetter("creationDate"))
+        print "Using the newest AMI baked (which may not be what you expect)."
+
+    # Find AMI
+    ec2 = boto3.resource('ec2', region_name=aws_region)
+    filters = [
+        {'Name': 'tag:service-name', 'Values': [name]},
+        {'Name': 'tag:domain-name', 'Values': [domain['domain_name']]},
+    ]
+    if release:
+        filters.append({'Name': 'tag:git-release', 'Values': [release]},)
+
+    amis = list(ec2.images.filter(Owners=['self'], Filters=filters))
+    if not amis:
+        criteria = {d['Name']: d['Values'][0] for d in filters}
+        print "No '{}' AMI found using the search criteria {}.".format(UBUNTU_BASE_IMAGE_NAME, criteria)
+        sys.exit(1)
+
+    ami = max(amis, key=operator.attrgetter("creation_date"))
+
+    print "GOT AN I AMI", ami
 
     if args.ami:
         print "Using a specified AMI:", args.ami
         if ami.id != args.ami:
             print "AMI found is different from AMI specified on command line."
-            if tier_config.get('is_live', True) and not args.force:
+            if conf.tier['is_live'] and not args.force:
                 print "This is a live tier. Can't run mismatched AMI unless --force is specified"
                 sys.exit(1)
-        ami = ec2_conn.get_image(args.ami)
+        ami = list(ec2.images.filter(Owners=['self'], ImageIds=[args.ami]))[0]
 
     if not ami:
         sys.exit(1)
@@ -367,7 +362,7 @@ def _run_command(args):
     ami_info = dict(
         ami_id=ami.id,
         ami_name=ami.name,
-        ami_created=ami.creationDate,
+        ami_created=ami.creation_date,
         ami_tags=ami.tags,
     )
     print "AMI Info:\n", pretty(ami_info)
@@ -378,7 +373,7 @@ def _run_command(args):
         print "EC2:"
         print "\tInstance Type:\t{}".format(args.instance_type)
 
-    ec2 = boto3.resource('ec2', region_name=tier_config["region"])
+    ec2 = boto3.resource('ec2', region_name=aws_region)
 
     # Get all 'private' subnets
     filters = {'tag:tier': tier_name, 'tag:realm': 'private'}
@@ -444,7 +439,7 @@ def _run_command(args):
         sys.exit(0)
 
     if autoscaling:
-        client = boto3.client('autoscaling', region_name=tier_config["region"])
+        client = boto3.client('autoscaling', region_name=aws_region)
         launch_config_name = '{}-{}-launchconfig-{}-{}'.format(tier_name, service_info["name"], datetime.utcnow(), release)
         launch_config_name = launch_config_name.replace(':', '.')
         launch_script ='''#!/bin/bash\nsudo bash -c "echo TIERCONFIGPATH='${TIERCONFIGPATH}' >> /etc/environment"'''

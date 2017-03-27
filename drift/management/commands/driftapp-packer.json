@@ -1,8 +1,5 @@
 {
   "variables": {
-    "aws_access_key": "{{env `AWS_ACCESS_KEY_ID`}}",
-    "aws_secret_key": "{{env `AWS_SECRET_ACCESS_KEY`}}",
-
     "service": "unknown",
     "region": "eu-west-1",
     "source_ami": "unknown",
@@ -11,32 +8,34 @@
     "domain_name": "unknown",
 
     "version": "0.0.1",
-    "branch": "unknown",
+    "git_branch": "unknown",
     "git_commit": "unknown",
     "git_release": "unknown",
+    "git_url": "unknown",
     "config_url": "unknown"
   },
   "builders": [
     {
       "type": "amazon-ebs",
-      "access_key": "{{user `aws_access_key`}}",
-      "secret_key": "{{user `aws_secret_key`}}",
       "region": "{{user `region`}}",
       "source_ami": "{{user `source_ami`}}",
       "instance_type": "m3.medium",
       "iam_instance_profile": "ec2",
       "ssh_username": "ubuntu",
       "ami_name": "{{user `service`}}-{{isotime `2006-01-02-15-04`}}",
+
       "tags": {
         "service-name": "{{user `service`}}",
         "creation-date": "{{isotime `2006-01-02-15-04`}}",
-        "branch": "{{user `branch`}}",
-        "git_commit": "{{user `git_commit`}}",
-        "git-release": "{{user `git_release`}}",
-        "aws_access_key": "{{user `aws_access_key`}}",
         "user-name": "{{user `user_name`}}",
+        "domain-name": "{{user `domain_name`}}",
+
         "version-number": "{{user `version`}}",
-        "domain-name": "{{user `domain_name`}}"
+
+        "git-branch": "{{user `git_branch`}}",
+        "git-commit": "{{user `git_commit`}}",
+        "git-release": "{{user `git_release`}}",
+        "git-url": "{{user `git_url`}}"
       }
     }
   ],
