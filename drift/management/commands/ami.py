@@ -40,6 +40,9 @@ IAM_ROLE = "ec2"
 # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
 AMI_OWNER_CANONICAL = '099720109477'
 
+# The default AMI region. It can be specified in config domain.aws_ami_region.
+AWS_DEFAULT_AMI_REGION = 'eu-west-1'
+
 
 def get_options(parser):
 
@@ -119,24 +122,23 @@ def filterize(d):
 
 
 def _bake_command(args):
-    name = get_app_name()
-    version = get_app_version()
-
-    conf = get_drift_config(tier_name=get_tier_name(), deployable_name=name)
-    print "TIER:"
-    print json.dumps(conf.tier, indent=4)
-    print "DEPLOYABLE:", name
-    print json.dumps(conf.deployable, indent=4)
-    return
-
-    tier_name = conf.tier['tier_name']
-    aws_region = conf.tier['aws']['region']
-
-    iam_conn = boto.iam.connect_to_region(aws_region)
 
     if args.ubuntu:
-        # Get all Ubuntu Trusty 14.04 images from the appropriate region and
-        # pick the most recent one.
+        name = UBUNTU_BASE_IMAGE_NAME
+    else:
+        name = get_app_name()
+
+    conf = get_drift_config()
+    domain = conf.domain.get()
+    print "DOMAIN:"
+    print json.dumps(domain, indent=4)
+    if not args.ubuntu:
+        print "DEPLOYABLE:", name
+
+    aws_region = domain.get('aws_ami_region', AWS_DEFAULT_AMI_REGION)
+
+    if args.ubuntu:
+        # Get all Ubuntu images from the appropriate region and pick the most recent one.
         # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
         print "Finding the latest AMI on AWS that matches", UBUNTU_RELEASE
         ec2 = boto3.resource('ec2', region_name=aws_region)
@@ -145,20 +147,21 @@ def _bake_command(args):
         ]
         amis = list(ec2.images.filter(Owners=[AMI_OWNER_CANONICAL], Filters=filters))
         if not amis:
-            print "No AMI found matching '{}'. Not sure what to do now.".format(
-                UBUNTU_RELEASE, tier_name, sys.argv[0])
+            print "No AMI found matching '{}'. Not sure what to do now.".format(UBUNTU_RELEASE)
             sys.exit(1)
         ami = max(amis, key=operator.attrgetter("creation_date"))
     else:
         ec2 = boto3.resource('ec2', region_name=aws_region)
         filters = [
             {'Name': 'tag:service-name', 'Values': [UBUNTU_BASE_IMAGE_NAME]},
-            {'Name': 'tag:tier', 'Values': tier_name},
+            {'Name': 'tag:domain-name', 'Values': [domain['domain_name']]},
         ]
         amis = list(ec2.images.filter(Owners=['self'], Filters=filters))
         if not amis:
-            print "No '{}' AMI found for tier {}. Bake one using this command: {} ami bake --ubuntu".format(
-                UBUNTU_BASE_IMAGE_NAME, tier_name, sys.argv[0])
+            criteria = {d['Name']: d['Values'][0] for d in filters}
+            print "No '{}' AMI found using the search criteria {}.".format(UBUNTU_BASE_IMAGE_NAME, criteria)
+            print "Bake one using this command: {} ami bake --ubuntu".format(sys.argv[0])
+
             sys.exit(1)
         ami = max(amis, key=operator.attrgetter("creation_date"))
 
@@ -167,28 +170,9 @@ def _bake_command(args):
     print "\tName:\t", ami.name
     print "\tDate:\t", ami.creation_date
 
-    if args.ubuntu:
-        version = None
-        branch = ''
-        sha_commit = ''
-        deployment_manifest = create_deployment_manifest('bakeami')  # Todo: Should be elsewhere or different
-    else:
+    # For deployables, run Python build command
+    if not args.ubuntu:
         current_branch = get_branch()
-
-        if not args.tag:
-            # See if service is tagged to a specific version for this tier
-            for si in tier_config['deployables']:
-                if si['name'] == service_info['name']:
-                    if 'release' in si:
-                        text = "Error: As deployable '{}' for tier '{}' is pegged to a particular " \
-                            "release, you must specify a release tag to which to bake from.\n" \
-                            "Note that this is merely a safety measure.\n" \
-                            "For reference, the current deployable for this tier is pegged at " \
-                            "release tag '{}'."
-                        print text.format(service_info['name'], tier_name, si['release'])
-                        sys.exit(1)
-                    break
-
         if not args.tag:
             args.tag = current_branch
 
@@ -196,11 +180,6 @@ def _bake_command(args):
 
         checkout(args.tag)
         try:
-            deployment_manifest = create_deployment_manifest('bakeami')  # Todo: Should be elsewhere or different
-            sha_commit = get_commit()
-            branch = get_branch()
-            version = get_git_version()
-            service_info = get_service_info()
             if not args.preview:
                 cmd = "python setup.py sdist --formats=zip"
                 ret = os.system(cmd)
@@ -211,40 +190,37 @@ def _bake_command(args):
             print "Reverting to ", current_branch
             checkout(current_branch)
 
-    if not version:
-        version = {'tag': 'untagged-branch'}
+        manifest_filename = os.path.join("dist", "deployment-manifest.json")
+        manifest_json = json.dumps(create_deployment_manifest('bakeami'), indent=4)
+        print "Deployment Manifest:\n", manifest_json
+        with open(manifest_filename, "w") as f:
+            f.write(manifest_json)
 
-    print "git version:", version
-
-    user = iam_conn.get_user()  # The current IAM user running this command
-
-    # Need to generate a pre-signed url to the tiers root config file on S3
-    tiers_config = get_tiers_config()
-    tiers_config_url = '{}/{}.{}/{}'.format(
-        tiers_config['region'],
-        tiers_config['bucket'], tiers_config['domain'],
-        TIERS_CONFIG_FILENAME
-    )
+    user = boto.iam.connect_to_region(aws_region).get_user()  # The current IAM user running this command
 
     var = {
-        "service": UBUNTU_BASE_IMAGE_NAME if args.ubuntu else service_info["name"],
-        "versionNumber": service_info["version"],
+        "service": name,
         "region": aws_region,
         "source_ami": ami.id,
-        "branch": branch,
-        "commit": sha_commit,
-        "release": version['tag'],
         "user_name": user.user_name,
-        "tier": tier_name,
-        "tier_url": tiers_config_url,
-        "config_url": get_origin_url(),  ## this is bogus
+        "domain_name": domain['domain_name'],
     }
 
     if args.ubuntu:
-        var['setup_script'] = pkg_resources.resource_filename(__name__, "ubuntu-packer.sh")
+        extra_vars = {
+            'setup_script': pkg_resources.resource_filename(__name__, "ubuntu-packer.sh")
+        }
     else:
-        var['setup_script'] = pkg_resources.resource_filename(__name__, "driftapp-packer.sh")
+        extra_vars = {
+            'branch': get_branch(),
+            'git_commit': get_commit(),
+            'git_release': get_git_version()['tag'],
+            'config_url': conf.domain['origin'],
+            'version': get_app_version(),
+            'setup_script': pkg_resources.resource_filename(__name__, "driftapp-packer.sh"),
+        }
 
+    var.update(extra_vars)
     print "Using var:\n", pretty(var)
 
     packer_cmd = "packer"
@@ -276,31 +252,27 @@ def _bake_command(args):
     else:
         scriptfile = pkg_resources.resource_filename(__name__, "driftapp-packer.json")
         cmd += scriptfile
+
     print "Baking AMI with: {}".format(cmd)
-
-    # Dump deployment manifest into dist folder temporarily. The packer script
-    # will pick it up and bake it into the AMI.
-    deployment_manifest_filename = os.path.join("dist", "deployment-manifest.json")
-    deployment_manifest_json = json.dumps(deployment_manifest, indent=4)
-    print "Deployment Manifest:\n", deployment_manifest_json
-
     if args.preview:
         print "Not building or packaging because --preview is on. Exiting now."
         return
 
-    with open(deployment_manifest_filename, "w") as dif:
-        dif.write(deployment_manifest_json)
-
     start_time = time.time()
     try:
-        os.system(cmd)
+        # Execute Packer command
+        ret = os.system(cmd)
     finally:
-        os.remove(deployment_manifest_filename)
         pkg_resources.cleanup_resources()
+
+    if ret != 0:
+        print "Failed to execute packer command:", cmd
+        sys.exit(ret)
+
     duration = time.time() - start_time
     print "Done after %.0f seconds" % (duration)
-    slackbot.post_message("Successfully baked a new AMI for '{}' on tier '{}' in %.0f seconds"
-                          .format(service_info["name"], get_tier_name(), duration))
+    slackbot.post_message("Successfully baked a new AMI for '{}' in %.0f seconds"
+                          .format(name, duration))
 
 
 class MyEncoder(json.JSONEncoder):

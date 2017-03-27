@@ -2,21 +2,19 @@
   "variables": {
     "aws_access_key": "{{env `AWS_ACCESS_KEY_ID`}}",
     "aws_secret_key": "{{env `AWS_SECRET_ACCESS_KEY`}}",
-    "region": "eu-west-1",
-    "changelist": "0",
+
     "service": "unknown",
+    "region": "eu-west-1",
     "source_ami": "unknown",
-    "versionNumber": "0.0.1",
-    "branch": "unknown",
-    "commit": "unknown",
-    "release": "unknown",
     "user_name": "unknown",
-    "tier": "unknown",
-    "tier_url": "unknown",
-    "config_url": "unknown",
     "setup_script": "unknown",
-    "debug_user": "n/a",
-    "debug_pwd": "n/a"
+    "domain_name": "unknown",
+
+    "version": "0.0.1",
+    "branch": "unknown",
+    "git_commit": "unknown",
+    "git_release": "unknown",
+    "config_url": "unknown"
   },
   "builders": [
     {
@@ -32,14 +30,13 @@
       "tags": {
         "service-name": "{{user `service`}}",
         "creation-date": "{{isotime `2006-01-02-15-04`}}",
-        "changelist": "{{user `changelist`}}",
         "branch": "{{user `branch`}}",
-        "commit": "{{user `commit`}}",
-        "release": "{{user `release`}}",
-        "tier": "{{user `tier`}}",
+        "git_commit": "{{user `git_commit`}}",
+        "git-release": "{{user `git_release`}}",
         "aws_access_key": "{{user `aws_access_key`}}",
         "user-name": "{{user `user_name`}}",
-        "version-number": "{{user `versionNumber`}}"
+        "version-number": "{{user `version`}}",
+        "domain-name": "{{user `domain_name`}}"
       }
     }
   ],
@@ -47,8 +44,8 @@
   "provisioners": [
     {
         "type": "file",
-        "source": "./dist/{{user `service`}}-{{user `versionNumber`}}.zip",
-        "destination": "~/{{user `service`}}-{{user `versionNumber`}}.zip"
+        "source": "./dist/{{user `service`}}-{{user `version`}}.zip",
+        "destination": "~/{{user `service`}}-{{user `version`}}.zip"
     },
     {
         "type": "file",
@@ -61,10 +58,8 @@
       "execute_command": "echo 'packer' | {{ .Vars }} sudo -E -S sh '{{ .Path }}'",
       "environment_vars": [
         "service={{user `service`}}",
-        "versionNumber={{user `versionNumber`}}",
-        "tier_url={{user `tier_url`}}",
-        "config_url={{user `config_url`}}",
-        "tier={{user `tier`}}"
+        "version={{user `version`}}",
+        "config_url={{user `config_url`}}"
       ]
     }
   ]

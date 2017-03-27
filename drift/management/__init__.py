@@ -132,6 +132,7 @@ def get_s3_bucket(tiers_config):
 
 
 def get_tiers_config(display_title=True):
+    legacy_stuff
     config_file = get_config_path(TIERS_CONFIG_FILENAME)
     if not os.path.exists(config_file):
         print "No tiers configuration file found. Use the 'init' command to initialize."
@@ -267,22 +268,23 @@ def get_ec2_instances(region, filters=None):
     return instances
 
 
-def create_deployment_manifest(method):
+def create_deployment_manifest(method, username=None):
     """Returns a dict describing the current deployable."""
-    service_info = get_service_info()
 
-    commit = get_commit()
-    version = get_git_version()
+    git_version = get_git_version()
+    git_commit = get_commit()
 
     info = {
-        'deployable': service_info['name'],
         'method': method,
-        'username': getpass.getuser(),
+        'deployable': get_app_name(),
+        'version': get_app_version(),
+        'username': username or getpass.getuser(),
         'datetime': datetime.utcnow().isoformat(),
-        'branch': get_branch(),
-        'commit': commit,
-        'commit_url': get_repo_url() + "/commit/" + commit,
-        'release': version['tag'] if version else 'untagged-branch'
+
+        'git_branch': get_branch(),
+        'git_commit': git_commit,
+        'git_commit_url': get_repo_url() + "/commit/" + git_commit,
+        'git_release': git_version['tag'] if git_version else 'untagged-branch',
     }
 
     return info
