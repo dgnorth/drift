@@ -102,6 +102,16 @@ def get_options(parser):
         "--preview", help="Show arguments only", action="store_true"
     )
 
+    # The 'copy-image' command
+    p = subparsers.add_parser(
+        'copy-image',
+        help='Copies AMI to all active regions.',
+    )
+    p.add_argument(
+        "ami",
+        help="The image id.",
+    )
+
 
 def run_command(args):
     fn = globals()["_{}_command".format(args.command.replace("-", "_"))]
@@ -135,6 +145,13 @@ def _bake_command(args):
     if not args.ubuntu:
         print "DEPLOYABLE:", name
     print "AWS REGION:", aws_region
+
+    # Create a list of all regions that are active
+    active_tiers = conf.table_store.get_table('tiers').find({'state': 'active'})
+    regions = set([tier['aws']['region'] for tier in active_tiers if 'aws' in tier])
+    if aws_region in regions:
+        regions.remove(aws_region)  # This is the source region
+    print "Distributing AMI to region(s) {}.".format(', '.join(regions))
 
     if args.ubuntu:
         # Get all Ubuntu images from the appropriate region and pick the most recent one.
@@ -208,6 +225,13 @@ def _bake_command(args):
         print "Deployment Manifest:\n", manifest_json
         with open(manifest_filename, "w") as f:
             f.write(manifest_json)
+
+        # The 'ami_regions' option in Packer is nice, but horrible to use. See here why:
+        padding_region = list(regions)[0] if regions else aws_region
+        padding = {'ami_{}'.format(i + 1): padding_region for i in xrange(5)}
+        packer_vars.update(padding)
+        dest_regions = {'ami_{}'.format(i + 1): region for i, region in enumerate(regions)}
+        packer_vars.update(dest_regions)
 
     user = boto.iam.connect_to_region(aws_region).get_user()  # The current IAM user running this command
 
@@ -531,8 +555,8 @@ def _run_command(args):
             print "{} running at {}".format(instance, instance.private_ip_address)
             slackbot.post_message(
                 "Started up AMI '{}' for '{}' on tier '{}' with ip '{}'".format(
-                    ami.id, name, 
-                    tier_name, 
+                    ami.id, name,
+                    tier_name,
                     instance.private_ip_address
                 )
             )
@@ -541,3 +565,55 @@ def _run_command(args):
             print "Instance was not created correctly"
             sys.exit(1)
 
+
+def _copy_image_command(args):
+    _copy_image(args.ami)
+
+
+def _copy_image(ami_id):
+
+    conf = get_drift_config()
+    domain = conf.domain.get()
+    aws_region = domain.get('aws_ami_region', AWS_DEFAULT_AMI_REGION)
+
+    # Grab the source AMI
+    source_ami = boto3.resource('ec2', region_name=aws_region).Image(ami_id)
+
+    # Create a list of all regions that are active
+    active_tiers = conf.table_store.get_table('tiers').find({'state': 'active'})
+    regions = set([tier['aws']['region'] for tier in active_tiers if 'aws' in tier])
+    if aws_region in regions:
+        regions.remove(aws_region)  # This is the source region
+    print "Distributing {} to region(s) {}.".format(source_ami.id, ', '.join(regions))
+
+    jobs = []
+    for region_id in regions:
+        ec2_client = boto3.client('ec2', region_name=region_id)
+
+        ret = ec2_client.copy_image(
+            SourceRegion=aws_region,
+            SourceImageId=source_ami.id,
+            Name=source_ami.name or "",
+            Description=source_ami.description or "",
+        )
+
+        job = {
+            'id': ret['ImageId'],
+            'region_id': region_id,
+            'client': ec2_client,
+        }
+
+        jobs.append(job)
+
+    # Wait on jobs and copy tags
+    for job in jobs:
+        ami = boto3.resource('ec2', region_name=job['region_id']).Image(job['id'])
+        print "Waiting on {}...".format(ami.id)
+        ami.wait_until_exists(Filters=[{'Name': 'state', 'Values': ['available']}])
+
+        if ami.state != 'available':
+            borko
+        print "AMI {id} in {region_id} is available. Copying tags...".format(**job)
+        job['client'].create_tags(Resources=[job['id']], Tags=source_ami.tags)
+
+    print "All done."
