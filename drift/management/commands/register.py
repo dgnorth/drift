@@ -1,48 +1,17 @@
 """
 Build an AWS AMI for this service
 """
-import os
-import sys
-import time
-import subprocess, operator
-import pkg_resources
-from drift.management import create_deployment_manifest
+import subprocess
 import json
 import datetime
-import random
+
+from drift.management import get_app_version, get_app_name
+from driftconfig.util import get_drift_config, get_default_drift_config
+from driftconfig.config import TSTransaction
+
 
 def funky(*args, **kw):
     print "WEEEEEEEEEEEEEEEEEEEEEEEEE I GOT FUNKY", args, kw
-
-try:
-    # boto library is not a hard requirement for drift.
-    import boto.ec2
-    import boto.iam
-    import boto3
-except ImportError:
-    pass
-
-from drift.management import get_tier_config, get_service_info, get_tiers_config, TIERS_CONFIG_FILENAME, get_app_version, get_app_name
-from drift.management.gittools import get_branch, get_commit, get_git_version, checkout
-from drift.utils import get_tier_name, get_config
-from drift import slackbot
-from driftconfig.util import get_drift_config, diff_table_stores, get_default_drift_config
-from driftconfig.config import TSTransaction
-
-# regions:
-# eu-west-1 : ami-234ecc54
-#             ready-made: ami-71196e06
-# ap-southeast-1: ami-ca381398
-
-UBUNTU_BASE_IMAGE_NAME = 'ubuntu-base-image'
-UBUNTU_TRUSTY_IMAGE_NAME = 'ubuntu/images/hvm/ubuntu-trusty-14.04*'
-UBUNTU_XENIAL_IMAGE_NAME = 'ubuntu/images/hvm-ssd/ubuntu-xenial-16.04*'
-UBUNTU_RELEASE = UBUNTU_TRUSTY_IMAGE_NAME
-
-IAM_ROLE = "ec2"
-
-# The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
-AMI_OWNER_CANONICAL = '099720109477'
 
 
 def get_options(parser):
@@ -103,7 +72,6 @@ def get_package_info():
     # HACK: Get app root:
     from drift.flaskfactory import _find_app_root
     app_root = _find_app_root()
-
 
     p = subprocess.Popen(
         ['python', 'setup.py'] + ['--' + classifier for classifier in _package_classifiers],
@@ -183,7 +151,6 @@ def _info_command(args):
 def _register_command(args):
 
     info = get_package_info()
-    conf = get_drift_config()
     name = info['name']
     is_active = not args.inactive
 
@@ -195,7 +162,7 @@ def _register_command(args):
 
     with TSTransaction(commit_to_origin=not args.preview) as ts:
         # Insert or update name
-        row = {'deployable_name': name,  'display_name': info['description']}
+        row = {'deployable_name': name, 'display_name': info['description']}
         if 'long-description' in info and info['long-description'] != "UNKNOWN":
             row['description'] = info['long-cdescription']
         ts.get_table('deployable-names').update(row)
