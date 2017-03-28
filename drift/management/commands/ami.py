@@ -40,9 +40,6 @@ IAM_ROLE = "ec2"
 # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
 AMI_OWNER_CANONICAL = '099720109477'
 
-# The default AMI region. It can be specified in config domain.aws_ami_region.
-AWS_DEFAULT_AMI_REGION = 'eu-west-1'
-
 
 def get_options(parser):
 
@@ -139,7 +136,7 @@ def _bake_command(args):
 
     conf = get_drift_config()
     domain = conf.domain.get()
-    aws_region = domain.get('aws_ami_region', AWS_DEFAULT_AMI_REGION)
+    aws_region = domain['aws']['ami_baking_region']
 
     print "DOMAIN:\n", json.dumps(domain, indent=4)
     if not args.ubuntu:
@@ -574,7 +571,7 @@ def _copy_image(ami_id):
 
     conf = get_drift_config()
     domain = conf.domain.get()
-    aws_region = domain.get('aws_ami_region', AWS_DEFAULT_AMI_REGION)
+    aws_region = domain['aws']['ami_baking_region']
 
     # Grab the source AMI
     source_ami = boto3.resource('ec2', region_name=aws_region).Image(ami_id)
