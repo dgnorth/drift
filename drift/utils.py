@@ -158,10 +158,10 @@ def get_tier_name(config_path=None):
 
     Currently supports only DEV, STAGING, DGN-DEV and LIVE tiers.
     """
-    if g and hasattr(g, 'conf'):
-        return g.conf.tier['tier_name']
-    elif 'DRIFT_DEFAULT_TIER' in os.environ:
-        return os.environ['DRIFT_DEFAULT_TIER']
+    if 'DRIFT_TIER' in os.environ:
+        return os.environ['DRIFT_TIER']
+    else:
+        raise RuntimeError("No tier specified!")
 
     # TODO: Remove this?
     if current_app and 'tier_name' in current_app.config:

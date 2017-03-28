@@ -48,6 +48,9 @@ def do_execute_cmd(argv):
         help="Use local Postgres and Redis server (override hostname as 'localhost').",
         action='store_true'
     )
+    parser.add_argument('--tier',
+        help="Specify which tenant to use. Will override any other settings."
+    )
     parser.add_argument('--tenant', '-t',
         help="Specify which tenant to use. Will override any other settings."
     )
@@ -85,16 +88,22 @@ def do_execute_cmd(argv):
 
     try:
         conf, source =  get_default_drift_config_and_source()
-        print pretty("[BOLD]Drift configuration source: {}[RESET]".format(source))
+        print pretty("Drift configuration source: {}".format(source))
     except RuntimeError as e:
         if "No config found" not in repr(e):
             raise
 
     if args.localservers or os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         os.environ['DRIFT_USE_LOCAL_SERVERS'] = '1'
-        print pretty("[BOLD]Using localhost for Redis and Postgres connections.[RESET]")
+        print pretty("Using localhost for Redis and Postgres connections.")
 
     set_pretty_settings(formatter=args.formatter, style=args.style)
+
+    if args.tier:
+        os.environ['DRIFT_TIER'] = args.tier
+        print "Tier set to '%s'." % args.tier
+    elif 'DRIFT_TIER' not in os.environ:
+        print "Warning: No tier specified in environment or on command line!"
 
     if args.tenant:
         os.environ['DRIFT_DEFAULT_TENANT'] = args.tenant
@@ -132,7 +141,7 @@ def get_s3_bucket(tiers_config):
 
 
 def get_tiers_config(display_title=True):
-    legacy_stuff
+
     config_file = get_config_path(TIERS_CONFIG_FILENAME)
     if not os.path.exists(config_file):
         print "No tiers configuration file found. Use the 'init' command to initialize."
