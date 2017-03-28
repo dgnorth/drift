@@ -3,7 +3,6 @@
     "service": "unknown",
     "region": "eu-west-1",
     "source_ami": "unknown",
-    "ami_1": "unknown", "ami_2": "unknown", "ami_3": "unknown", "ami_4": "unknown", "ami_5": "unknown",
     "user_name": "unknown",
     "setup_script": "unknown",
     "domain_name": "unknown"
@@ -17,7 +16,6 @@
       "iam_instance_profile": "ec2",
       "ssh_username": "ubuntu",
       "ami_name": "{{user `service`}}-{{isotime `2006-01-02-15-04`}}",
-      "ami_regions": ["{{user `ami_1`}}", "{{user `ami_2`}}", "{{user `ami_3`}}", "{{user `ami_4`}}", "{{user `ami_5`}}"],
 
       "tags": {
         "service-name": "{{user `service`}}",

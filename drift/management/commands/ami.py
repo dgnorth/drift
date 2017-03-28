@@ -612,7 +612,7 @@ def _copy_image(ami_id):
         ami.wait_until_exists(Filters=[{'Name': 'state', 'Values': ['available']}])
 
         if ami.state != 'available':
-            borko
+            continue
         print "AMI {id} in {region_id} is available. Copying tags...".format(**job)
         job['client'].create_tags(Resources=[job['id']], Tags=source_ami.tags)
 
