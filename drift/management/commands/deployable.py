@@ -19,7 +19,7 @@ try:
 except ImportError:
     pass
 
-from drift.management import get_tier_config, get_service_info, get_tiers_config, TIERS_CONFIG_FILENAME, get_app_version, get_app_name
+from drift.management import get_tiers_config, TIERS_CONFIG_FILENAME, get_app_version, get_app_name
 from drift.management.gittools import get_branch, get_commit, get_git_version, checkout
 from drift.utils import get_tier_name, get_config
 from drift import slackbot

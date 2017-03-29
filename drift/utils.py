@@ -144,82 +144,18 @@ def add_response_headers(headers={}):
     return decorator
 
 
-def get_tier_name(config_path=None):
+def get_tier_name():
     """
-    Get tier name from an AWS EC2 tag or the file TIER
-    inside the config/ folder for the service
-
-    Typically the build process might put the proper tier into
-    the file based on the build configuration.
-
-    A more advanced method will be to use the tag in an AWS instance
-    to pick the right configuration so that a single build/AMI could
-    be used in several tiers.
-
-    Currently supports only DEV, STAGING, DGN-DEV and LIVE tiers.
+    Get tier name from environment
     """
-    if 'DRIFT_TIER' in os.environ:
-        return os.environ['DRIFT_TIER']
-    else:
-        raise RuntimeError("No tier specified!")
-
-    # TODO: Remove this?
-    if current_app and 'tier_name' in current_app.config:
-        return current_app.config['tier_name']
-
-    tier_name = None
-    metastore_url = "http://169.254.169.254/latest/meta-data"
     try:
-        r = requests.get("%s/placement/availability-zone" % metastore_url, timeout=0.1)
-        # on travis-ci the request above sometimes actually succeeds and returns a 404
-        # so we need to check for that and handle the case like we do local servers.
-        if r.status_code == 404:
-            raise Exception("404")
-        region = r.text.strip()[:-1]  # skip the a, b, c at the end
-        r = requests.get("%s/instance-id" % metastore_url, timeout=1.0)
-        instance_id = r.text.strip()
-        n = 0
-        tier_name = None
-        # try to get the tier tag for 10 seconds. Tags might not be ready in AWS when we start up
-        while n < 10:
-            conn = boto.ec2.connect_to_region(region)
-            ec2 = conn.get_all_reservations(filters={"instance-id": instance_id})[0]
-            tags = ec2.instances[0].tags
-            if "tier" in tags:
-                tier_name = tags["tier"]
-                break
-            else:
-                n += 1
-                time.sleep(1.0)
-        if tier_name is None:
-            raise RuntimeError("Could not find the 'tier' tag on the EC2 instance %s.", instance_id)
-
-    except Exception as e:
-        if is_ec2():
-            log.error("Could not query EC2 metastore")
-            raise RuntimeError("Could not query EC2 metastore: %s" % e)
-
-    if not tier_name:
-        if not config_path:
-            # tier config is in the .drift folder in your home directory
-            config_path = os.path.join(os.path.expanduser("~"), ".drift")
-        if config_path:
-            tier_filename = os.path.join(config_path, "TIER")
-            try:
-                with open(tier_filename) as f:
-                    tier_name = f.read().strip().upper()
-                log.debug("Got tier '%s' from %s", tier_name, tier_filename)
-            except Exception:
-                log.debug("No tier config file found in %s.", tier_filename)
-
-    if not tier_name:
-        raise RuntimeError("You do not have have a tier selected. Please run "
-                           "kitrun.py tier [tier-name]")
-
-    if current_app:
-        current_app.config['tier_name'] = tier_name
-
-    return tier_name
+        return os.environ['DRIFT_TIER']
+    except KeyError:
+        raise RuntimeError(
+            "No tier specified. Specify one in "
+            "'DRIFT_TIER' environment variable, or use the --tier command "
+            "line argument."
+        )
 
 
 def request_wants_json():

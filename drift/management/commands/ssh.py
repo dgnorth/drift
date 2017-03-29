@@ -5,9 +5,7 @@ import subprocess
 
 import boto3
 
-from drift.management import get_tier_config, get_config_path
-
-STOCK_SERVICES = ["rabbitmq", "nat", "api-router"]
+from drift.utils import get_config
 
 
 def get_options(parser):
@@ -16,34 +14,29 @@ def get_options(parser):
 
 def run_command(args):
     service = args.service
-    conf = get_tier_config()
-    print "Current tier and region: {} on {}".format(conf["tier"], conf["region"])
-    deployables = {depl["name"]: depl for depl in conf["deployables"]}
+    conf = get_config()
+    tier_name = conf.tier['tier_name']
+    region = conf.tier['aws']['region']
+    ssh_key_name = conf.tier['aws']['ssh_key']
+    deployables = conf.table_store.get_table('deployables').find({"tier_name": tier_name})
+    deployables = {depl["deployable_name"]: depl for depl in deployables}
     if service is None:
         print "Select an instance to connect to:"
-        for k in deployables.keys() + STOCK_SERVICES:
+        for k in sorted(deployables.keys()):
             print "   ", k
         return
 
-    if service not in deployables and service not in STOCK_SERVICES:
-        print "Service or deployable '{}' not one of {}. Will still try to find it.".format(
-            service, deployables.keys() + STOCK_SERVICES)
-
-    if service in STOCK_SERVICES:
-        # TODO: Fix assumption about key name
-        ssh_key_name = "{}-key.pem".format(conf["tier"].lower())
     elif service not in deployables:
-        ssh_key_name = "{}-key.pem".format(conf["tier"].lower())
-    else:
-        ssh_key_name = deployables[service]["ssh_key"]
+        print "Service or deployable '{}' not one of {}.".format(service, deployables.keys())
+        return
 
-    ssh_key_file = get_config_path(ssh_key_name, ".ssh")
+    ssh_key_file = '~/.ssh/{}.pem'.format(ssh_key_name)
 
     # Get IP address of any instance of this deployable.
-    sess = boto3.session.Session(region_name=conf["region"])
+    sess = boto3.session.Session(region_name=region)
     ec2 = sess.client("ec2")
     filters = [{"Name": "instance-state-name", "Values": ["running"]},
-               {"Name": "tag:tier", "Values": [conf["tier"]]},
+               {"Name": "tag:tier", "Values": [tier_name]},
                {"Name": "tag:service-name", "Values": [service]},
                ]
     print "Getting a list of EC2's from AWS matching the following criteria:"

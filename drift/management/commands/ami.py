@@ -19,7 +19,7 @@ try:
 except ImportError:
     pass
 
-from drift.management import get_tier_config, get_service_info, get_tiers_config, TIERS_CONFIG_FILENAME, get_app_version, get_app_name
+from drift.management import get_tiers_config, TIERS_CONFIG_FILENAME, get_app_version, get_app_name
 from drift.management.gittools import get_branch, get_commit, get_git_version, checkout, get_repo_url
 from drift.utils import get_tier_name, get_config
 from drift import slackbot
@@ -459,11 +459,14 @@ def _run_command(args):
         print "--preview specified, exiting now before actually doing anything."
         sys.exit(0)
 
+    user_data = '''#!/bin/bash\nsudo bash -c "echo DRIFT_TIER={} >> /etc/environment"'''.format(tier_name)
+    print "user_data:"
+    print user_data
+
     if autoscaling:
         client = boto3.client('autoscaling', region_name=aws_region)
         launch_config_name = '{}-{}-launchconfig-{}-{}'.format(tier_name, name, datetime.utcnow(), release)
         launch_config_name = launch_config_name.replace(':', '.')
-        launch_script = '''#!/bin/bash\nsudo bash -c "echo TIERCONFIGPATH='${TIERCONFIGPATH}' >> /etc/environment"'''
 
         kwargs = dict(
             LaunchConfigurationName=launch_config_name,
@@ -473,7 +476,7 @@ def _run_command(args):
             InstanceType=autoscaling['instance_type'] or args.instance_type,
             IamInstanceProfile=IAM_ROLE,
             InstanceMonitoring={'Enabled': True},
-            UserData=launch_script,
+            UserData=user_data,
         )
         print "Creating launch configuration using params:\n", pretty(kwargs)
         client.create_launch_configuration(**kwargs)
@@ -529,7 +532,8 @@ def _run_command(args):
             subnet_id=subnet.id,
             security_group_ids=[security_group.id],
             key_name=key_name,
-            instance_profile_name=IAM_ROLE
+            instance_profile_name=IAM_ROLE,
+            user_data=user_data,
         )
 
         if len(reservation.instances) == 0:

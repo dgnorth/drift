@@ -8,6 +8,7 @@ import getpass
 from datetime import datetime
 import logging
 import subprocess
+import socket
 
 import requests
 import boto
@@ -103,7 +104,7 @@ def do_execute_cmd(argv):
         os.environ['DRIFT_TIER'] = args.tier
         print "Tier set to '%s'." % args.tier
     elif 'DRIFT_TIER' not in os.environ:
-        print "Warning: No tier specified in environment or on command line!"
+        raise RuntimeError("No tier specified in environment or on command line!")
 
     if args.tenant:
         os.environ['DRIFT_DEFAULT_TENANT'] = args.tenant
@@ -199,21 +200,6 @@ def fetch(path):
     print "   Not a bucket:", e3
 
 
-def get_tier_config():
-    """Fetches information for the specified tier local config
-    """
-    tier_name = get_tier_name()
-    config_path = os.path.join(os.path.expanduser("~"), ".drift")
-    with open(os.path.join(config_path, "{}.json".format(tier_name))) as f:
-        config = json.load(f)
-    return config
-
-
-def get_service_info():
-    conf = get_config()
-    conf.drift_app['version'] = get_app_version()
-    return conf.drift_app
-
 
 def get_app_name():
     """
@@ -265,16 +251,42 @@ def get_app_version():
     return version
 
 
-def get_ec2_instances(region, filters=None):
+def check_connectivity(instances):
+    SSH_PORT = 22
+    for inst in instances:
+        ip_address = inst.private_ip_address
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(2)
+        result = sock.connect_ex((ip_address, SSH_PORT))
+        if result != 0:
+            raise RuntimeError("Unable to connect to '%s'. Is your VPN connection active?" % ip_address)
+
+
+def get_ec2_instances(region, tier, service_name):
     """
-    Returns all EC2 instances in the region.
-    'filters' is passed to the 'get_all_reservations' function.
+    Returns all EC2 instances on the specified region, tier and service.
+    Raises an error if any of the instances are not reachable in SSH
     """
+    filters = {
+            'tag:service-name': service_name,
+            "instance-state-name": "running",
+            "tag:tier": tier,
+        }
+    print "Finding ec2 instances in region %s from filters: %s" % (region, filters)
+
     conn = boto.ec2.connect_to_region(region)
 
     reservations = conn.get_all_reservations(filters=filters)
     instances = [i for r in reservations for i in r.instances]
+
+    if not instances:
+        raise RuntimeError("Found no running ec2 instances in region '%s', tier '%s' an service '%s'" % (region, tier, service_name))
+
+    check_connectivity(instances)
+
     return instances
+
+
 
 
 def create_deployment_manifest(method, username=None):

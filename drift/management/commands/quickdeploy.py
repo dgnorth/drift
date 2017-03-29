@@ -1,20 +1,18 @@
 """
 Deploy a local build to the running cluster.
-Note that this is currently just calling the old setup.py script 
+Note that this is currently just calling the old setup.py script
 and will be refactored soon.
 """
 import os
 import subprocess, sys
 from fabric.api import env, run, settings, hide
 from fabric.operations import put
-import boto
-import boto.ec2
 from time import sleep
 import json
 
-from drift.management import get_tier_config, get_service_info, create_deployment_manifest
+from drift.management import create_deployment_manifest, get_app_version, get_ec2_instances
+from drift.utils import get_config
 from drift import slackbot
-
 
 EC2_USERNAME = 'ubuntu'
 APP_LOCATION = r"/usr/local/bin/{}"
@@ -27,16 +25,12 @@ def get_options(parser):
         "--ip",
         help="Deploy to a certain instance instead of across the cluster")
     parser.add_argument(
-        "--public", 
-        help="Connect via the instances's public IP address (when outside VPN)",
-        action="store_true")
-    parser.add_argument(
-        "--drift", 
+        "--drift",
         help="Force deploy the drift library from the local filesystem (hack)",
         action="store_true")
     parser.add_argument(
         "-c",
-        "--comment", 
+        "--comment",
         help="Short description of the changes",
         default=None)
     parser.add_argument(
@@ -55,23 +49,25 @@ def _get_tier_protection(tier_name):
 
 
 def run_command(args):
-    tier_config = get_tier_config()
-    service_info = get_service_info()
-    tier = tier_config["tier"]
-    region = tier_config["region"]
-    service_name = service_info["name"]
-    public = args.public
+    conf = get_config()
+    service_name = conf.deployable['deployable_name']
+    tier = conf.tier['tier_name']
+    region = conf.tier['aws']['region']
+    ssh_key_name = conf.tier['aws']['ssh_key']
+    ssh_key_file = '~/.ssh/{}.pem'.format(ssh_key_name)
+
+    instances = get_ec2_instances(region, tier, service_name)
+
     include_drift = args.drift
     drift_filename = None
     drift_fullpath = None
-    default_tenant = tier_config.get("default_tenant", "default-{}".format(tier.lower()))
+    tenant_to_test = conf.table_store.get_table("tenants").find({"tier_name": tier})[0]
 
     if args.tiername and args.tiername != tier:
         print "Default tier is '{}' but you expected '{}'. Quitting now.".format(tier, args.tiername)
         return
 
-    is_protected_tier = _get_tier_protection(tier)
-    if is_protected_tier and tier != args.tiername:
+    if conf.tier['is_live'] and tier != args.tiername:
         print "You are quickdeploying to '{}' which is a protected tier.".format(tier)
         print "This is not recommended!"
         print "If you must do this, and you know what you are doing, state the name of"
@@ -111,16 +107,10 @@ def run_command(args):
     app_location = APP_LOCATION.format(service_name)
     old_path = app_location + "_old"
 
-    for deployable in tier_config["deployables"]:
-        if deployable["name"] == service_name:
-            pem_file = deployable["ssh_key"]            
-            break
-    else:
-        print "Service {} not found in tier config for {}".format(service_name, tier)
-        sys.exit(1)
     print "\n*** DEPLOYING service '{}' TO TIER '{}' IN REGION '{}'\n".format(service_name, tier, region)
 
-    build_filename = "{}-{}.zip".format(service_info["name"], service_info["version"])
+    version = get_app_version()
+    build_filename = "{}-{}.zip".format(service_name, version)
     build_fullpath = os.path.join("dist", build_filename)
     try:
         os.remove(build_fullpath)
@@ -129,42 +119,29 @@ def run_command(args):
             raise
 
     print "Building {}...".format(build_fullpath)
-    p = subprocess.Popen(["python", "setup.py", "sdist", "--formats=zip"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    p = subprocess.Popen(["python", "setup.py", "sdist", "--formats=zip"],
+                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     stdout, nothing = p.communicate()
-
+    print "done building"
     if not os.path.exists(build_fullpath):
-        print "Build artefact not found at {}".format(build_fullpath)
-        print "Build output: %s" % stdout
-        sys.exit(1)
-
-    filters = {
-            'tag:service-name': service_name,
-            "instance-state-name": "running",
-            "tag:tier": tier,
-        }
-    print "Finding ec2 instances in region %s from filters: %s" % (region, filters)
-    instances = get_ec2_instances(region, filters=filters)
-    if not instances:
-        print "Found no running ec2 instances with tag service-name={}".format(service_name)
-        return
+        raise Exception("Build artefact not found at {}".format(build_fullpath))
 
     for ec2 in instances:
-        if not public:
-            ip_address = ec2.private_ip_address
-        else:
-            ip_address = ec2.ip_address
+        ip_address = ec2.private_ip_address
+
         print "Deploying to {}...".format(ip_address)
 
         env.host_string = ip_address
         env.user = EC2_USERNAME
-        env.key_filename = '~/.ssh/{}'.format(pem_file)
+        env.key_filename = ssh_key_file
         with settings(warn_only=True):
             run("rm -f {}".format(build_filename))
         put(build_fullpath)
         if drift_filename:
             put(drift_fullpath)
         temp_folder = os.path.splitext(build_filename)[0]
-        with settings(warn_only=True): # expect some commands to fail
+        # expect some commands to fail
+        with settings(warn_only=True):
             run("sudo rm -f {}".format(UWSGI_LOGFILE))
             run("rm -r -f {}".format(temp_folder))
             with hide('output'):
@@ -206,32 +183,21 @@ def run_command(args):
         try:
             with settings(warn_only=True):
                 with hide('output'):
-                    out = run('curl http://127.0.0.1:{} -H "Accept: application/json" -H "Drift-Tenant: {}"'.format(SERVICE_PORT, default_tenant))
+                    out = run('curl http://127.0.0.1:{} -H "Accept: application/json" -H "Drift-Tenant: {}"'.format(SERVICE_PORT, tenant_to_test))
             d = json.loads(out)
             if "endpoints" not in d:
                 raise Exception("service json is incorrect: %s" % out)
             print "\nService {} is running on {}!".format(service_name, ip_address)
             slackbot.post_message("Successfully quick-deployed '{}' to tier '{}'".format(service_name, tier))
-        except:
+        except Exception as e:
             print "Unexpected response: %s" % out
             error_report()
             raise
 
+
 def error_report():
-    print "\n" + "*"*80
+    print "\n" + "*" * 80
     print "Something went wrong!"
     print "\nHere is the contents of {}:".format(UWSGI_LOGFILE)
     run("sudo tail {} -n 100".format(UWSGI_LOGFILE))
-    print "\n" + "*"*80
-
-
-def get_ec2_instances(region, filters=None):
-    """
-    Returns all EC2 instances on the specified region.
-    'filters' is passed to the 'get_all_reservations' function.
-    """
-    conn = boto.ec2.connect_to_region(region)
-
-    reservations = conn.get_all_reservations(filters=filters)
-    instances = [i for r in reservations for i in r.instances]
-    return instances
+    print "\n" + "*" * 80
