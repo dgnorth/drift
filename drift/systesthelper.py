@@ -78,6 +78,12 @@ def _create_basic_domain(deployable_name):
         'tier_name': 'UNITTEST',
         'deployable_name': deployable_name,
         'is_active': True,
+        "jwt_trusted_issuers": [
+            {
+                "iss": deployable_name,
+                "pub_rsa": public_test_key
+            }
+        ]
         })
 
     ts.get_table('products').add({
@@ -162,15 +168,8 @@ def setup_tenant():
             m.provision(conf, {}, recreate='recreate')
 
 
-    # skitamix
-    from drift.appmodule import app
-    app.config['jwt_trusted_issuers'] = [
-    {
-        "iss": app.config['name'],
-        "pub_rsa": public_test_key,
-    }]
-
     # mixamix
+    from drift.appmodule import app
     app.config['TESTING'] = True
 
 

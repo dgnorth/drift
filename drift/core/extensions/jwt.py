@@ -14,7 +14,6 @@ from flask_restful import Api, abort
 
 from werkzeug.local import LocalProxy
 from werkzeug.security import pbkdf2_hex, gen_salt
-from werkzeug.exceptions import HTTPException
 
 from drift.utils import get_tier_name
 
@@ -295,7 +294,8 @@ def issue_token(payload, expire=None):
         'tier_name': g.conf.tier['tier_name'], 'deployable_name': g.conf.deployable['deployable_name']
     })
     if not row:
-        raise RuntimeError("No public key found in config for tier '{}', deployable '{}'".format(g.conf.tier['tier_name'], g.conf.deployable['deployable_name']))
+        raise RuntimeError("No public key found in config for tier '{}', deployable '{}'"
+                           .format(g.conf.tier['tier_name'], g.conf.deployable['deployable_name']))
     key_info = row['keys'][0]  # HACK, just select the first one
     access_token = jwt.encode(payload, key_info['private_key'], algorithm=algorithm)
     cache_token(payload, expire=expire)
@@ -344,7 +344,7 @@ def get_auth_token_and_type():
     return parts[1], auth_type
 
 
-def verify_token(token, auth_type):
+def verify_token(token, auth_type):    
     """Verifies 'token' and returns its payload."""
     if auth_type == "JTI":
         payload = get_cached_token(token)
@@ -381,7 +381,8 @@ def verify_token(token, auth_type):
         if not issuer:
             abort_unauthorized("Invalid JWT. The 'iss' field is missing.")
 
-        for trusted_issuer in current_app.config["jwt_trusted_issuers"]:
+        trusted_issuers = g.conf.deployable['jwt_trusted_issuers']
+        for trusted_issuer in trusted_issuers:
             if trusted_issuer["iss"] == issuer:
                 try:
                     payload = jwt.decode(token, trusted_issuer["pub_rsa"],
@@ -419,7 +420,7 @@ def create_standard_claims(expire=None):
     iat = datetime.utcnow()
     exp = iat + timedelta(seconds=expire)
     jti = gen_salt(20)
-    iss = current_app.config["name"]
+    iss = g.conf.deployable['deployable_name']
 
     standard_claims = {
         # JWT standard fields
