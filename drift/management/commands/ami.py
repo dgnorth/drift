@@ -194,13 +194,18 @@ def _bake_command(args):
 
         print "Using branch/tag", args.tag
 
+        try:
+            git_release = get_git_version()['tag']
+        except TypeError:
+            git_release = None
+
         # Wrap git branch modification in RAII.
         checkout(args.tag)
         try:
             packer_vars = {
                 'git_branch': get_branch(),
                 'git_commit': get_commit(),
-                'git_release': get_git_version()['tag'],
+                'git_release': git_release,
                 'git_url': get_repo_url(),
                 'config_url': conf.domain['origin'],
                 'version': get_app_version(),
@@ -220,6 +225,10 @@ def _bake_command(args):
         manifest_filename = os.path.join("dist", "deployment-manifest.json")
         manifest_json = json.dumps(manifest, indent=4)
         print "Deployment Manifest:\n", manifest_json
+        try:
+            os.makedirs("dist")
+        except:
+            pass
         with open(manifest_filename, "w") as f:
             f.write(manifest_json)
 
@@ -248,7 +257,7 @@ def _bake_command(args):
         subprocess.call(['packer', 'version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except Exception as e:
         print "Error:", e
-        print "'packer' command failed. Please install it if it's missing."
+        print "'packer version' command failed. Please install it if it's missing."
         sys.exit(127)
 
     cmd = "packer build "
