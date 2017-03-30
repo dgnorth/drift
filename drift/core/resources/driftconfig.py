@@ -6,18 +6,17 @@
 """
 from __future__ import absolute_import
 import logging
-import json
-import os
+import httplib
 
 from flask import request, g, current_app
 from flask import _app_ctx_stack as stack
+from flask_restful import abort
 
 from driftconfig.relib import CHECK_INTEGRITY
-from driftconfig.util import get_drift_config, get_default_drift_config
+from driftconfig.util import get_drift_config, get_default_drift_config, TenantNotConfigured
 
 
 from drift.flaskfactory import TenantNotFoundError
-from drift.core.extensions.jwt import check_jwt_authorization
 from drift.core.extensions.tenancy import current_tenant
 from drift.utils import get_tier_name
 
@@ -64,12 +63,16 @@ class DriftConfig(object):
         return ts
 
     def before_request(self, *args, **kw):
-        conf = get_drift_config(
-            ts=current_app.extensions['driftconfig'].table_store,
-            tenant_name=current_tenant,
-            tier_name=get_tier_name(),
-            deployable_name=current_app.config['name']
-        )
+
+        try:
+            conf = get_drift_config(
+                ts=current_app.extensions['driftconfig'].table_store,
+                tenant_name=current_tenant,
+                tier_name=get_tier_name(),
+                deployable_name=current_app.config['name']
+            )
+        except TenantNotConfigured as e:
+            abort(httplib.NOT_FOUND, description=str(e))
 
         if conf.tenant and conf.tenant['state'] != 'active' and request.endpoint != "admin.adminprovisionapi":
             raise TenantNotFoundError(
@@ -79,7 +82,6 @@ class DriftConfig(object):
 
         # Add applicable config tables to 'g'
         g.conf = conf
-
 
     def after_request(self, response):
         # TODO: Move this logice elsewhere
