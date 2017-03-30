@@ -42,6 +42,7 @@ class RedisExtension(object):
         app.before_request(self.before_request)
 
     def before_request(self, *args, **kw):
+        # TODO: See if g.conf can be assumed here!
         if g.conf.tenant and g.conf.tenant.get("redis"):
             # HACK: Ability to override Redis hostname
             redis_config = g.conf.tenant.get("redis")
