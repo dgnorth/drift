@@ -11,18 +11,22 @@ from __future__ import absolute_import
 import logging
 from logging.handlers import SysLogHandler
 import logging.config
-import json, datetime, sys
+import json
+import datetime
+import sys
 from socket import gethostname
 from collections import OrderedDict
 
 from flask import g, request
 
 from drift.core.extensions.jwt import current_user
+from drift.utils import get_tier_name
+
 
 def get_log_details():
     details = OrderedDict()
     tenant_name = None
-    tier_name = None
+    tier_name = get_tier_name()
     remote_addr = None
 
     try:
@@ -31,8 +35,8 @@ def get_log_details():
         pass
 
     try:
-        tenant_name = g.conf.tenant_name['tenant_name'] if g.conf.tenant_name else '(none)'
-        tier_name = g.conf.tier['tier_name']
+        if hasattr(g, 'conf'):
+            tenant_name = g.conf.tenant_name['tenant_name'] if g.conf.tenant_name else '(none)'
     except RuntimeError as e:
         if "Working outside of application context" in repr(e):
             pass
