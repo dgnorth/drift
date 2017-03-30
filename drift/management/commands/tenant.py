@@ -9,7 +9,7 @@ import importlib
 from sqlalchemy import create_engine
 from colorama import Fore, Style
 
-from driftconfig.util import get_default_drift_config, TenantNotConfigured
+from driftconfig.util import get_default_drift_config, TenantNotConfigured, get_drift_config
 from driftconfig.config import TSTransaction
 from drift.utils import get_tier_name, get_config
 from drift.core.resources.postgres import db_exists, process_connection_values, db_check
@@ -141,6 +141,8 @@ def run_command(args):
                     })
                 m.provision(conf, {}, recreate='skip')
 
-        conf.tenant['state'] = 'active'
-        print "You must save your config now!"
+        with TSTransaction() as ts:
+            row = ts.get_table('tenants').find(conf.tenant)
+            row['state'] = 'active'
+
         tenant_report(conf)
