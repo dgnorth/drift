@@ -63,6 +63,10 @@ def tenants_report(tenant_name=None):
     active_tenants = conf.table_store.get_table('tenants').find(criteria)
 
     for tenant in active_tenants:
+        if 'postgres' not in tenant:
+            sys.stdout.write("No postgres resource available for tenant {}.".format(tenant["tenant_name"]))
+            continue
+
         postgres_params = process_connection_values(tenant['postgres'])
 
         sys.stdout.write("{} for {} on {}/{}... ".format(
@@ -91,21 +95,19 @@ def run_command(args):
     # Minor hack:
     from drift.flaskfactory import load_flask_config
 
-    with TSTransaction() as ts:
-        try:
-            conf = get_drift_config(
-                ts=ts,
-                tier_name=get_tier_name(),
-                tenant_name=tenant_name,
-                drift_app=load_flask_config(),
-            )
-        except TenantNotConfigured as e:
-            print "Tenant '{}' not found in config. Adding it in now.".format(tenant_name)
-            ts.get_table('tenant-names').add({'tenant_name': tenant_name, })
-            return
-        except Exception as e:
-            print Fore.RED + "'tenant {}' command failed: {}".format(args.action, e)
-            return
+    try:
+        conf = get_drift_config(
+            tier_name=get_tier_name(),
+            tenant_name=tenant_name,
+            drift_app=load_flask_config(),
+        )
+    except TenantNotConfigured as e:
+        print "Tenant '{}' not found in config. Adding it in now.".format(tenant_name)
+        conf.table_store.get_table('tenant-names').add({'tenant_name': tenant_name, })
+        return
+    except Exception as e:
+        print Fore.RED + "'tenant {}' command failed: {}".format(args.action, e)
+        return
 
     if not args.action:
         tenant_report(conf)
@@ -128,21 +130,22 @@ def run_command(args):
 
     if "create" in args.action:
         # Provision resources
-        resources = conf.drift_app.get("resources")
-        for module_name in resources:
-            m = importlib.import_module(module_name)
-            if hasattr(m, "provision"):
-                provisioner_name = m.__name__.split('.')[-1]
-                print "Provisioning '%s' for tenant '%s' on tier '%s'" % (provisioner_name, tenant_name, conf.tier['tier_name'])
-                if 0:  # THIS IS BONKERS LOGIC! FIIIIX!
-                    conf.tier['resource_defaults'].append({
-                        'resource_name': provisioner_name,
-                        'parameters': getattr(m, 'NEW_TIER_DEFAULTS', {}),
-                    })
-                m.provision(conf, {}, recreate='skip')
-
         with TSTransaction() as ts:
-            row = ts.get_table('tenants').find(conf.tenant)
+            conf = get_config(ts=ts)
+            resources = conf.drift_app.get("resources")
+            for module_name in resources:
+                m = importlib.import_module(module_name)
+                if hasattr(m, "provision"):
+                    provisioner_name = m.__name__.split('.')[-1]
+                    print "Provisioning '%s' for tenant '%s' on tier '%s'" % (provisioner_name, tenant_name, conf.tier['tier_name'])
+                    if 0:  # THIS IS BONKERS LOGIC! FIIIIX!
+                        conf.tier['resource_defaults'].append({
+                            'resource_name': provisioner_name,
+                            'parameters': getattr(m, 'NEW_TIER_DEFAULTS', {}),
+                        })
+                    m.provision(conf, {}, recreate='skip')
+
+            row = ts.get_table('tenants').get(conf.tenant)
             row['state'] = 'active'
 
         tenant_report(conf)
