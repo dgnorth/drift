@@ -104,7 +104,7 @@ def do_execute_cmd(argv):
         os.environ['DRIFT_TIER'] = args.tier
         print "Tier set to '%s'." % args.tier
     elif 'DRIFT_TIER' not in os.environ:
-        raise RuntimeError("No tier specified in environment or on command line!")
+        print pretty("No tier specified in environment or on command line!")
 
     if args.tenant:
         os.environ['DRIFT_DEFAULT_TENANT'] = args.tenant
