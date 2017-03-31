@@ -30,17 +30,19 @@ log = logging.getLogger(__name__)
 host_name = gethostname()
 
 
-def get_config(tenant_name=None):
+def get_config(ts=None, tier_name=None, tenant_name=None):
+    """Wraps get_drift_config() by providing default values for tier, tenant and drift_app."""
     # Hack: Must delay import this
     from drift.flaskfactory import load_flask_config
     if current_app:
-        ts = current_app.extensions['driftconfig'].table_store
-    else:
-        ts = None
+        app_ts = current_app.extensions['driftconfig'].table_store
+        if ts is not app_ts:
+            log.warning("Mismatching table_store objects in get_config(): ts=%s, app ts=%s", ts, app_ts)
+        ts = app_ts
 
     conf = get_drift_config(
         ts=ts,
-        tier_name=get_tier_name(),
+        tier_name=tier_name or get_tier_name(),
         tenant_name=tenant_name or current_tenant,
         drift_app=load_flask_config(),
     )

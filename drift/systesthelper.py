@@ -143,7 +143,7 @@ def setup_tenant():
     tenant_name = 'dg-unittest-product'
     os.environ['DRIFT_TIER'] = tier_name
     os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
-    conf = get_config(tenant_name)
+    conf = get_config(tenant_name=tenant_name)
 
     # Fixup tier defaults
     conf.tier['resource_defaults'] = [
