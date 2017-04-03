@@ -6,7 +6,6 @@ import sys
 import time
 import subprocess, operator
 import pkg_resources
-from drift.management import create_deployment_manifest
 import json
 from datetime import datetime
 import random
@@ -19,9 +18,9 @@ try:
 except ImportError:
     pass
 
-from drift.management import get_tiers_config, TIERS_CONFIG_FILENAME, get_app_version, get_app_name
+from drift.management import get_app_version, get_app_name
 from drift.management.gittools import get_branch, get_commit, get_git_version, checkout, get_repo_url
-from drift.utils import get_tier_name, get_config
+from drift.utils import get_tier_name
 from drift import slackbot
 from driftconfig.util import get_drift_config
 
@@ -56,7 +55,8 @@ def get_options(parser):
         help='Bake a new AMI for the current current service.',
     )
     p.add_argument(
-        'tag', action='store', help='Git release tag to bake. (Run "git tag" to get available tags).', nargs='?', default=None)
+        'tag', action='store', help='Git release tag to bake. (Run "git tag" to get available tags).',
+                                    nargs='?', default=None)
 
     p.add_argument(
         "--ubuntu", action="store_true",
@@ -64,6 +64,9 @@ def get_options(parser):
     )
     p.add_argument(
         "--preview", help="Show arguments only", action="store_true"
+    )
+    p.add_argument(
+        "--skipcopy", help="Do not copy image to all regions", action="store_true"
     )
     p.add_argument(
         "--debug", help="Run Packer in debug mode", action="store_true"
@@ -145,10 +148,6 @@ def _bake_command(args):
 
     # Create a list of all regions that are active
     active_tiers = conf.table_store.get_table('tiers').find({'state': 'active'})
-    regions = set([tier['aws']['region'] for tier in active_tiers if 'aws' in tier])
-    if aws_region in regions:
-        regions.remove(aws_region)  # This is the source region
-    print "Distributing AMI to region(s) {}.".format(', '.join(regions))
 
     if args.ubuntu:
         # Get all Ubuntu images from the appropriate region and pick the most recent one.
@@ -211,7 +210,6 @@ def _bake_command(args):
                 'version': get_app_version(),
                 'setup_script': pkg_resources.resource_filename(__name__, "driftapp-packer.sh"),
             }
-            manifest = create_deployment_manifest('bakeami')
             if not args.preview:
                 cmd = "python setup.py sdist --formats=zip"
                 ret = subprocess.call(['python', 'setup.py', 'sdist', '--formats=zip'])
@@ -221,23 +219,6 @@ def _bake_command(args):
         finally:
             print "Reverting to ", current_branch
             checkout(current_branch)
-
-        manifest_filename = os.path.join("dist", "deployment-manifest.json")
-        manifest_json = json.dumps(manifest, indent=4)
-        print "Deployment Manifest:\n", manifest_json
-        try:
-            os.makedirs("dist")
-        except:
-            pass
-        with open(manifest_filename, "w") as f:
-            f.write(manifest_json)
-
-        # The 'ami_regions' option in Packer is nice, but horrible to use. See here why:
-        padding_region = list(regions)[0] if regions else aws_region
-        padding = {'ami_{}'.format(i + 1): padding_region for i in xrange(5)}
-        packer_vars.update(padding)
-        dest_regions = {'ami_{}'.format(i + 1): region for i, region in enumerate(regions)}
-        packer_vars.update(dest_regions)
 
     user = boto.iam.connect_to_region(aws_region).get_user()  # The current IAM user running this command
 
@@ -296,6 +277,15 @@ def _bake_command(args):
         sys.exit(ret)
 
     duration = time.time() - start_time
+
+    ami = _find_latest_ami(name)
+
+    print ""
+    print "AMI ID: %s" % ami.id
+    print ""
+    if not args.skipcopy:
+        _copy_image(ami.id)
+
     print "Done after %.0f seconds" % (duration)
     slackbot.post_message("Successfully baked a new AMI for '{}' in %.0f seconds"
                           .format(name, duration))
@@ -309,6 +299,31 @@ class MyEncoder(json.JSONEncoder):
 def pretty(ob):
     """Returns a pretty representation of 'ob'."""
     return json.dumps(ob, cls=MyEncoder, indent=4)
+
+
+def _find_latest_ami(service_name, release=None):
+    name = get_app_name()
+    tier_name = get_tier_name()
+    conf = get_drift_config(tier_name=tier_name, deployable_name=name)
+    domain = conf.domain.get()
+    aws_region = conf.tier['aws']['region']
+
+    ec2 = boto3.resource('ec2', region_name=aws_region)
+    filters = [
+        {'Name': 'tag:service-name', 'Values': [name]},
+        {'Name': 'tag:domain-name', 'Values': [domain['domain_name']]},
+    ]
+    if release:
+        filters.append({'Name': 'tag:git-release', 'Values': [release]},)
+
+    amis = list(ec2.images.filter(Owners=['self'], Filters=filters))
+    if not amis:
+        criteria = {d['Name']: d['Values'][0] for d in filters}
+        print "No '{}' AMI found using the search criteria {}.".format(UBUNTU_BASE_IMAGE_NAME, criteria)
+        sys.exit(1)
+
+    ami = max(amis, key=operator.attrgetter("creation_date"))
+    return ami
 
 
 def _run_command(args):
@@ -328,7 +343,6 @@ def _run_command(args):
 
     ec2_conn = boto.ec2.connect_to_region(aws_region)
     iam_conn = boto.iam.connect_to_region(aws_region)
-
 
     if conf.tier['is_live']:
         print "NOTE! This tier is marked as LIVE. Special restrictions may apply. Use --force to override."
@@ -358,33 +372,22 @@ def _run_command(args):
     else:
         print "Using the newest AMI baked (which may not be what you expect)."
 
-    # Find AMI
-    ec2 = boto3.resource('ec2', region_name=aws_region)
-    filters = [
-        {'Name': 'tag:service-name', 'Values': [name]},
-        {'Name': 'tag:domain-name', 'Values': [domain['domain_name']]},
-    ]
-    if release:
-        filters.append({'Name': 'tag:git-release', 'Values': [release]},)
-
-    amis = list(ec2.images.filter(Owners=['self'], Filters=filters))
-    if not amis:
-        criteria = {d['Name']: d['Values'][0] for d in filters}
-        print "No '{}' AMI found using the search criteria {}.".format(UBUNTU_BASE_IMAGE_NAME, criteria)
-        sys.exit(1)
-
-    ami = max(amis, key=operator.attrgetter("creation_date"))
-
-    print "GOT AN I AMI", ami
+    ami = _find_latest_ami(name, release)
+    print "Latest AMI:", ami
 
     if args.ami:
         print "Using a specified AMI:", args.ami
+        ec2 = boto3.resource('ec2', region_name=aws_region)
         if ami.id != args.ami:
             print "AMI found is different from AMI specified on command line."
             if conf.tier['is_live'] and not args.force:
                 print "This is a live tier. Can't run mismatched AMI unless --force is specified"
                 sys.exit(1)
-        ami = list(ec2.images.filter(Owners=['self'], ImageIds=[args.ami]))[0]
+        try:
+            ami = ec2.Image(args.ami)
+            name = ami.name
+        except Exception as e:
+            raise RuntimeError("Ami '%s' not found or broken: %s" % (args.ami, e))
 
     if not ami:
         sys.exit(1)
@@ -464,13 +467,19 @@ def _run_command(args):
         "api-status": "online",
     }
 
+    tags.update(fold_tags(ami.tags))
+
+    print "Tags:"
+    for k in sorted(tags.keys()):
+        print "  %s: %s" % (k, tags[k])
+
     if args.preview:
         print "--preview specified, exiting now before actually doing anything."
         sys.exit(0)
 
     user_data = '''#!/bin/bash
-sudo bash -c "echo DRIFT_TIER={} >> /etc/environment
-sudo service {} restart"'''.format(tier_name, name)
+sudo bash -c "echo DRIFT_TIER={} >> /etc/environment"
+sudo service {} restart'''.format(tier_name, name)
 
     print "user_data:"
     print user_data

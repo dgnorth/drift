@@ -287,9 +287,7 @@ def get_ec2_instances(region, tier, service_name):
     return instances
 
 
-
-
-def create_deployment_manifest(method, username=None):
+def create_deployment_manifest(method, comment=None):
     """Returns a dict describing the current deployable."""
 
     git_version = get_git_version()
@@ -299,7 +297,8 @@ def create_deployment_manifest(method, username=None):
         'method': method,
         'deployable': get_app_name(),
         'version': get_app_version(),
-        'username': username or getpass.getuser(),
+        'username': getpass.getuser(),
+        'comment': comment,
         'datetime': datetime.utcnow().isoformat(),
 
         'git_branch': get_branch(),
@@ -309,3 +308,9 @@ def create_deployment_manifest(method, username=None):
     }
 
     return info
+
+
+def set_ec2_tags(ec2, tags, prefix=""):
+    for k, v in tags.iteritems():
+        tag_name = "{}{}".format(prefix, k)
+        ec2.add_tag(tag_name, v or '')

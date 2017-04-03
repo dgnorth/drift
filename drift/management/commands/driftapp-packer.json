@@ -3,7 +3,6 @@
     "service": "unknown",
     "region": "eu-west-1",
     "source_ami": "unknown",
-    "ami_1": "unknown", "ami_2": "unknown", "ami_3": "unknown", "ami_4": "unknown", "ami_5": "unknown",
     "user_name": "unknown",
     "setup_script": "unknown",
     "domain_name": "unknown",
@@ -24,7 +23,6 @@
       "iam_instance_profile": "ec2",
       "ssh_username": "ubuntu",
       "ami_name": "{{user `service`}}-{{isotime `2006-01-02-15-04`}}",
-      "ami_regions": ["{{user `ami_1`}}", "{{user `ami_2`}}", "{{user `ami_3`}}", "{{user `ami_4`}}", "{{user `ami_5`}}"],
 
       "tags": {
         "service-name": "{{user `service`}}",
@@ -35,10 +33,13 @@
 
         "version-number": "{{user `version`}}",
 
-        "git-branch": "{{user `git_branch`}}",
-        "git-commit": "{{user `git_commit`}}",
-        "git-release": "{{user `git_release`}}",
-        "git-url": "{{user `git_url`}}"
+        "drift:manifest:deployable": "{{user `service`}}",
+        "drift:manifest:git_branch": "{{user `git_branch`}}",
+        "drift:manifest:git_commit": "{{user `git_commit`}}",
+        "drift:manifest:git_commit_url": "{{user `git_url`}}",
+        "drift:manifest:git_release": "{{user `git_release`}}",
+        "drift:manifest:method": "ami",
+        "drift:manifest:version": "{{user `version`}}"
       }
     }
   ],
