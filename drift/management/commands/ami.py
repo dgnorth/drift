@@ -468,7 +468,10 @@ def _run_command(args):
         print "--preview specified, exiting now before actually doing anything."
         sys.exit(0)
 
-    user_data = '''#!/bin/bash\nsudo bash -c "echo DRIFT_TIER={} >> /etc/environment"'''.format(tier_name)
+    user_data = '''#!/bin/bash
+sudo bash -c "echo DRIFT_TIER={} >> /etc/environment
+sudo service {} restart"'''.format(tier_name, name)
+
     print "user_data:"
     print user_data
 
