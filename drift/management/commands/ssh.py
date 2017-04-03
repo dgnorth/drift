@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import os
 import subprocess
 
 import boto3
@@ -27,10 +28,10 @@ def run_command(args):
         return
 
     elif service not in deployables:
-        print "Service or deployable '{}' not one of {}.".format(service, deployables.keys())
-        return
+        print "Warning! Service or deployable '{}' not one of {}.".format(service, ", ".join(deployables.keys()))
 
     ssh_key_file = '~/.ssh/{}.pem'.format(ssh_key_name)
+    ssh_key_file = ssh_key_file.replace('~', os.path.expanduser('~'))
 
     # Get IP address of any instance of this deployable.
     sess = boto3.session.Session(region_name=region)
