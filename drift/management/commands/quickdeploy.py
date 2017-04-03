@@ -10,7 +10,7 @@ from fabric.operations import put
 from time import sleep
 import json
 
-from drift.management import create_deployment_manifest, get_app_version, get_ec2_instances
+from drift.management import create_deployment_manifest, get_app_version, get_ec2_instances, set_ec2_tags
 from drift.utils import get_config
 from drift import slackbot
 
@@ -126,6 +126,8 @@ def run_command(args):
     if not os.path.exists(build_fullpath):
         raise Exception("Build artefact not found at {}".format(build_fullpath))
 
+    deployment_manifest = create_deployment_manifest('quickdeploy', args.comment)
+
     for ec2 in instances:
         ip_address = ec2.private_ip_address
 
@@ -149,13 +151,9 @@ def run_command(args):
             run("sudo rm -r -f {}".format(old_path))
             run("sudo mv {} {}".format(app_location, old_path))
 
-            deployment_manifest = create_deployment_manifest('quickdeploy')
-            if args.comment:
-                deployment_manifest['comment'] = args.comment
-
-            deployment_manifest_json = json.dumps(deployment_manifest, indent=4)
-            cmd = "echo '{}' > {}/deployment-manifest.json".format(deployment_manifest_json, temp_folder)
-            run(cmd)
+            #deployment_manifest_json = json.dumps(deployment_manifest, indent=4)
+            #cmd = "echo '{}' > {}/deployment-manifest.json".format(deployment_manifest_json, temp_folder)
+            #run(cmd)
 
         run("sudo mv {} {}".format(temp_folder, app_location))
         if not args.skiprequirements:
@@ -187,6 +185,9 @@ def run_command(args):
             d = json.loads(out)
             if "endpoints" not in d:
                 raise Exception("service json is incorrect: %s" % out)
+
+            set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
+
             print "\nService {} is running on {}!".format(service_name, ip_address)
             slackbot.post_message("Successfully quick-deployed '{}' to tier '{}'".format(service_name, tier))
         except Exception as e:
