@@ -385,7 +385,6 @@ def _run_command(args):
                 sys.exit(1)
         try:
             ami = ec2.Image(args.ami)
-            name = ami.name
         except Exception as e:
             raise RuntimeError("Ami '%s' not found or broken: %s" % (args.ami, e))
 
