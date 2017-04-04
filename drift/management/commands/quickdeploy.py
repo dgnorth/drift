@@ -10,7 +10,7 @@ from fabric.operations import put
 from time import sleep
 import json
 
-from drift.management import create_deployment_manifest, get_app_version, get_ec2_instances, set_ec2_tags
+from drift.management import create_deployment_manifest, get_app_version, get_ec2_instances
 from drift.utils import get_config
 from drift import slackbot
 
@@ -47,6 +47,10 @@ def get_options(parser):
 def _get_tier_protection(tier_name):
     return tier_name.upper().startswith("LIVE")
 
+def _set_ec2_tags(ec2, tags, prefix=""):
+    for k, v in tags.iteritems():
+        tag_name = "{}{}".format(prefix, k)
+        ec2.add_tag(tag_name, v or '')
 
 def run_command(args):
     conf = get_config()
@@ -186,7 +190,7 @@ def run_command(args):
             if "endpoints" not in d:
                 raise Exception("service json is incorrect: %s" % out)
 
-            set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
+            _set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
 
             print "\nService {} is running on {}!".format(service_name, ip_address)
             slackbot.post_message("Successfully quick-deployed '{}' to tier '{}'".format(service_name, tier))

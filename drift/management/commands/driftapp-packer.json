@@ -8,10 +8,6 @@
     "domain_name": "unknown",
 
     "version": "0.0.1",
-    "git_branch": "unknown",
-    "git_commit": "unknown",
-    "git_release": "unknown",
-    "git_url": "unknown",
     "config_url": "unknown"
   },
   "builders": [
@@ -26,20 +22,8 @@
 
       "tags": {
         "service-name": "{{user `service`}}",
-        "creation-date": "{{isotime `2006-01-02-15-04`}}",
-        "user-name": "{{user `user_name`}}",
         "domain-name": "{{user `domain_name`}}",
-        "source-ami": "{{user `source_ami`}}",
-
-        "version-number": "{{user `version`}}",
-
-        "drift:manifest:deployable": "{{user `service`}}",
-        "drift:manifest:git_branch": "{{user `git_branch`}}",
-        "drift:manifest:git_commit": "{{user `git_commit`}}",
-        "drift:manifest:git_commit_url": "{{user `git_url`}}",
-        "drift:manifest:git_release": "{{user `git_release`}}",
-        "drift:manifest:method": "ami",
-        "drift:manifest:version": "{{user `version`}}"
+        "ami-user-name": "{{user `user_name`}}"
       }
     }
   ],

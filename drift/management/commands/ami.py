@@ -18,8 +18,8 @@ try:
 except ImportError:
     pass
 
-from drift.management import get_app_version, get_app_name
-from drift.management.gittools import get_branch, get_commit, get_git_version, checkout, get_repo_url
+from drift.management import get_app_version, get_app_name, set_manifest_tags
+from drift.management.gittools import get_branch, checkout
 from drift.utils import get_tier_name
 from drift import slackbot
 from driftconfig.util import get_drift_config
@@ -193,19 +193,10 @@ def _bake_command(args):
 
         print "Using branch/tag", args.tag
 
-        try:
-            git_release = get_git_version()['tag']
-        except TypeError:
-            git_release = None
-
         # Wrap git branch modification in RAII.
         checkout(args.tag)
         try:
             packer_vars = {
-                'git_branch': get_branch(),
-                'git_commit': get_commit(),
-                'git_release': git_release,
-                'git_url': get_repo_url(),
                 'config_url': conf.domain['origin'],
                 'version': get_app_version(),
                 'setup_script': pkg_resources.resource_filename(__name__, "driftapp-packer.sh"),
@@ -283,6 +274,9 @@ def _bake_command(args):
     print ""
     print "AMI ID: %s" % ami.id
     print ""
+
+    set_manifest_tags(ami, 'ami')
+
     if not args.skipcopy:
         _copy_image(ami.id)
 

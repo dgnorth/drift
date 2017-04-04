@@ -310,7 +310,11 @@ def create_deployment_manifest(method, comment=None):
     return info
 
 
-def set_ec2_tags(ec2, tags, prefix=""):
-    for k, v in tags.iteritems():
+def set_manifest_tags(ec2, method, comment=None):
+    manifest = create_deployment_manifest(method, comment)
+    prefix = "drift:manifest:"
+    tags = []
+    for k, v in manifest.iteritems():
         tag_name = "{}{}".format(prefix, k)
-        ec2.add_tag(tag_name, v or '')
+        tags.append({'Key': tag_name, 'Value': v or ''})
+    ec2.create_tags(DryRun=False, Tags=tags)
