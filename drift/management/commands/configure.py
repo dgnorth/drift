@@ -42,15 +42,6 @@ _package_classifiers = [
 ]
 
 
-def _init_command(args):
-    for d in _enumerate_plugins('drift.plugin', 'register_deployable'):
-        print "DIST:", d['dist']
-        print "ENTRY:", d['entry']
-        print "META:", d['meta']
-        print "CLASS:", d['classifiers']
-        print "TAGS:", d['tags']
-
-
 def _enumerate_plugins(entry_group, entry_name):
     """
     Return a list of Python plugins with entry map group and entry point
