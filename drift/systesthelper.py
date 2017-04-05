@@ -51,6 +51,8 @@ def _get_test_target():
 
 
 def _create_basic_domain(deployable_name):
+    product_name = 'dg-unittest-product'
+
     ts = get_drift_table_store()
     domain = ts.get_table('domain').add({
         'domain_name': 'unit_test_domain',
@@ -87,7 +89,7 @@ def _create_basic_domain(deployable_name):
         })
 
     ts.get_table('products').add({
-        'product_name': 'dg-unittest-product',
+        'product_name': product_name,
         'organization_name': 'directivegames',
         })
 
@@ -116,6 +118,21 @@ def _create_basic_domain(deployable_name):
         ]
         })
 
+    ts.get_table('platforms').add({
+        'product_name': product_name,
+        'provider_name': 'oculus',
+        "provider_details": {
+            "access_token": "four",
+            "sekrit": "five"
+        }})
+
+    ts.get_table('platforms').add({
+        'product_name': product_name,
+        'provider_name': 'steam',
+        "provider_details": {
+            "appid": 123,
+            "key": "fiftyfour"
+        }})
     return ts
 
 

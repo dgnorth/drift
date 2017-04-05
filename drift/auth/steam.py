@@ -4,9 +4,10 @@ import httplib
 
 import requests
 from werkzeug.exceptions import Unauthorized
-from flask import current_app, request
+from flask import request
 from flask_restful import abort
 
+from drift.auth import get_provider_config
 from drift.auth.util import fetch_url
 from drift.core.extensions.schemachecker import check_schema
 
@@ -45,34 +46,40 @@ steam_provider_schema = {
 def validate_steam_ticket():
     """Validate steam ticket from /auth call."""
 
-    ob = request.get_json()    
+    ob = request.get_json()
     check_schema(ob, steam_provider_schema, "Error in request body.")
     provider_details = ob['provider_details']
-    auth_config = current_app.config.get('authentication')
 
     # Get Steam authentication config
-    steam_config = auth_config.get('steam')
+    steam_config = get_provider_config('steam')
     if not steam_config:
         abort(httplib.SERVICE_UNAVAILABLE, description="Steam authentication not configured for current tenant")
-        
+
     # Find configuration for the requested Steam app id.
-    appid = provider_details.get('appid')
-    for steam_app in steam_config:
-        if steam_app['appid'] == int(provider_details.get('appid')):  # Cast to int is temporary hack
-            break
-    else:
+    appid = int(provider_details.get('appid'))
+    if steam_config['appid'] != appid:
         abort(httplib.SERVICE_UNAVAILABLE, description="Steam authentication not configured for app %s." % appid)
 
     # Look up our secret key or key url
-    key_url = steam_app.get('key_url')
-    key = steam_app.get('key')
+    key_url = steam_config.get('key_url')
+    key = steam_config.get('key')
     if not key_url and not key:
         log.error("Steam tickets cannot be validated. AUTH_STEAM_KEY_URL or AUTH_STEAM_KEY missing from config.")
         abort(httplib.SERVICE_UNAVAILABLE, description="Steam tickets cannot be validated at the moment.")
-    
+
     # Call validation and authenticate if ticket is good
     identity_id = run_ticket_validation(provider_details, key_url=key_url, key=key, appid=appid)
     return identity_id
+
+
+# for mocking
+def _call_authenticate_user_ticket(url):
+    return requests.get(url)
+
+
+# for mocking
+def _call_check_app_ownership(url):
+    return requests.get(url)
 
 
 def run_ticket_validation(provider_details, key_url=None, key=None, appid=None):
@@ -93,7 +100,7 @@ def run_ticket_validation(provider_details, key_url=None, key=None, appid=None):
     missing_fields = list(set(required_fields) - set(provider_details.keys()))
     if missing_fields:
         abort_unauthorized(error_title + "The token is missing required fields: %s." % ', '.join(missing_fields))
-    
+
     if not key_url and not key:
         raise RuntimeError("validate_steam_ticket: 'key' or 'key_url' must be specified.")
 
@@ -102,10 +109,10 @@ def run_ticket_validation(provider_details, key_url=None, key=None, appid=None):
 
     authenticate_user_ticket_url = 'https://api.steampowered.com/ISteamUserAuth/AuthenticateUserTicket/v1/?key={key}&appid={appid}&ticket={ticket}'
     args = {'key': key, 'appid': appid, 'ticket': provider_details['ticket']}
-    
+    url = authenticate_user_ticket_url.format(**args)
     try:
-        ret = requests.get(authenticate_user_ticket_url.format(**args))
-    except requests.exceptions.RequestException as e:            
+        ret = _call_authenticate_user_ticket(url)
+    except requests.exceptions.RequestException as e:
         abort_unauthorized(error_title + str(e))
     if ret.status_code != 200:
         abort_unauthorized(error_title + "Steam API status code: %s" % ret.status_code)
@@ -133,30 +140,30 @@ def run_ticket_validation(provider_details, key_url=None, key=None, appid=None):
                 "errordesc": "Ticket for other app"
             }
         }
-    }    
+    }
     """
-    response = ret.json()['response'] 
+    response = ret.json()['response']
     if 'error' in response:
-        abort_unauthorized(error_title + "Error %s - %s" % 
-            (response['error']['errorcode'], response['error']['errordesc']))
+        abort_unauthorized(error_title + "Error %s - %s" %
+                           (response['error']['errorcode'], response['error']['errordesc']))
     identity = ret.json()['response']['params']
     steamid = identity['steamid']
 
-    log.info("Steam API AuthenticateUserTicket for app %s: %s",appid, identity)
+    log.info("Steam API AuthenticateUserTicket for app %s: %s", appid, identity)
 
     # If the client provided its own steamid, make sure it matches the token
     if provider_details.get('steamid', steamid) != steamid:
         msg = error_title + "'steamid' from client does not match the one from the token."
         msg += " (%s != %s)." % provider_details['steamid'], steamid
         abort_unauthorized(error_title + "'steamid' from client does not match the one from the token.")
-    
+
     # Check app ownership
     check_app_ownership_url = 'https://api.steampowered.com/ISteamUser/CheckAppOwnership/v1/?key={key}&appid={appid}&steamid={steamid}'
     args = {'key': key, 'appid': appid, 'steamid': steamid}
-
+    url = check_app_ownership_url.format(**args)
     try:
-        ret = requests.get(check_app_ownership_url.format(**args))
-    except requests.exceptions.RequestException as e:            
+        ret = _call_check_app_ownership(url)
+    except requests.exceptions.RequestException as e:
         abort_unauthorized(error_title + "App ownership can't be validated: %s" % e)
     if ret.status_code != 200:
         abort_unauthorized(error_title + "App ownership can't be validated. Status code: %s" % ret.status_code)

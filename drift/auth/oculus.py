@@ -4,8 +4,9 @@ import httplib
 
 import requests
 from werkzeug.exceptions import Unauthorized
-from flask import current_app, request
+from flask import request
 from flask_restful import abort
+from drift.auth import get_provider_config
 
 from drift.core.extensions.schemachecker import check_schema
 
@@ -38,10 +39,9 @@ def validate_oculus_ticket():
     ob = request.get_json()
     check_schema(ob, oculus_provider_schema, "Error in request body.")
     provider_details = ob['provider_details']
-    auth_config = current_app.config.get('authentication')
-
     # Get Oculus authentication config
-    oculus_config = auth_config.get('oculus')
+    oculus_config = get_provider_config('oculus')
+
     if not oculus_config:
         abort(httplib.SERVICE_UNAVAILABLE, description="Oculus authentication not configured for current tenant")
 
