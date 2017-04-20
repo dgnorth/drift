@@ -14,13 +14,6 @@ from drift.core.extensions.schemachecker import check_schema
 log = logging.getLogger(__name__)
 
 
-JWT_VERIFY_CLAIMS = ['signature', 'exp', 'iat']
-JWT_REQUIRED_CLAIMS = ['exp', 'iat', 'acct_id_str']
-JWT_ALGORITHM = 'RS256'
-JWT_EXPIRATION_DELTA = 60 * 60 * 24
-JWT_LEEWAY = 10
-
-
 # TODO: While these are very much static, putting them in some global config might be better
 psn_issuer_urls = {
     "dev": "https://auth.api.sp-int.sonyentertainmentnetwork.com/2.0/oauth/token",
@@ -106,7 +99,7 @@ def run_ticket_validation(user_id, auth_code, issuer, client_id, client_secret):
     # Expect:
     """
     {
-        "access_token": "A JWT",
+        "access_token": "<GUID>",
         "token_type": "bearer",
         "expires_in": seconds,
         "scope": "psn:s2s"
