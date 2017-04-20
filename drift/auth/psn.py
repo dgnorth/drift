@@ -8,7 +8,6 @@ from flask import request, escape
 from flask_restful import abort
 from drift.auth import get_provider_config
 from base64 import urlsafe_b64encode
-from datetime import timedelta
 
 from drift.core.extensions.schemachecker import check_schema
 
