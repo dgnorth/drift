@@ -11,7 +11,7 @@ def main():
     repos = conn.repos()
     for repo in repos:
         print "Repo:", repo
-        print repo.last_build_id, repo.description, repo.last_build_number, repo.active
+        print repo.slug, repo.last_build_id, repo.description, repo.last_build_number, repo.active
         try:
             build = conn.build(repo.last_build_id)
             if "kitrun.py" in build.config.get("script", [""])[0]:
