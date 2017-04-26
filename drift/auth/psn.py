@@ -155,7 +155,7 @@ def run_ticket_validation(user_id, auth_code, issuer, client_id, client_secret):
 
     if user_id != token_user_id:
         log.warning("Failed PSN authentication. User IDs don't match %s != %s", user_id, token_user_id)
-        abort_unauthorized("User ID {} doesn't match access token IS {} on PSN platform.".format(
+        abort_unauthorized("User ID {} doesn't match user ID {} on PSN platform.".format(
             user_id, token_user_id
         ))
 
