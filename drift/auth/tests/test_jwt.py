@@ -160,21 +160,23 @@ class JWTCase(DriftTestCase):
         return private_key
 
 
+    @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
     def test_oculus_authentication(self):
         # Oculus provisional authentication check
         data = {
-            "provider": "oculus", 
+            "provider": "oculus",
             "provider_details": {
                 "provisional": True, "username": "someuser", "password": "somepass"
             }
         }
         self.post(200, '/auth', data=data)
-        
+
         # We don't want empty username at this point
         data['provider_details']['username'] = ""
         self.post(401, '/auth', data=data)
-        
 
+
+    @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
     def test_access_control(self):
         rv = self.post(200, '/auth', data={"username": "someuser", "password": "somepass"})
         data = rv.json

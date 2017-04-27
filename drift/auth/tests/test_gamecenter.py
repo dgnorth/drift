@@ -1,9 +1,10 @@
 import unittest
 import collections
 import mock
+import datetime
 
 import requests
-from werkzeug.exceptions import Unauthorized, ServiceUnavailable
+from werkzeug.exceptions import Unauthorized
 
 from drift.auth.gamecenter import validate_gamecenter_token, TRUSTED_ORGANIZATIONS
 
@@ -59,39 +60,52 @@ gc_prod_2_cer = '0\x82\x04\xe70\x82\x03\xcf\xa0\x03\x02\x01\x02\x02\x10qN\x1ai;\
     '\xc7\x82\xbc\x12NzR\xc4\xdaR$\x08\xc3\xf98\x07\xdcTY`\x1a\x94\xcf|Ec\x0f\xc8\xc6\xaa'
 
 
-patcher = None
-
-def setUpModule():
-
-    original_get = requests.get
-
-    def requests_get_mock(url, *args, **kw):
-        if url == 'broken url':
-            raise requests.exceptions.RequestException('Url broken - unittest.')
-        elif url == 'broken cert':
-            broken_cert = collections.namedtuple('Response', 'content status_code')
-            broken_cert.content = 'not a valid cert'
-            broken_cert.status_code = 200
-            return broken_cert
-        elif url == template['public_key_url']:
-            cert = collections.namedtuple('Response', 'content status_code')
-            cert.content = gc_prod_2_cer
-            cert.status_code = 200
-            return cert
-        else:
-            return original_get(url, *args, **kw)
-
-    global patcher
-    patcher = mock.patch('requests.get', requests_get_mock)
-    patcher.start()
+# The embedded certificate 'gc_prod_2_cer' above is valid from 28.2.2015 to 27.2.2017 so the
+# current time needs to be mocked to fit inside or outside this date range depending which
+# case is being tested.
+class DateInside(datetime.datetime):
+    @classmethod
+    def utcnow(self):
+        return datetime.datetime(2016, 1, 1, 10, 10, 10)
 
 
-def tearDownModule():
-    global patcher
-    patcher.stop()
+class DateOutside(datetime.datetime):
+    @classmethod
+    def utcnow(self):
+        return datetime.datetime(2018, 1, 1, 10, 10, 10)
 
 
 class GameCenterCase(unittest.TestCase):
+
+    def setUp(self):
+
+        def requests_get_mock(url, *args, **kw):
+            if url == 'broken url':
+                raise requests.exceptions.RequestException('Url broken - unittest.')
+            elif url == 'broken cert':
+                broken_cert = collections.namedtuple('Response', 'content status_code')
+                broken_cert.content = 'not a valid cert'
+                broken_cert.status_code = 200
+                return broken_cert
+            elif url == template['public_key_url']:
+                cert = collections.namedtuple('Response', 'content status_code')
+                cert.content = gc_prod_2_cer
+                cert.status_code = 200
+                return cert
+            else:
+                self.assertTrue(False, "Unexpected url fetch: %s" % url)
+
+        self.patchers = [
+            mock.patch('requests.get', requests_get_mock),
+            mock.patch('datetime.datetime', DateInside),
+        ]
+
+        for patcher in self.patchers:
+            patcher.start()
+
+    def tearDown(self):
+        for patcher in self.patchers:
+            patcher.stop()
 
     def test_gamecenter(self):
         # This should fly straight through
@@ -111,14 +125,14 @@ class GameCenterCase(unittest.TestCase):
         with self.assertRaises(Unauthorized) as context:
             validate_gamecenter_token(template, app_bundles=['dummy'])
         self.assertIn("'app_bundle_id' not one of ['dummy']", context.exception.description)
-        
+
     def test_broken_url(self):
         # Verify that broken public key url is caught
-        with self.assertRaises(ServiceUnavailable) as context:
+        with self.assertRaises(Unauthorized) as context:
             t = template.copy()
             t['public_key_url'] = 'broken url'
             validate_gamecenter_token(t)
-        self.assertIn("The server is temporarily unable", context.exception.description)
+        self.assertIn("Can't fetch url 'broken url'", context.exception.description)
 
     def test_broken_cert(self):
         # Verify that broken certs fail.
@@ -126,7 +140,7 @@ class GameCenterCase(unittest.TestCase):
             t = template.copy()
             t['public_key_url'] = 'broken cert'
             validate_gamecenter_token(t)
-        self.assertIn("Can't load certificate", context.exception.description)        
+        self.assertIn("Can't load certificate", context.exception.description)
 
     def test_cert_validation(self):
         # Make sure cert is issued to a trusted organization.
@@ -139,9 +153,11 @@ class GameCenterCase(unittest.TestCase):
         finally:
             TRUSTED_ORGANIZATIONS[:] = _tmp
 
+    @mock.patch('datetime.datetime', DateOutside)
     def test_cert_expiration(self):
-        # TODO: See if there is any way to test for cert expiration. It's tricky me thinks.
-        pass
+        with self.assertRaises(Unauthorized) as context:
+            validate_gamecenter_token(template, app_bundles=app_bundles)
+        self.assertIn("Certificate is expired", context.exception.description)
 
     def test_signature(self):
         # Check signature of token by corrupting the signature
@@ -168,7 +184,7 @@ class GameCenterCase(unittest.TestCase):
             return self
         else:
             return GameCenterCase.orig_get(url, *args, **kw)
-        
+
 
 if __name__ == "__main__":
 
