@@ -64,9 +64,9 @@ def drift_app(app):
 
 def _find_app_root(_use_cwd=False):
     """
-    Find the root of this application by searching for 'config/config.json' file.
+    Find the root of this application by searching for 'setup.py' file.
 
-    The 'config/config.json' file must be found relative from the location of the current
+    The 'setup.py' file must be found relative from the location of the current
     executable script or the current working directory.
     """
     exe_path, exe = os.path.split(sys.argv[0])
@@ -75,13 +75,13 @@ def _find_app_root(_use_cwd=False):
     else:
         search_path = exe_path
     search_path = os.path.abspath(search_path)
-    config_pathname = os.path.join('config', 'config.json')
+    setupfile_pathname = 'setup.py'
     start_path = search_path
-    config = ''
+    setupscript = ''
 
     while True:
-        parent = os.path.abspath(os.path.join(search_path, config_pathname))
-        if parent == config:  # No change after traversing up
+        parent = os.path.abspath(os.path.join(search_path, setupfile_pathname))
+        if parent == setupscript:  # No change after traversing up
             if not _use_cwd:
                 log.info("Can't locate app root after starting from %s. Trying current dir now..",
                     start_path
@@ -89,19 +89,19 @@ def _find_app_root(_use_cwd=False):
                 return _find_app_root(_use_cwd=True)
             else:
                 raise AppRootNotFound(
-                    "Can't locate config/config.json, neither from executable location '{}' and from "
+                    "Can't locate setup.py, neither from executable location '{}' and from "
                     "current dir '{}'.".format(exe_path, start_path)
                 )
 
-        config = parent
-        if os.path.exists(config):
+        setupscript = parent
+        if os.path.exists(setupscript):
             break
 
-        log.debug("App static config not found at: %s", config)
+        log.debug("setup.py not found at: %s", setupscript)
 
         search_path = os.path.join(search_path, '..')
 
-    app_root = os.path.abspath(os.path.join(config, "..", ".."))
+    app_root = os.path.abspath(os.path.join(setupscript, ".."))
     return app_root
 
 
