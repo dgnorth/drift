@@ -1,29 +1,12 @@
 """
 Build an AWS AMI for this service
 """
-import os
-import sys
-import time
-import subprocess, operator
-import pkg_resources
-from drift.management import create_deployment_manifest
+import subprocess
 import json
 import datetime
-import random
 
-try:
-    # boto library is not a hard requirement for drift.
-    import boto.ec2
-    import boto.iam
-    import boto3
-except ImportError:
-    pass
-
-from drift.management import get_tiers_config, TIERS_CONFIG_FILENAME, get_app_version, get_app_name
-from drift.management.gittools import get_branch, get_commit, get_git_version, checkout
-from drift.utils import get_tier_name, get_config
-from drift import slackbot
-from driftconfig.util import get_drift_config, diff_table_stores, get_default_drift_config
+from drift.management import get_app_version, get_app_name
+from driftconfig.util import get_drift_config, get_default_drift_config
 from driftconfig.config import TSTransaction
 
 # regions:

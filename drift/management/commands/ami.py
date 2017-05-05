@@ -18,7 +18,7 @@ try:
 except ImportError:
     pass
 
-from drift.management import get_app_version, get_app_name, set_manifest_tags
+from drift.management import get_app_version, get_app_name, create_deployment_manifest
 from drift.management.gittools import get_branch, checkout
 from drift.utils import get_tier_name
 from drift import slackbot
@@ -147,8 +147,6 @@ def _bake_command(args):
     print "AWS REGION:", aws_region
 
     # Create a list of all regions that are active
-    active_tiers = conf.table_store.get_table('tiers').find({'state': 'active'})
-
     if args.ubuntu:
         # Get all Ubuntu images from the appropriate region and pick the most recent one.
         # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
@@ -183,6 +181,7 @@ def _bake_command(args):
     print "\tDate:\t", ami.creation_date
 
     if args.ubuntu:
+        manifest = None
         packer_vars = {
             'setup_script': pkg_resources.resource_filename(__name__, "ubuntu-packer.sh")
         }
@@ -196,6 +195,7 @@ def _bake_command(args):
         # Wrap git branch modification in RAII.
         checkout(args.tag)
         try:
+            manifest = create_deployment_manifest('ami', comment=None)
             packer_vars = {
                 'config_url': conf.domain['origin'],
                 'version': get_app_version(),
@@ -275,7 +275,15 @@ def _bake_command(args):
     print "AMI ID: %s" % ami.id
     print ""
 
-    set_manifest_tags(ami, 'ami')
+    if manifest:
+        print "Adding manifest tags to AMI:"
+        pretty(manifest)
+        prefix = "drift:manifest:"
+        tags = []
+        for k, v in manifest.iteritems():
+            tag_name = "{}{}".format(prefix, k)
+            tags.append({'Key': tag_name, 'Value': v or ''})
+        ami.create_tags(DryRun=False, Tags=tags)
 
     if not args.skipcopy:
         _copy_image(ami.id)
