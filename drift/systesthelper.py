@@ -14,6 +14,7 @@ import importlib
 from binascii import crc32
 
 from drift.utils import get_config
+from driftconfig.util import set_sticky_config
 from driftconfig.testhelpers import create_test_domain
 
 import logging
