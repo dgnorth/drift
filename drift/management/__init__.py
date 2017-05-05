@@ -15,10 +15,9 @@ import boto
 from boto.s3 import connect_to_region
 from boto.s3.connection import OrdinaryCallingFormat
 
-from drift.utils import get_tier_name
 from drift.management.gittools import get_branch, get_commit, get_repo_url, get_git_version
-from drift.utils import get_config, pretty, set_pretty_settings, PRETTY_FORMATTER, PRETTY_STYLE
-from driftconfig.util import get_domains, get_default_drift_config_and_source
+from drift.utils import pretty, set_pretty_settings, PRETTY_FORMATTER, PRETTY_STYLE
+from driftconfig.util import get_default_drift_config_and_source, ConfigNotFound
 from drift.flaskfactory import AppRootNotFound
 
 TIERS_CONFIG_FILENAME = "tiers-config.json"
@@ -90,9 +89,8 @@ def do_execute_cmd(argv):
     try:
         conf, source =  get_default_drift_config_and_source()
         print pretty("Drift configuration source: {}".format(source))
-    except RuntimeError as e:
-        if "No config found" not in repr(e):
-            raise
+    except ConfigNotFound:
+        pass
 
     if args.localservers or os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         os.environ['DRIFT_USE_LOCAL_SERVERS'] = '1'
