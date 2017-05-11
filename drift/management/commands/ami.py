@@ -4,11 +4,13 @@ Build an AWS AMI for this service
 import os
 import sys
 import time
-import subprocess, operator
+import subprocess
+import operator
 import pkg_resources
 import json
 from datetime import datetime
 import random
+import shlex
 
 try:
     # boto library is not a hard requirement for drift.
@@ -140,6 +142,7 @@ def _bake_command(args):
     conf = get_drift_config()
     domain = conf.domain.get()
     aws_region = domain['aws']['ami_baking_region']
+    ec2 = boto3.resource('ec2', region_name=aws_region)
 
     print "DOMAIN:\n", json.dumps(domain, indent=4)
     if not args.ubuntu:
@@ -151,7 +154,6 @@ def _bake_command(args):
         # Get all Ubuntu images from the appropriate region and pick the most recent one.
         # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
         print "Finding the latest AMI on AWS that matches", UBUNTU_RELEASE
-        ec2 = boto3.resource('ec2', region_name=aws_region)
         filters = [
             {'Name': 'name', 'Values': [UBUNTU_RELEASE]},
         ]
@@ -161,7 +163,6 @@ def _bake_command(args):
             sys.exit(1)
         ami = max(amis, key=operator.attrgetter("creation_date"))
     else:
-        ec2 = boto3.resource('ec2', region_name=aws_region)
         filters = [
             {'Name': 'tag:service-name', 'Values': [UBUNTU_BASE_IMAGE_NAME]},
             {'Name': 'tag:domain-name', 'Values': [domain['domain_name']]},
@@ -258,22 +259,33 @@ def _bake_command(args):
 
     start_time = time.time()
     try:
-        # Execute Packer command
-        ret = os.system(cmd)
+        # Execute Packer command and parse the output to find the ami id.
+        p = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        while True:
+            line = p.stdout.readline()
+            print line,
+            if line == '' and p.poll() is not None:
+                break
+
+            # The last lines from the packer execution look like this:
+            # ==> Builds finished. The artifacts of successful builds are:
+            # --> amazon-ebs: AMIs were created:
+            #
+            # eu-west-1: ami-0ee5eb68
+            if 'ami-' in line:
+                ami_id = line[line.rfind('ami-'):].strip()
+                ami = ec2.Image(ami_id)
+                print ""
+                print "AMI ID: %s" % ami.id
+                print ""
     finally:
         pkg_resources.cleanup_resources()
 
-    if ret != 0:
+    if p.returncode != 0:
         print "Failed to execute packer command:", cmd
-        sys.exit(ret)
+        sys.exit(p.returncode)
 
     duration = time.time() - start_time
-
-    ami = _find_latest_ami(name)
-
-    print ""
-    print "AMI ID: %s" % ami.id
-    print ""
 
     if manifest:
         print "Adding manifest tags to AMI:"

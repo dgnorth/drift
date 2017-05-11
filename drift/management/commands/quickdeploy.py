@@ -155,10 +155,6 @@ def run_command(args):
             run("sudo rm -r -f {}".format(old_path))
             run("sudo mv {} {}".format(app_location, old_path))
 
-            #deployment_manifest_json = json.dumps(deployment_manifest, indent=4)
-            #cmd = "echo '{}' > {}/deployment-manifest.json".format(deployment_manifest_json, temp_folder)
-            #run(cmd)
-
         run("sudo mv {} {}".format(temp_folder, app_location))
         if not args.skiprequirements:
             with hide('output'):
