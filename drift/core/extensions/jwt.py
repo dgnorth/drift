@@ -246,6 +246,11 @@ def jwtsetup(app):
             username = "viveport:" + provider_details['username']
             password = provider_details['password']
             identity = authenticate(username, password)
+        elif auth_info['provider'] == "psn":
+            from drift.auth.psn import validate_psn_ticket
+            identity_id = validate_psn_ticket()
+            username = "psn:" + identity_id
+            identity = authenticate(username, "")
         elif auth_info['provider'] == "7663":
             username = "7663:" + provider_details['username']
             password = provider_details['password']
