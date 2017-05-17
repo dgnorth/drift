@@ -490,9 +490,12 @@ def _run_command(args):
         print "--preview specified, exiting now before actually doing anything."
         sys.exit(0)
 
+    # NOTE: The drift-admin tier command is to initialize legacy config.
+    # TODO: Remove this legacy support as soon as new config mgmt is in place!
     user_data = '''#!/bin/bash
 sudo bash -c "echo DRIFT_TIER={} >> /etc/environment"
-sudo service {} restart'''.format(tier_name, name)
+su ubuntu -c "drift-admin tier init eu-west-1/directive-tiers.dg-api.com/tiers-config.json --activate {}"
+sudo service {} restart'''.format(tier_name, tier_name, name)
 
     print "user_data:"
     print user_data
