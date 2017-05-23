@@ -15,7 +15,7 @@ from binascii import crc32
 
 from drift.utils import get_config
 from driftconfig.util import set_sticky_config
-from driftconfig.testhelpers import create_test_domain
+import driftconfig.testhelpers
 
 import logging
 log = logging.getLogger(__name__)
@@ -63,14 +63,14 @@ def setup_tenant():
 
     # TODO: Refactor deployable name logic once it's out of flask config.
     from drift.flaskfactory import load_flask_config
-    deployable_name = load_flask_config()['name']
+    driftconfig.testhelpers.DEPL_NAME = str(load_flask_config()['name'])
 
-    ts = create_test_domain(deployable_name)
+    ts = driftconfig.testhelpers.create_test_domain()
     set_sticky_config(ts)
 
     # Create a test tenant
-    tier_name = 'UNITTEST'
-    tenant_name = 'dg-unittest-product'
+    tier_name = driftconfig.testhelpers.get_name('tier')
+    tenant_name = driftconfig.testhelpers.get_name('tenant')
     os.environ['DRIFT_TIER'] = tier_name
     os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
     conf = get_config(tenant_name=tenant_name)
