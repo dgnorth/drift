@@ -209,6 +209,11 @@ def jwtsetup(app):
             # Issue a JWT with same payload as the one we got
             log.debug("Authenticating using a JWT: %s", payload)
             identity = payload
+        elif auth_info['provider'] == "jti":
+            if provider_details and 'jti' in provider_details:
+                identity = get_cached_token(provider_details['jti'])
+            if not identity:
+                abort_unauthorized("Bad Request. Invalid JTI.")
         elif auth_info['provider'] in ['device_id', 'user+pass', 'uuid']:
             # Authenticate using access key, secret key pair
             # (or username, password pair)
