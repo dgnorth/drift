@@ -251,6 +251,12 @@ def jwtsetup(app):
             username = "viveport:" + provider_details['username']
             password = provider_details['password']
             identity = authenticate(username, password)
+        elif auth_info['provider'] == "googleplay" and provider_details.get('provisional', False):
+            if len(provider_details['username']) < 1:
+                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
+            username = "googleplay:" + provider_details['username']
+            password = provider_details['password']
+            identity = authenticate(username, password)
         elif auth_info['provider'] == "psn":
             from drift.auth.psn import validate_psn_ticket
             identity_id = validate_psn_ticket()
