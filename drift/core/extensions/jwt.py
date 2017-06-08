@@ -251,6 +251,12 @@ def jwtsetup(app):
             username = "viveport:" + provider_details['username']
             password = provider_details['password']
             identity = authenticate(username, password)
+        elif auth_info['provider'] == "hypereal" and provider_details.get('provisional', False):
+            if len(provider_details['username']) < 1:
+                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
+            username = "hypereal:" + provider_details['username']
+            password = provider_details['password']
+            identity = authenticate(username, password)
         elif auth_info['provider'] == "googleplay" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
