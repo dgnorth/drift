@@ -82,7 +82,7 @@ def run_ticket_validation(user_id, auth_code, issuer, client_id, client_secret):
 
     url = psn_issuer_urls.get(issuer, False)
     if not url:
-        log.warning("PSN authentication request failed. Unknown issuer: %d", issuer)
+        log.warning("PSN authentication request failed. Unknown issuer: %s", issuer)
         abort_unauthorized("PSN ticket validation failed. Unknown issuer.")
 
     payload = "grant_type=authorization_code&redirect_uri={redirect_url}&code={auth_code}".format(
