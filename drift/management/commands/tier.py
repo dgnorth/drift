@@ -73,9 +73,9 @@ def get_options(parser):
     )
     p.add_argument(
         '-a', '--activate',
-        default=False, 
+        default=False,
         help='Activate the given tier.',
-    )        
+    )
 
     # The info command
     p = subparsers.add_parser(
@@ -104,18 +104,18 @@ def get_options(parser):
 
     # The use command
     p = subparsers.add_parser(
-        'use', 
+        'use',
         help='Switch current config to a particular tier.'
     )
     p.add_argument(
         'tier', action='store', help='Name of the tier to switch to.')
     p.add_argument(
         '-v', '--vpn',
-        default=False, 
+        default=False,
         action='store_true',
         help='Set up or check VPN connection.',
     )
- 
+
     # The create command
     create_parser = subparsers.add_parser('create', help='Create a tier config')
     create_parser.add_argument('tiername', action='store', help='New tier config to create')
@@ -314,7 +314,7 @@ def use_command(args):
         head, tail = os.path.split(file_key.name)
         if not tail:
             continue  # Skip over directory entry
-            
+
         config_filename = get_config_path(tail, '.drift/tiers/{}/'.format(tier_name_upper))
         print "Installing configuration file:", config_filename
         file_key.get_contents_to_filename(config_filename)
@@ -373,7 +373,7 @@ def use_command(args):
                 print stdout
         except Exception as e:
             print "Exception setting up strongswan tunnel: %s" % e
-    
+
     print ""
     print "done."
 

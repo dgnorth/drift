@@ -1,4 +1,4 @@
-7# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import os
 import logging
@@ -32,7 +32,7 @@ def load_config(tier_name=None):
     config_values = {}
 
     log.info("Loading configuration from %s", config_filename)
-   
+
     with open(config_filename) as f:
         config_values = json.load(f)
     config_values["config_filename"] = config_filename

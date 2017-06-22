@@ -209,6 +209,11 @@ def jwtsetup(app):
             # Issue a JWT with same payload as the one we got
             log.debug("Authenticating using a JWT: %s", payload)
             identity = payload
+        elif auth_info['provider'] == "jti":
+            if provider_details and 'jti' in provider_details:
+                identity = get_cached_token(provider_details['jti'])
+            if not identity:
+                abort_unauthorized("Bad Request. Invalid JTI.")
         elif auth_info['provider'] in ['device_id', 'user+pass', 'uuid']:
             # Authenticate using access key, secret key pair
             # (or username, password pair)
@@ -231,10 +236,38 @@ def jwtsetup(app):
             identity = authenticate(username, "")
         elif auth_info['provider'] == "oculus" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
-                abort_unauthorized("Bad Request. 'username' cannot be an empty string.") 
+                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "oculus:" + provider_details['username']
             password = provider_details['password']
             identity = authenticate(username, password)
+        elif auth_info['provider'] == "oculus":
+            from drift.auth.oculus import validate_oculus_ticket
+            identity_id = validate_oculus_ticket()
+            username = "oculus:" + identity_id
+            identity = authenticate(username, "")
+        elif auth_info['provider'] == "viveport" and provider_details.get('provisional', False):
+            if len(provider_details['username']) < 1:
+                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
+            username = "viveport:" + provider_details['username']
+            password = provider_details['password']
+            identity = authenticate(username, password)
+        elif auth_info['provider'] == "hypereal" and provider_details.get('provisional', False):
+            if len(provider_details['username']) < 1:
+                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
+            username = "hypereal:" + provider_details['username']
+            password = provider_details['password']
+            identity = authenticate(username, password)
+        elif auth_info['provider'] == "googleplay" and provider_details.get('provisional', False):
+            if len(provider_details['username']) < 1:
+                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
+            username = "googleplay:" + provider_details['username']
+            password = provider_details['password']
+            identity = authenticate(username, password)
+        elif auth_info['provider'] == "psn":
+            from drift.auth.psn import validate_psn_ticket
+            identity_id = validate_psn_ticket()
+            username = "psn:" + identity_id
+            identity = authenticate(username, "")
         elif auth_info['provider'] == "7663":
             username = "7663:" + provider_details['username']
             password = provider_details['password']
@@ -280,7 +313,7 @@ def issue_token(payload, expire=None):
                            ', '.join(missing_claims))
 
     access_token = jwt.encode(payload, current_app.config['private_key'], algorithm=algorithm)
-    cache_token(payload)
+    cache_token(payload, expire=expire)
     log.debug("Issuing a new token: %s.", payload)
     ret = {
         'token': access_token.decode('utf-8'),
@@ -420,8 +453,12 @@ def create_standard_claims(expire=None):
 
 
 def cache_token(payload, expire=None):
-    # keep this in redis for a while
     expire = expire or 86400
+
+    # Add fudge to 'expire' so the token will live at least a little bit longer in the
+    # Redis cache than the actual expiration date.
+    expire += 60*10  # Ten minutes
+
     try:
         jti = payload['jti']
         key = "jwt:{}".format(jti)
