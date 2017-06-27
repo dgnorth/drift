@@ -11,13 +11,55 @@ from __future__ import absolute_import
 import logging
 from logging.handlers import SysLogHandler
 import logging.config
-import json, datetime, sys
+import json, datetime, sys, time
+from uuid import uuid4
 from socket import gethostname
 from collections import OrderedDict
+from urlparse import urlsplit
 
 from flask import g, request
 
 from drift.core.extensions.jwt import current_user
+
+def get_stream_handler():
+    """returns a stream handler with standard formatting for use in local development"""
+    stream_handler = logging.StreamHandler()
+    stream_formatter = logging.Formatter(
+        fmt='%(asctime)s %(levelname)-8s %(name)-15s %(message)s')
+    stream_handler.setFormatter(stream_formatter)
+    return stream_handler
+
+def get_caller():
+    """returns a nice string representing caller for logs
+    Note: This is heavy"""
+    import inspect
+    curframe = inspect.currentframe()
+    calframe = inspect.getouterframes(curframe, 2)
+    caller = "{} ({}#{})".format(calframe[2][3], calframe[2][1], calframe[2][2])
+    return caller
+
+def get_clean_path_from_url(url):
+    """extract the endpoint path from the passed in url and remove
+    service information and any id's so that the endpoint path
+    might be easily used in grouping.
+    """
+    clean_path = None
+    try:
+        lst = urlsplit(url)
+        path = lst.path
+        lst = path.split("/")
+        for i in xrange(len(lst)):
+            l = lst[i]
+            try:
+                num = int(l)
+                lst[i] = "<int>"
+            except:
+                pass
+        # assume that the service name is the first part so we skip it
+        clean_path = "/" + "/".join(lst[2:])
+    except:
+        pass
+    return clean_path
 
 def get_log_details():
     details = OrderedDict()
@@ -166,6 +208,10 @@ class ServerLogFormatter(JSONFormatter):
         data = self.get_formatted_data(record)
         data["message"] = super(JSONFormatter, self).format(record)
         data["level"] = record.levelname
+        try:
+            data["request"] = "{} {}".format(request.method, request.url)
+        except:
+            pass
         return self.json_format(data)
 
 
@@ -183,6 +229,57 @@ class ClientLogFormatter(JSONFormatter):
     def format(self, record):
         data = self.get_formatted_data(record)
         data.update(getattr(record, "extra", {}))
+        return self.json_format(data)
+
+
+def trim_logger(data):
+    # remove unnecessary logger fields
+    for k, v in data["logger"].items():
+        if k not in ["name", "tier", "tenant", "correlation_id"]:
+            del data["logger"][k]
+
+
+def format_request_body(key, value):
+    if key == "password":
+        return "*"
+    else:
+        # constrain the body to 64 characters per key and convert to string
+        return str(value)[:64]
+
+
+class RequestLogFormatter(JSONFormatter):
+    log_tag = "request"
+    def format(self, record):
+        data = self.get_formatted_data(record)
+        trim_logger(data)
+
+        try:
+            data["method"] = request.method
+            data["url"] = request.url
+            data["remote_addr"] = request.remote_addr
+        except Exception:
+            pass
+
+        data["endpoint"] = get_clean_path_from_url(request.url)
+
+        request_body = None
+        try:
+            if request.json:
+                request_body = {key: format_request_body(key, value)
+                                for key, value in request.json.iteritems()}
+            else:
+                request_body = request.data
+        except Exception:
+            pass
+
+        if request_body:
+            data["request_body"] = request_body
+
+        try:
+            data.update(getattr(record, "extra", {}))
+        except Exception:
+           pass
+
         return self.json_format(data)
 
 # Calling 'logsetup' more than once may result in multiple handlers emitting
@@ -209,11 +306,45 @@ def logsetup(app):
         return
     _setup_done = True
 
+
+    @app.before_request
+    def log_before_request():
+        g.request_start_time = time.time()
+
+    if app.config.get("log_request", True):
+        @app.after_request
+        def log_after_request(response):
+            resp_text = ""
+            resp_len = -1
+            try:
+                resp_len = len(response.response[0])
+                resp_text = response.response[0][:64]
+            except:
+                pass
+            t = None
+            if hasattr(g, 'request_start_time'):
+                t = float("%.3f" % (time.time()-g.request_start_time))
+            extra = {
+                "response_code": response.status_code,
+                "response_length": resp_len,
+                "response_time": t,
+            }
+            if response.status_code >= 400:
+                extra["response"] = resp_text
+            if hasattr(g, "database"):
+                extra["database"] = g.database
+            logging.getLogger("request").info("{} {} - {}".format(request.method, request.url, response.status_code), extra=extra)
+
+            return response
+
     logging.setLoggerClass(ContextAwareLogger)
 
     syslog_path = '/dev/log'
+
     if sys.platform == 'darwin':
         syslog_path = '/var/run/syslog'
+    elif sys.platform == 'win32':
+        syslog_path = ('localhost', 514)
 
     # Install log file handler
     handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_USER)
@@ -234,6 +365,14 @@ def logsetup(app):
     handler.name = "clientlog"
     handler.setFormatter(ClientLogFormatter())
     l = logging.getLogger("clientlog")
+    l.propagate = False
+    l.addHandler(handler)
+
+    # request handler
+    handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_LOCAL2)
+    handler.name = "request"
+    handler.setFormatter(RequestLogFormatter())
+    l = logging.getLogger("request")
     l.propagate = False
     l.addHandler(handler)
 
