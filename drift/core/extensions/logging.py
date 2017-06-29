@@ -16,6 +16,7 @@ from uuid import uuid4
 from socket import gethostname
 from collections import OrderedDict
 from urlparse import urlsplit
+from functools import wraps
 
 from flask import g, request
 
@@ -280,6 +281,14 @@ class RequestLogFormatter(JSONFormatter):
         except Exception:
            pass
 
+        if data.get('log_level') == 1:
+            data = {
+                'timestamp': data['timestamp'],
+                'tenant': data['tenant'],
+                'method': data['method'],
+                'endpoint': data['endpoint']
+                }
+
         return self.json_format(data)
 
 # Calling 'logsetup' more than once may result in multiple handlers emitting
@@ -310,10 +319,14 @@ def logsetup(app):
     @app.before_request
     def log_before_request():
         g.request_start_time = time.time()
+        g.request_log_level = 2
 
     if app.config.get("log_request", True):
         @app.after_request
         def log_after_request(response):
+            log_level = getattr(g, 'request_log_level', 2)
+            if log_level == 0:
+                return
             resp_text = ""
             resp_len = -1
             try:
@@ -328,6 +341,7 @@ def logsetup(app):
                 "response_code": response.status_code,
                 "response_length": resp_len,
                 "response_time": t,
+                "log_level": log_level,
             }
             if response.status_code >= 400:
                 extra["response"] = resp_text
@@ -403,3 +417,15 @@ def logsetup(app):
 
 def register_extension(app):
     logsetup(app)
+
+
+def request_log_level(level):
+    def wrapper(fn):
+        @wraps(fn)
+        def decorated(*args, **kwargs):
+            g.request_log_level = int(level)
+            return fn(*args, **kwargs)
+
+        return decorated
+    return wrapper
+
