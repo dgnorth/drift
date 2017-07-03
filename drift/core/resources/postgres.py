@@ -132,9 +132,15 @@ def format_connection_string(postgres_parameters):
     return connection_string
 
 
-def connect(params):
+def connect(params, connect_timeout=None):
+    connect_timeout = connect_timeout or 10
     connection_string = format_connection_string(params)
-    engine = create_engine(connection_string, echo=ECHO_SQL, isolation_level='AUTOCOMMIT')
+    engine = create_engine(
+        connection_string,
+        echo=ECHO_SQL,
+        isolation_level='AUTOCOMMIT',
+        connect_args={'connect_timeout': connect_timeout}
+    )
     return engine
 
 
@@ -157,7 +163,7 @@ def db_check(params):
     that may occur. If all is fine, None is returned.
     """
     try:
-        engine = connect(params)
+        engine = connect(params, connect_timeout=2)
         engine.execute("SELECT 1=1")
     except Exception as e:
         return str(e)
@@ -166,7 +172,6 @@ def db_check(params):
 def create_db(params):
     params = process_connection_values(params)
     db_name = params["database"]
-    db_host = params["server"]
     username = params["username"]
 
     params["username"] = MASTER_USER
