@@ -199,6 +199,8 @@ def jwtsetup(app):
                 "provider_details" not in auth_info:
             auth_info = _fix_legacy_auth(auth_info)
 
+        automatic_account_creation = auth_info.get("automatic_account_creation", True)
+
         identity = None
         provider_details = auth_info.get('provider_details')
 
@@ -222,60 +224,61 @@ def jwtsetup(app):
             # Authenticate using access key, secret key pair
             # (or username, password pair)
             identity = authenticate(auth_info['username'],
-                                    auth_info['password'])
+                                    auth_info['password'],
+                                    automatic_account_creation)
         elif auth_info['provider'] == "gamecenter":
-            app_bundles = app.config.get('apple_game_center', {}) \
-                                    .get('bundle_ids')
             from drift.auth.gamecenter import validate_gamecenter_token
-            identity_id = validate_gamecenter_token(provider_details,
-                                                    app_bundles=app_bundles)
+            identity_id = validate_gamecenter_token(provider_details)
             gc_player_id = "gamecenter:" + identity_id
             username = "gamecenter:" + pbkdf2_hex(gc_player_id, "staticsalt",
                                                   iterations=25000)
-            identity = authenticate(username, "")
+            # For legacy reasons this is done twice, too late to undo now
+            username = "gamecenter:" + pbkdf2_hex(username, "staticsalt",
+                                                  iterations=25000)
+            identity = authenticate(username, "", automatic_account_creation)
         elif auth_info['provider'] == "steam":
             from drift.auth.steam import validate_steam_ticket
             identity_id = validate_steam_ticket()
             username = "steam:" + identity_id
-            identity = authenticate(username, "")
+            identity = authenticate(username, "", automatic_account_creation)
         elif auth_info['provider'] == "oculus" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "oculus:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password)
+            identity = authenticate(username, password, automatic_account_creation)
         elif auth_info['provider'] == "oculus":
             from drift.auth.oculus import validate_oculus_ticket
             identity_id = validate_oculus_ticket()
             username = "oculus:" + identity_id
-            identity = authenticate(username, "")
+            identity = authenticate(username, "", automatic_account_creation)
         elif auth_info['provider'] == "viveport" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "viveport:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password)
+            identity = authenticate(username, password, automatic_account_creation)
         elif auth_info['provider'] == "hypereal" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "hypereal:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password)
+            identity = authenticate(username, password, automatic_account_creation)
         elif auth_info['provider'] == "googleplay" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "googleplay:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password)
+            identity = authenticate(username, password, automatic_account_creation)
         elif auth_info['provider'] == "psn":
             from drift.auth.psn import validate_psn_ticket
             identity_id = validate_psn_ticket()
             username = "psn:" + identity_id
-            identity = authenticate(username, "")
+            identity = authenticate(username, "", automatic_account_creation)
         elif auth_info['provider'] == "7663":
             username = "7663:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password)
+            identity = authenticate(username, password, automatic_account_creation)
         else:
             abort_unauthorized("Bad Request. Unknown provider '%s'." %
                                auth_info['provider'])

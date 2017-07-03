@@ -1,9 +1,13 @@
 import OpenSSL
 import struct
 import base64
+import httplib
+
+from flask_restful import abort
 
 from werkzeug.exceptions import Unauthorized
 
+from drift.auth import get_provider_config
 from drift.auth.util import fetch_url
 
 
@@ -16,13 +20,13 @@ def abort_unauthorized(description):
     raise Unauthorized(description=description)
 
 
-def validate_gamecenter_token(gc_token, app_bundles=None):
+def validate_gamecenter_token(gc_token):
     """Validates Apple Game Center token 'gc_token'. If validation fails, an
     HTTPException:Unauthorized exception is raised.
 
     Returns a unique ID for this player.
 
-    If set, 'app_bundles' is list of app bundles id's, and the 'app_bundle_id' in
+    If configured, 'bundle_ids' is a list of app bundles id's, and the 'app_bundle_id' in
     the token must be one of the listed ones.
 
 
@@ -40,6 +44,12 @@ def validate_gamecenter_token(gc_token, app_bundles=None):
     validate_gamecenter_token(gc_token)
 
     """
+
+    gamecenter_config = get_provider_config('gamecenter')
+    if not gamecenter_config:
+        abort(httplib.SERVICE_UNAVAILABLE, description="Game Center authentication not configured for current tenant")
+
+    app_bundles = gamecenter_config.get("bundle_ids", None)
 
     token_desc = dict(gc_token)
     token_desc["signature"] = token_desc.get("signature", "?")[:10]
