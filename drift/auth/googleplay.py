@@ -73,7 +73,8 @@ def run_token_validation(user_id, id_token, app_client_ids):
         abort_unauthorized("Google Play token validation failed. Can't reach Google Play platform.")
 
     if ret.status_code != 200:
-        log.warning("Failed Google Play authentication. Response code %s: %s", ret.status_code, ret.json())
+        log.warning("Failed Google Play authentication. Token: '%s'... Response code %s: %s",
+                    id_token[:10], ret.status_code, ret.json())
         abort_unauthorized("User {} not authenticated on Google Play platform.".format(user_id))
 
     claims = ret.json()
