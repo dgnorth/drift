@@ -270,6 +270,11 @@ def jwtsetup(app):
             username = "googleplay:" + provider_details['username']
             password = provider_details['password']
             identity = authenticate(username, password, automatic_account_creation)
+        elif auth_info['provider'] == "googleplay":
+            from drift.auth.googleplay import validate_googleplay_token
+            identity_id = validate_googleplay_token()
+            username = "googleplay:" + identity_id
+            identity = authenticate(username, "", automatic_account_creation)
         elif auth_info['provider'] == "psn":
             from drift.auth.psn import validate_psn_ticket
             identity_id = validate_psn_ticket()
