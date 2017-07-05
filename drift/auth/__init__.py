@@ -8,4 +8,4 @@ def get_provider_config(provider_name):
     conf = get_config()
     row = conf.table_store.get_table('platforms').find({'product_name': conf.product['product_name'],
                                                         'provider_name': provider_name})
-    return row[0]['provider_details']
+    return len(row) and row[0]['provider_details'] or None
