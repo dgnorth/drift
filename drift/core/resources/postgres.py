@@ -271,7 +271,7 @@ def provision(config, args, recreate=None):
     params = get_parameters(config, args, NEW_TIER_DEFAULTS.keys(), "postgres")
     params = process_connection_values(params)
     if not params["database"]:
-        params["database"] = "{}.{}.{}".format(config.tier['tier_name'], config.tenant_name['tenant_name'], config.deployable['deployable_name'])
+        params["database"] = "{}.{}".format(config.tenant_name['tenant_name'], config.deployable['deployable_name'])
     config.tenant["postgres"] = params
 
     if db_exists(params):
