@@ -17,7 +17,7 @@ driftconfig list
 You can have multiple Drift configuration DB's active on your local workstation. To list them out, 
 
 
-list out all DB's using the command `driftconfig list`. If there is **more than one** on your local machine, you need to explicitly point to it using a command line option, or add a reference to it through environment variable: `DRIFT_CONFIG_URL=file://~/.drift/config/kdstudios`.
+list out all DB's using the command `driftconfig list`. If there is **more than one** on your local machine, you need to explicitly point to it using a command line option, or add a reference to it through environment variable: `DRIFT_CONFIG_URL=kdstudios`.
 
 ### Set up a tier
 A tier is a single slice of development or operation environment. It's a good practice to start with the live tier and if necessary add a dev and staging tier later, even though the live tier will only be used for development in the beginning.
@@ -55,7 +55,7 @@ dconf tenant add kd-defaultdev kd-snowfall
 ### Running a service locallyRun the following command to start the Drift web server on your machine:
 
 ```bash
-drift-admin runserver drift-base
+drift-admin runserver -s drift-base
 ```
 
 The server should be up and running on port 10080. To try it out:
