@@ -1,6 +1,8 @@
 import sys
 from setuptools import find_packages, setup
 
+with open("VERSION") as f:
+    version = f.read().strip()
 
 EXCLUDE_FROM_PACKAGES = []
 
@@ -41,7 +43,7 @@ tests_require = [
 
 setup(
     name='Drift',
-    version='0.1.0.dev0',
+    version=version,
     license='MIT',
     author='Directive Games North',
     author_email="info@directivegames.com",
