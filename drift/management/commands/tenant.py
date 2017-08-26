@@ -102,9 +102,7 @@ def run_command(args):
             drift_app=load_flask_config(),
         )
     except TenantNotConfigured as e:
-        print "Tenant '{}' not found in config. Adding it in now.".format(tenant_name)
-        conf.table_store.get_table('tenant-names').add({'tenant_name': tenant_name, })
-        return
+        raise
     except Exception as e:
         print Fore.RED + "'tenant {}' command failed: {}".format(args.action, e)
         return
