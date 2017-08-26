@@ -118,7 +118,7 @@ def process_connection_values(postgres_parameters):
     """
     Returns a copy of 'postgres_parameters' where values have been
     processed or or overridden if applicable.
-    """
+    """    
     postgres_parameters = postgres_parameters.copy()
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         # Override 'server'
@@ -128,7 +128,7 @@ def process_connection_values(postgres_parameters):
 
 def format_connection_string(postgres_parameters):
     postgres_parameters = process_connection_values(postgres_parameters)
-    connection_string = '{driver}://{username}:{password}@{server}/{database}'.format(**postgres_parameters)
+    connection_string = '{driver}://{username}:{password}@{server}:{port}/{database}'.format(**postgres_parameters)
     return connection_string
 
 
