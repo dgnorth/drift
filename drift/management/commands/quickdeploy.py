@@ -9,6 +9,9 @@ from fabric.api import env, run, settings, hide
 from fabric.operations import put
 from time import sleep
 import json
+import tempfile
+import shutil
+import pkg_resources
 
 from drift.management import create_deployment_manifest, get_app_version, get_ec2_instances
 from drift.utils import get_config
@@ -38,10 +41,13 @@ def get_options(parser):
         help="Use to override tier protection. State the name of the expected tier.",
         default=None)
     parser.add_argument(
-        "--skip-requirements", dest='skiprequirements',
-        help="No not install requirements for the service",
+        "--no-deps", dest='skiprequirements',
+        help="No not install requirements for the service (Run pip with --no-deps switch).",
         action="store_true")
-
+    parser.add_argument(
+        "--force-reinstall", dest='forcereinstall',
+        help="Run pip with --force-reinstall switch.",
+        action="store_true")
 
 # TODO: Add this to config
 def _get_tier_protection(tier_name):
@@ -60,8 +66,6 @@ def run_command(args):
     ssh_key_name = conf.tier['aws']['ssh_key']
     ssh_key_file = '~/.ssh/{}.pem'.format(ssh_key_name)
 
-    instances = get_ec2_instances(region, tier, service_name)
-
     include_drift = args.drift
     drift_filename = None
     drift_fullpath = None
@@ -78,127 +82,67 @@ def run_command(args):
         print "the tier using the --deploy-to-this-tier argument and run again."
         return
 
-    # hack
+    project_folders = ["."]
     if include_drift:
         import drift
-        drift_path = os.path.split(os.path.split(drift.__file__)[0])[0]
-        build_fullpath = os.path.join(drift_path, "dist")
+        drift_folder = os.path.abspath(os.path.join(drift.__file__, '..', '..'))
+        project_folders.append(drift_folder)
 
-        if os.path.exists(build_fullpath):
-            for filename in os.listdir(build_fullpath):
-                if filename.startswith("Drift-"):
-                    os.remove(os.path.join(build_fullpath, filename))
-        drift_filename = None
+    def deploy(distros):
+        shell_scripts = []
 
-        print "Building Drift in {}...".format(build_fullpath)
-        cmd = ["python", os.path.join(drift_path, "setup.py"), "sdist", "--formats=zip"]
-        p = subprocess.Popen(cmd, cwd=drift_path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        stdout, _ = p.communicate()
-        if p.returncode != 0:
-            print stdout
-            sys.exit(p.returncode)
-        drift_filename = None
-        for filename in os.listdir(build_fullpath):
-            if filename.startswith("Drift-"):
-                drift_filename = filename
+        for project_folder in project_folders:
+            print "Creating source distribution from ", project_folder
+            cmd = [
+                "python", 
+                os.path.join(project_folder, "setup.py"), 
+                "sdist", 
+                "--formats=zip",
+                "--dist-dir=" + distros,
+            ]
 
-        if not drift_filename:
-            print "Error creating drift package: %s" % stdout
-            sys.exit(9)
-        print "Including drift package %s" % drift_filename
-        drift_fullpath = os.path.join(build_fullpath, drift_filename)
+            p = subprocess.Popen(
+                cmd, cwd=project_folder, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            stdout, _ = p.communicate()
+            if p.returncode != 0:
+                print stdout
+                sys.exit(p.returncode)
 
-    app_location = APP_LOCATION.format(service_name)
-    old_path = app_location + "_old"
+            # Use custom quickdeploy script if found.
+            quickdeploy_script = os.path.join(project_folder, "scripts/quickdeploy.sh")
+            if not os.path.exists(quickdeploy_script):
+                 # Use standard quickdeploy script. Only works for web stacks.
+                quickdeploy_script = pkg_resources.resource_filename(__name__, "quickdeploy.sh")
+            with open(quickdeploy_script, 'r') as f:
+                shell_scripts.append(f.read())
 
-    print "\n*** DEPLOYING service '{}' TO TIER '{}' IN REGION '{}'\n".format(service_name, tier, region)
+        for ec2 in get_ec2_instances(region, tier, service_name):
+            env.host_string = ec2.private_ip_address
+            env.user = EC2_USERNAME
+            env.key_filename = ssh_key_file
 
-    version = get_app_version()
-    build_filename = "{}-{}.zip".format(service_name, version)
-    build_fullpath = os.path.join("dist", build_filename)
+            for dist_file in os.listdir(distros):
+                print "Installing {} on {}".format(dist_file, ec2.private_ip_address)
+                full_name = os.path.join(distros, dist_file)
+
+                with settings(warn_only=True):
+                    # Remove the previous file forcefully, if needed 
+                    run("sudo rm -f {}".format(dist_file))
+                    put(full_name)
+                    cmd = "sudo pip install {} --upgrade".format(dist_file)
+                    if args.skiprequirements:
+                        cmd += " --no-deps"
+                    if args.forcereinstall:
+                        cmd += " --force-reinstall"
+                    run(cmd)    
+
+            print "Running quickdeploy script on {}".format(ec2.private_ip_address)
+            for quickdeploy_script in shell_scripts:
+                run(quickdeploy_script)
+
+    # Wrap the business logic in RAII block
+    distros = tempfile.mkdtemp(prefix='drift.quickdeploy.')
     try:
-        os.remove(build_fullpath)
-    except Exception as e:
-        if "No such file or directory" not in repr(e):
-            raise
-
-    print "Building {}...".format(build_fullpath)
-    p = subprocess.Popen(["python", "setup.py", "sdist", "--formats=zip"],
-                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    stdout, nothing = p.communicate()
-    print "done building"
-    if not os.path.exists(build_fullpath):
-        raise Exception("Build artefact not found at {}".format(build_fullpath))
-
-    deployment_manifest = create_deployment_manifest('quickdeploy', args.comment)
-
-    for ec2 in instances:
-        ip_address = ec2.private_ip_address
-
-        print "Deploying to {}...".format(ip_address)
-
-        env.host_string = ip_address
-        env.user = EC2_USERNAME
-        env.key_filename = ssh_key_file
-        with settings(warn_only=True):
-            run("rm -f {}".format(build_filename))
-        put(build_fullpath)
-        if drift_filename:
-            put(drift_fullpath)
-        temp_folder = os.path.splitext(build_filename)[0]
-        # expect some commands to fail
-        with settings(warn_only=True):
-            run("sudo rm -f {}".format(UWSGI_LOGFILE))
-            run("rm -r -f {}".format(temp_folder))
-            with hide('output'):
-                run("unzip {}".format(build_filename))
-            run("sudo rm -r -f {}".format(old_path))
-            run("sudo mv {} {}".format(app_location, old_path))
-
-        run("sudo mv {} {}".format(temp_folder, app_location))
-        if not args.skiprequirements:
-            with hide('output'):
-                run("sudo pip install -U -r {}/requirements.txt".format(app_location))
-
-        # unpack drift after we've installed requirements
-        if drift_filename:
-            with hide('output'):
-                run("unzip -o {}".format(drift_filename))
-                DRIFT_LOCATION = "/usr/local/lib/python2.7/dist-packages/drift"
-                run("sudo rm -rf {}/*".format(DRIFT_LOCATION))
-                run("sudo cp -r {}/drift/* {}".format(drift_filename.replace(".zip", ""), DRIFT_LOCATION))
-
-        with hide('output'):
-            run("sudo service {} restart".format(service_name))
-            with settings(warn_only=True): # celery might not be present
-                run("sudo service {}-celery restart".format(service_name))
-
-        # make sure the service keeps running
-        sleep(1.0)
-        run("sudo service {} status".format(service_name))
-
-        # test the service endpoint
-        try:
-            with settings(warn_only=True):
-                with hide('output'):
-                    out = run('curl http://127.0.0.1:{} -H "Accept: application/json" -H "Drift-Tenant: {}"'.format(SERVICE_PORT, tenant_to_test))
-            d = json.loads(out)
-            if "endpoints" not in d:
-                raise Exception("service json is incorrect: %s" % out)
-
-            _set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
-
-            print "\nService {} is running on {}!".format(service_name, ip_address)
-            slackbot.post_message("Successfully quick-deployed '{}' to tier '{}'".format(service_name, tier))
-        except Exception as e:
-            print "Unexpected response: %s" % out
-            error_report()
-            raise
-
-
-def error_report():
-    print "\n" + "*" * 80
-    print "Something went wrong!"
-    print "\nHere is the contents of {}:".format(UWSGI_LOGFILE)
-    run("sudo tail {} -n 100".format(UWSGI_LOGFILE))
-    print "\n" + "*" * 80
+        deploy()
+    finally:
+        shutil.rmtree(distros)
