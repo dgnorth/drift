@@ -477,7 +477,7 @@ def _run_command(args):
         # Make instance part of api-router round-robin load balancing
         "api-target": name,
         "api-port": "10080",
-        "api-status": "online",
+        "api-status": "launching",
     }
 
     tags.update(fold_tags(ami.tags))
