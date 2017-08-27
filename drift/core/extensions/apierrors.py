@@ -55,6 +55,11 @@ def register_extension(app):
         return handle_all_exceptions(e)
 
 
+    # Gurko endpoint. Always succeedes.
+    @jwt_not_required
+    @app.route('/gurko', methods=['GET'])
+    def gurko_handler():        
+        return jsonify({"all": "is well"})
     
     # Borko endpoint. Always fails.
     @jwt_not_required
