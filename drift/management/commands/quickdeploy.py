@@ -143,6 +143,6 @@ def run_command(args):
     # Wrap the business logic in RAII block
     distros = tempfile.mkdtemp(prefix='drift.quickdeploy.')
     try:
-        deploy()
+        deploy(distros)
     finally:
         shutil.rmtree(distros)
