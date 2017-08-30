@@ -198,7 +198,7 @@ def _bake_command(args):
         try:
             manifest = create_deployment_manifest('ami', comment=None)
             packer_vars = {
-                'config_url': conf.domain['origin'],
+                'config_url': conf.domain['cache'],
                 'version': get_app_version(),
                 'setup_script': pkg_resources.resource_filename(__name__, "driftapp-packer.sh"),
             }
@@ -348,11 +348,11 @@ def _run_command(args):
     name = get_app_name()
     tier_name = get_tier_name()
     conf = get_drift_config(tier_name=tier_name, deployable_name=name)
-    domain = conf.domain.get()
+    drift_config_url = conf.domain['cache']
     aws_region = conf.tier['aws']['region']
 
     print "AWS REGION:", aws_region
-    print "DOMAIN:\n", json.dumps(domain, indent=4)
+    print "DOMAIN:\n", json.dumps(conf.domain.get(), indent=4)
     print "DEPLOYABLE:\n", json.dumps(conf.deployable, indent=4)
 
     ec2_conn = boto.ec2.connect_to_region(aws_region)
@@ -493,9 +493,9 @@ def _run_command(args):
     # NOTE: The drift-admin tier command is to initialize legacy config.
     # TODO: Remove this legacy support as soon as new config mgmt is in place!
     user_data = '''#!/bin/bash
+sudo bash -c "echo DRIFT_CONFIG_URL={} >> /etc/environment"
 sudo bash -c "echo DRIFT_TIER={} >> /etc/environment"
-su ubuntu -c "drift-admin tier init eu-west-1/directive-tiers.dg-api.com/tiers-config.json --activate {}"
-sudo service {} restart'''.format(tier_name, tier_name, name)
+sudo service {} restart'''.format(config_url, tier_name, name)
 
     print "user_data:"
     print user_data

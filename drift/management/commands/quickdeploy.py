@@ -49,14 +49,6 @@ def get_options(parser):
         help="Run pip with --force-reinstall switch.",
         action="store_true")
 
-# TODO: Add this to config
-def _get_tier_protection(tier_name):
-    return tier_name.upper().startswith("LIVE")
-
-def _set_ec2_tags(ec2, tags, prefix=""):
-    for k, v in tags.iteritems():
-        tag_name = "{}{}".format(prefix, k)
-        ec2.add_tag(tag_name, v or '')
 
 def run_command(args):
     conf = get_config()
@@ -109,14 +101,28 @@ def run_command(args):
                 sys.exit(p.returncode)
 
             # Use custom quickdeploy script if found.
+            # Prefix them with environment variables:
+            header = "#!/bin/bash\n"
+            header += "export DRIFT_SERVICE_NAME={}\n".format(service_name)
+            header += "export DRIFT_PORT={}\n".format(conf.drift_app['PORT'])
+            header += "export UWSGI_LOGFILE={}\n\n".format(UWSGI_LOGFILE)
+
             quickdeploy_script = os.path.join(project_folder, "scripts/quickdeploy.sh")
-            if not os.path.exists(quickdeploy_script):
+            if os.path.exists(quickdeploy_script):
+                print "Using quickdeploy.sh from this project."
+            else:
+                print "Using standard quickdeploy.sh from Drift library"
                  # Use standard quickdeploy script. Only works for web stacks.
                 quickdeploy_script = pkg_resources.resource_filename(__name__, "quickdeploy.sh")
             with open(quickdeploy_script, 'r') as f:
-                shell_scripts.append(f.read())
+                src = header + f.read().replace("#!/bin/bash", "")
+                shell_scripts.append(src)
 
         for ec2 in get_ec2_instances(region, tier, service_name):
+            if args.ip and ec2.private_ip_address != args.ip:
+                print "Skipping ", ec2.private_ip_address
+                continue
+
             env.host_string = ec2.private_ip_address
             env.user = EC2_USERNAME
             env.key_filename = ssh_key_file
@@ -139,6 +145,9 @@ def run_command(args):
             print "Running quickdeploy script on {}".format(ec2.private_ip_address)
             for quickdeploy_script in shell_scripts:
                 run(quickdeploy_script)
+
+            # todo: see if this needs to be done as well:
+            ## _set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
 
     # Wrap the business logic in RAII block
     distros = tempfile.mkdtemp(prefix='drift.quickdeploy.')

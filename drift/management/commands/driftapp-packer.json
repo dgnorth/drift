@@ -40,8 +40,7 @@
       "execute_command": "echo 'packer' | {{ .Vars }} sudo -E -S sh '{{ .Path }}'",
       "environment_vars": [
         "service={{user `service`}}",
-        "version={{user `version`}}",
-        "config_url={{user `config_url`}}"
+        "version={{user `version`}}"
       ]
     }
   ]
