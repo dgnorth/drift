@@ -3,6 +3,8 @@ import os
 import os.path
 import importlib
 from contextlib import contextmanager
+import socket
+import getpass
 
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
@@ -39,8 +41,12 @@ ECHO_SQL = False
 SCHEMAS = ["public"]
 
 
+
 class Postgres(object):
     """Postgres Flask extension."""
+    
+    application_name = None  # Set just in time to something sensible (see below)
+
     def __init__(self, app=None):
         self.app = app
         if app is not None:
@@ -75,6 +81,18 @@ class Postgres(object):
                 ctx.sqlalchemy_session = get_sqlalchemy_session()
             return ctx.sqlalchemy_session
 
+    @classmethod
+    def get_application_name(cls):
+     
+        if cls.application_name is None:
+            # Pretty print a nice name for this connection, just in time.
+            cls.application_name = '{}:{}@{}'.format(
+                load_flask_config()['name'],
+                getpass.getuser(),
+                socket.gethostname().split(".")[0],
+                )
+
+        return cls.application_name
 
 def register_extension(app):
     Postgres(app)
@@ -94,7 +112,11 @@ def get_sqlalchemy_session(conn_string=None):
         conn_string = format_connection_string(ci)
 
     log.debug("Creating sqlalchemy session with connection string '%s'", conn_string)
-    engine = create_engine(conn_string, echo=False, poolclass=NullPool)
+    connect_args={
+        'connect_timeout': 10,
+        'application_name': Postgres.get_application_name(),
+    }
+    engine = create_engine(conn_string, connect_args=connect_args, echo=False, poolclass=NullPool)
     session_factory = sessionmaker(bind=engine, expire_on_commit=True)
     session = session_factory()
     session.expire_on_commit = False
@@ -133,13 +155,14 @@ def format_connection_string(postgres_parameters):
 
 
 def connect(params, connect_timeout=None):
-    connect_timeout = connect_timeout or 10
-    connection_string = format_connection_string(params)
     engine = create_engine(
-        connection_string,
+        format_connection_string(params),
         echo=ECHO_SQL,
         isolation_level='AUTOCOMMIT',
-        connect_args={'connect_timeout': connect_timeout}
+        connect_args={
+            'connect_timeout': connect_timeout or 10,
+            'application_name': Postgres.get_application_name(),
+        }
     )
     return engine
 
