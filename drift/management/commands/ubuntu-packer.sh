@@ -18,7 +18,7 @@ apt-get install -y -q libldap2-dev libsasl2-dev
 apt-get install -y -q unzip
 apt-get install -y -q nginx
 apt-get install -y -q ntp
-apt-get install -y -q postgresql
+apt-get install -y -q postgresql-client
 apt-get install -y -q libpq-dev
 apt-get install -y -q python-psycopg2
 apt-get install -y -q awscli
