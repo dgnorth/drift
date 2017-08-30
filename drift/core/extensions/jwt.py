@@ -150,14 +150,7 @@ def _fix_legacy_auth(auth_info):
         auth_info['provider_details'] = {'jwt': auth_info['jwt']}
     elif "username" in auth_info:
         username = auth_info["username"]
-        if username.startswith("gamecenter:"):
-            auth_info["automatic_account_creation"] = False
-            username = "gamecenter:" + pbkdf2_hex(username, "staticsalt",
-                                                  iterations=25000)
-            log.info("Hashed gamecenter username: %s", username)
-            auth_info['provider'] = "device_id"
-            auth_info['username'] = username
-        elif username.startswith("uuid:"):
+        if username.startswith("uuid:"):
             auth_info['provider'] = "device_id"
         else:
             auth_info['provider'] = "user+pass"
@@ -194,11 +187,6 @@ def jwtsetup(app):
         if "provider" not in auth_info:
             auth_info = _fix_legacy_auth(auth_info)
 
-        # HACK: Client bug workaround:
-        if auth_info.get("provider") == "gamecenter" and \
-                "provider_details" not in auth_info:
-            auth_info = _fix_legacy_auth(auth_info)
-
         automatic_account_creation = auth_info.get("automatic_account_creation", True)
 
         identity = None
@@ -229,12 +217,10 @@ def jwtsetup(app):
         elif auth_info['provider'] == "gamecenter":
             from drift.auth.gamecenter import validate_gamecenter_token
             identity_id = validate_gamecenter_token(provider_details)
-            gc_player_id = "gamecenter:" + identity_id
-            username = "gamecenter:" + pbkdf2_hex(gc_player_id, "staticsalt",
-                                                  iterations=25000)
-            # For legacy reasons this is done twice, too late to undo now
-            username = "gamecenter:" + pbkdf2_hex(username, "staticsalt",
-                                                  iterations=25000)
+            # The GameCenter user_id cannot be stored in plain text, so let's
+            # give it one cycle of hashing.
+            username = "gamecenter:" + pbkdf2_hex(identity_id, "staticsalt",
+                                                  iterations=1)
             identity = authenticate(username, "", automatic_account_creation)
         elif auth_info['provider'] == "steam":
             from drift.auth.steam import validate_steam_ticket
