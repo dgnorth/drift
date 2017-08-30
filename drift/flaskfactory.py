@@ -40,7 +40,8 @@ def drift_app(app):
 
     # Trigger loading of drift config
     conf = get_config()
-    app.config.update(conf.drift_app)
+    app.config.update(conf.drift_app)    
+    log.info("Configuration source: %s", conf.source)
 
     _apply_patches(app)
 
