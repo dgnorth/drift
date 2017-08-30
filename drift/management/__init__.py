@@ -58,7 +58,7 @@ def do_execute_cmd(argv):
         help="Specify which config source to use. Will override 'DRIFT_CONFIG_URL' environment variable."
     )
     parser.add_argument("--loglevel", '-l',
-        help="Logging level name. Default is INFO.", default='WARNING'
+        help="Logging level name. Default is WARNING.", default='WARNING'
     )
     parser.add_argument('--formatter',
         help="Specify which formatter to use for text output. Default is {}.".format(
