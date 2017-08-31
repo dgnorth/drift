@@ -26,5 +26,4 @@ cp -v /usr/local/bin/${service}/config/splunk/outputs.conf /opt/splunkforwarder/
 pip install six --upgrade
 echo "-------- Initializing Drift ----------------"
 chown ubuntu /usr/local/bin/${service} -R
-chown ubuntu /home/ubuntu/.drift -R
 echo "----------------- All done -----------------"
