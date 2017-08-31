@@ -20,6 +20,7 @@ mkdir -p /usr/local/bin/${service}/logs
 sh /usr/local/bin/${service}/scripts/setup_instance.sh
 echo "----------------- Setting up Logging Config -----------------"
 cp -v /usr/local/bin/${service}/config/rsyslog.d/*.conf /etc/rsyslog.d/
+cp -v /usr/local/bin/${service}/config/logrotate.d/* /etc/logrotate.d/
 cp -v /usr/local/bin/${service}/config/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/
 cp -v /usr/local/bin/${service}/config/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/
 pip install six --upgrade
