@@ -234,6 +234,7 @@ def logsetup(app):
     handler.setFormatter(EventLogFormatter())
     l = logging.getLogger("eventlog")
     l.propagate = False
+    l.setLevel('INFO')
     l.addHandler(handler)
 
     # Install client file handler
