@@ -486,19 +486,22 @@ def _run_command(args):
     for k in sorted(tags.keys()):
         print "  %s: %s" % (k, tags[k])
 
-    if args.preview:
-        print "--preview specified, exiting now before actually doing anything."
-        sys.exit(0)
-
-    # NOTE: The drift-admin tier command is to initialize legacy config.
-    # TODO: Remove this legacy support as soon as new config mgmt is in place!
     user_data = '''#!/bin/bash
-sudo bash -c "echo DRIFT_CONFIG_URL={} >> /etc/environment"
-sudo bash -c "echo DRIFT_TIER={} >> /etc/environment"
-sudo service {} restart'''.format(config_url, tier_name, name)
+export DRIFT_CONFIG_URL={config_url}
+export DRIFT_TIER={tier_name}
+export DRIFT_SERVICE={service_name}
+export AWS_REGION={aws_region}
+
+'''.format(config_url=drift_config_url, tier_name=tier_name, service_name=name, aws_region=aws_region)
+
+    user_data += pkg_resources.resource_string(__name__, "ami-run.sh")
 
     print "user_data:"
     print user_data
+
+    if args.preview:
+        print "--preview specified, exiting now before actually doing anything."
+        sys.exit(0)
 
     if autoscaling:
         client = boto3.client('autoscaling', region_name=aws_region)
