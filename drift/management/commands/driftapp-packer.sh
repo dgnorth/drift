@@ -12,10 +12,12 @@ echo "----------------- Configuring Service -----------------"
 cp -v /usr/local/bin/${service}/config/upstart/*.conf /etc/init/
 ln -s /usr/local/bin/${service}/config/${service}_nginx.conf /etc/nginx/sites-enabled/
 mkdir -p /var/log/uwsgi
+chown syslog /var/log/uwsgi
 mkdir -p /var/log/nginx
 mkdir -p /var/log/celery
 chmod a+w /var/log/celery
 mkdir -p /var/log/${service}
+chown syslog /var/log/${service}
 mkdir -p /usr/local/bin/${service}/logs
 sh /usr/local/bin/${service}/scripts/setup_instance.sh
 echo "----------------- Setting up Logging Config -----------------"
