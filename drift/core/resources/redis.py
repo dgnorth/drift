@@ -168,6 +168,7 @@ class RedisCache(object):
             self.conn.delete(key)
 
 # defaults when making a new tier
+# Note: This data structure is used by driftconfig.config.update_cache function.
 NEW_TIER_DEFAULTS = {
     "host": "<PLEASE FILL IN>",
     "port": 6379,
