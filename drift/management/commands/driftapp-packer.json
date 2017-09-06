@@ -35,6 +35,11 @@
         "destination": "~/{{user `service`}}-{{user `version`}}.zip"
     },
     {
+        "type": "file",
+        "source": "./dist/aws.zip",
+        "destination": "~/aws.zip"
+    },
+    {
       "type": "shell",
       "script": "{{user `setup_script`}}",
       "execute_command": "echo 'packer' | {{ .Vars }} sudo -E -S sh '{{ .Path }}'",

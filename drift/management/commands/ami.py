@@ -25,6 +25,7 @@ from drift.management.gittools import get_branch, checkout
 from drift.utils import get_tier_name
 from drift import slackbot
 from driftconfig.util import get_drift_config
+from drift.flaskfactory import load_flask_config
 
 # regions:
 # eu-west-1 : ami-234ecc54
@@ -85,7 +86,7 @@ def get_options(parser):
     )
     p.add_argument(
         "--instance_type",
-        help="The EC2 instance type to use",
+        help="The EC2 instance type to use. Default is 't2.small'.",
         default="t2.small"
     )
     p.add_argument(
@@ -203,8 +204,14 @@ def _bake_command(args):
                 'setup_script': pkg_resources.resource_filename(__name__, "driftapp-packer.sh"),
             }
             if not args.preview:
-                cmd = "python setup.py sdist --formats=zip"
-                ret = subprocess.call(['python', 'setup.py', 'sdist', '--formats=zip'])
+                cmd = ['python', 'setup.py', 'sdist', '--formats=zip']
+                ret = subprocess.call(cmd)
+                if ret != 0:
+                    print "Failed to execute build command:", cmd
+                    sys.exit(ret)
+
+                cmd = ["zip", "-r", "dist/aws.zip", "aws"]
+                ret = subprocess.call(cmd)
                 if ret != 0:
                     print "Failed to execute build command:", cmd
                     sys.exit(ret)
@@ -347,7 +354,8 @@ def _run_command(args):
 
     name = get_app_name()
     tier_name = get_tier_name()
-    conf = get_drift_config(tier_name=tier_name, deployable_name=name)
+    conf = get_drift_config(
+        tier_name=tier_name, deployable_name=name, drift_app=load_flask_config())
     drift_config_url = conf.domain['cache']
     aws_region = conf.tier['aws']['region']
 
@@ -487,17 +495,27 @@ def _run_command(args):
         print "  %s: %s" % (k, tags[k])
 
     user_data = '''#!/bin/bash
+# Environment variables set by drift-admin run command:
 export DRIFT_CONFIG_URL={config_url}
 export DRIFT_TIER={tier_name}
 export DRIFT_SERVICE={service_name}
 export AWS_REGION={aws_region}
 
+# Shell script from ami-run.sh:
 '''.format(config_url=drift_config_url, tier_name=tier_name, service_name=name, aws_region=aws_region)
 
     user_data += pkg_resources.resource_string(__name__, "ami-run.sh")
+    custom_script_name = os.path.join(conf.drift_app['app_root'], 'scripts', 'ami-run.sh')
+    if os.path.exists(custom_script_name):
+        print "Using custom shell script", custom_script_name
+        user_data += "\n# Custom shell script from {}\n".format(custom_script_name)
+        user_data += open(custom_script_name, 'r').read()
+    else:
+        print "Note: No custom ami-run.sh script found for this application."
 
     print "user_data:"
-    print user_data
+    from drift.utils import pretty as poo
+    print poo(user_data, 'bash')
 
     if args.preview:
         print "--preview specified, exiting now before actually doing anything."
