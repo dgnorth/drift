@@ -59,9 +59,6 @@ def run_command(args):
     ssh_key_file = '~/.ssh/{}.pem'.format(ssh_key_name)
 
     include_drift = args.drift
-    drift_filename = None
-    drift_fullpath = None
-    tenant_to_test = conf.table_store.get_table("tenants").find({"tier_name": tier})[0]
 
     if args.tiername and args.tiername != tier:
         print "Default tier is '{}' but you expected '{}'. Quitting now.".format(tier, args.tiername)
@@ -86,9 +83,9 @@ def run_command(args):
         for project_folder in project_folders:
             print "Creating source distribution from ", project_folder
             cmd = [
-                "python", 
-                os.path.join(project_folder, "setup.py"), 
-                "sdist", 
+                "python",
+                os.path.join(project_folder, "setup.py"),
+                "sdist",
                 "--formats=zip",
                 "--dist-dir=" + distros,
             ]
@@ -104,7 +101,8 @@ def run_command(args):
             # Prefix them with environment variables:
             header = "#!/bin/bash\n"
             header += "export DRIFT_SERVICE_NAME={}\n".format(service_name)
-            header += "export DRIFT_PORT={}\n".format(conf.drift_app['PORT'])
+            if 'PORT' in conf.drift_app:
+                header += "export DRIFT_PORT={}\n".format(conf.drift_app['PORT'])
             header += "export UWSGI_LOGFILE={}\n\n".format(UWSGI_LOGFILE)
 
             quickdeploy_script = os.path.join(project_folder, "scripts/quickdeploy.sh")
@@ -132,7 +130,7 @@ def run_command(args):
                 full_name = os.path.join(distros, dist_file)
 
                 with settings(warn_only=True):
-                    # Remove the previous file forcefully, if needed 
+                    # Remove the previous file forcefully, if needed
                     run("sudo rm -f {}".format(dist_file))
                     put(full_name)
                     cmd = "sudo pip install {} --upgrade".format(dist_file)
@@ -140,7 +138,7 @@ def run_command(args):
                         cmd += " --no-deps"
                     if args.forcereinstall:
                         cmd += " --force-reinstall"
-                    run(cmd)    
+                    run(cmd)
 
             print "Running quickdeploy script on {}".format(ec2.private_ip_address)
             for quickdeploy_script in shell_scripts:

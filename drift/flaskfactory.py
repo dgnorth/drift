@@ -113,6 +113,7 @@ def load_flask_config(app_root=None):
     with open(config_filename) as f:
         config_values = json.load(f)
 
+    config_values['app_root'] = app_root
     return config_values
 
 
