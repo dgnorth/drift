@@ -10,12 +10,12 @@ echo "----------------- Installing deployment-manifest.json to ~/${service}/ ---
 echo "----------------- Configuring Service -----------------"
 cp -v ~/aws/upstart/*.conf /etc/init/
 mkdir -p /var/log/uwsgi
-chown syslog /var/log/uwsgi
+chown syslog:adm /var/log/uwsgi
 mkdir -p /var/log/nginx
 mkdir -p /var/log/celery
 chmod a+w /var/log/celery
 mkdir -p /var/log/${service}
-chown syslog /var/log/${service}
+chown syslog:adm /var/log/${service}
 sh ~/aws/scripts/setup_instance.sh
 
 echo "----------------- Setting up Logging Config -----------------"
