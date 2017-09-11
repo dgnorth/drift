@@ -133,16 +133,25 @@ def run_command(args):
                     # Remove the previous file forcefully, if needed
                     run("sudo rm -f {}".format(dist_file))
                     put(full_name)
-                    cmd = "sudo pip install {} --upgrade".format(dist_file)
+                    cmd = "sudo -H pip install {} --upgrade".format(dist_file)
+                    ##cmd += " --process-dependency-links"
                     if args.skiprequirements:
                         cmd += " --no-deps"
                     if args.forcereinstall:
                         cmd += " --force-reinstall"
                     run(cmd)
 
+
+                    # Run pip install on the requirements file.
+                    cmd = "unzip -p {} {}/requirements.txt | xargs -n 1 -L 1 sudo pip install".format(
+                        dist_file, os.path.splitext(dist_file)[0])
+                    run(cmd)
+
             print "Running quickdeploy script on {}".format(ec2.private_ip_address)
+            print quickdeploy_script
             for quickdeploy_script in shell_scripts:
-                run(quickdeploy_script)
+                with settings(warn_only=True):
+                    run(quickdeploy_script)
 
             # todo: see if this needs to be done as well:
             ## _set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
