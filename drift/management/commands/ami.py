@@ -25,6 +25,7 @@ from drift.management.gittools import get_branch, checkout
 from drift.utils import get_tier_name
 from drift import slackbot
 from driftconfig.util import get_drift_config
+from driftconfig.config import get_redis_cache_backend
 from drift.flaskfactory import load_flask_config
 
 # regions:
@@ -185,7 +186,8 @@ def _bake_command(args):
     if args.ubuntu:
         manifest = None
         packer_vars = {
-            'setup_script': pkg_resources.resource_filename(__name__, "ubuntu-packer.sh")
+            'setup_script': pkg_resources.resource_filename(__name__, "ubuntu-packer.sh"),
+            'ubuntu_release': UBUNTU_RELEASE,
         }
     else:
         current_branch = get_branch()
@@ -199,7 +201,6 @@ def _bake_command(args):
         try:
             manifest = create_deployment_manifest('ami', comment=None)
             packer_vars = {
-                'config_url': conf.domain['cache'],
                 'version': get_app_version(),
                 'setup_script': pkg_resources.resource_filename(__name__, "driftapp-packer.sh"),
             }
@@ -356,8 +357,8 @@ def _run_command(args):
     tier_name = get_tier_name()
     conf = get_drift_config(
         tier_name=tier_name, deployable_name=name, drift_app=load_flask_config())
-    drift_config_url = conf.domain['cache']
     aws_region = conf.tier['aws']['region']
+
 
     print "AWS REGION:", aws_region
     print "DOMAIN:\n", json.dumps(conf.domain.get(), indent=4)
@@ -475,6 +476,10 @@ def _run_command(args):
     if autoscaling:
         target_name += "-auto"
 
+    # To auto-generate Redis cache url, we create the Redis backend using our config,
+    # and then ask for a url representation of it:
+    drift_config_url = get_redis_cache_backend(conf.table_store, tier_name).get_url()
+
     tags = {
         "Name": target_name,
         "tier": tier_name,
@@ -486,6 +491,8 @@ def _run_command(args):
         "api-target": name,
         "api-port": "10080",
         "api-status": "launching",
+
+        "config-url": drift_config_url,
     }
 
     tags.update(fold_tags(ami.tags))
@@ -496,13 +503,13 @@ def _run_command(args):
 
     user_data = '''#!/bin/bash
 # Environment variables set by drift-admin run command:
-export DRIFT_CONFIG_URL={config_url}
+export DRIFT_CONFIG_URL={drift_config_url}
 export DRIFT_TIER={tier_name}
 export DRIFT_SERVICE={service_name}
 export AWS_REGION={aws_region}
 
 # Shell script from ami-run.sh:
-'''.format(config_url=drift_config_url, tier_name=tier_name, service_name=name, aws_region=aws_region)
+'''.format(drift_config_url=drift_config_url, tier_name=tier_name, service_name=name, aws_region=aws_region)
 
     user_data += pkg_resources.resource_string(__name__, "ami-run.sh")
     custom_script_name = os.path.join(conf.drift_app['app_root'], 'scripts', 'ami-run.sh')

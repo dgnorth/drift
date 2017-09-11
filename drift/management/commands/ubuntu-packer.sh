@@ -35,3 +35,6 @@ rpm -i --nodeps splunkforwarder-6.2.4-271043-linux-2.6-x86_64.rpm
 echo ----------------- Configuring environment -----------------
 sh -c 'sudo echo PYTHONDONTWRITEBYTECODE=1 >> /etc/environment'
 
+echo "--------------- Increasing resource limits ------------------------"
+echo "fs.file-max = 70000" >> /etc/sysctl.conf
+echo "net.core.somaxconn=4096" >> /etc/sysctl.conf

@@ -5,7 +5,8 @@
     "source_ami": "unknown",
     "user_name": "unknown",
     "setup_script": "unknown",
-    "domain_name": "unknown"
+    "domain_name": "unknown",
+    "ubuntu_release": "unknown"
   },
   "builders": [
     {
@@ -22,7 +23,8 @@
         "creation-date": "{{isotime `2006-01-02-15-04`}}",
         "user-name": "{{user `user_name`}}",
         "domain-name": "{{user `domain_name`}}",
-        "source-ami": "{{user `source_ami`}}"
+        "source-ami": "{{user `source_ami`}}",
+        "ubuntu-release": "{{user `ubuntu_release`}}"
       }
     }
   ],
