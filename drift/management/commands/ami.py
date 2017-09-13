@@ -36,7 +36,7 @@ from drift.flaskfactory import load_flask_config
 UBUNTU_BASE_IMAGE_NAME = 'ubuntu-base-image'
 UBUNTU_TRUSTY_IMAGE_NAME = 'ubuntu/images/hvm/ubuntu-trusty-14.04*'
 UBUNTU_XENIAL_IMAGE_NAME = 'ubuntu/images/hvm-ssd/ubuntu-xenial-16.04*'
-UBUNTU_RELEASE = UBUNTU_TRUSTY_IMAGE_NAME
+UBUNTU_RELEASE = UBUNTU_XENIAL_IMAGE_NAME
 
 IAM_ROLE = "ec2"
 
