@@ -12,10 +12,6 @@ mkdir /etc/opt/${service}/config
 mv ~/${service}-${version}/config/* -t /etc/opt/${service}/config
 rm -rf ${service}-${version}
 
-# Enabling uwsgi pid file
-sudo touch /run/uwsgi.pid
-sudo chown ubuntu /run/uwsgi.pid
-
 echo "----------------- Unzipping aws.zip to ~/aws -----------------"
 unzip ~/aws.zip -d ~
 
