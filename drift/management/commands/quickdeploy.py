@@ -110,7 +110,7 @@ def run_command(args):
                 print "Using quickdeploy.sh from this project."
             else:
                 print "Using standard quickdeploy.sh from Drift library"
-                 # Use standard quickdeploy script. Only works for web stacks.
+                # Use standard quickdeploy script. Only works for web stacks.
                 quickdeploy_script = pkg_resources.resource_filename(__name__, "quickdeploy.sh")
             with open(quickdeploy_script, 'r') as f:
                 src = header + f.read().replace("#!/bin/bash", "")
@@ -134,13 +134,11 @@ def run_command(args):
                     run("sudo rm -f {}".format(dist_file))
                     put(full_name)
                     cmd = "sudo -H pip install {} --upgrade".format(dist_file)
-                    ##cmd += " --process-dependency-links"
                     if args.skiprequirements:
                         cmd += " --no-deps"
                     if args.forcereinstall:
                         cmd += " --force-reinstall"
                     run(cmd)
-
 
                     # Run pip install on the requirements file.
                     cmd = "unzip -p {} {}/requirements.txt | xargs -n 1 -L 1 sudo pip install".format(
