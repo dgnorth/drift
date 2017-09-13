@@ -1,19 +1,11 @@
-echo "------------- fix for six module version screwup ------------------"
-pip install --upgrade six
+echo "----------------- pip installing ${service}-${version}.zip -----------------"
+pip install ~/${service}-${version}.zip
 
-##echo "----------------- pip installing ${service}-${version}.zip -----------------"
-##pip install ~/${service}-${version}.zip
-# It's a mess, but for legacy reasons, let's do this:
-echo "-------- unzip for legacy reasons the app into /usr/local/bin ------------"
-unzip ~/${service}-${version}.zip
-mkdir -p /usr/local/bin/${service}
-chmod a+w /usr/local/bin/${service}
-mv ~/${service}-${version}/* /usr/local/bin/${service}/
-rmdir ~/${service}-${version}/
-
-
-echo "Run pip install on the requirements file."
+echo "----------------- Run pip install on the requirements file. -----------------"
 unzip -p  ~/${service}-${version}.zip ${service}-${version}/requirements.txt | xargs -n 1 -L 1 pip install
+
+echo "----------------- Install application configuration files. -----------------"
+unzip ~/${service}-${version}.zip ${service}-${version}/config -d /etc/opt/drift-base/config
 
 echo "----------------- Unzipping aws.zip to ~/aws -----------------"
 unzip ~/aws.zip -d ~
