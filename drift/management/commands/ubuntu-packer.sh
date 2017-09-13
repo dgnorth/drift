@@ -26,6 +26,10 @@ apt-get install -y -q --force-yes python-dev libssl-dev libffi-dev
 ntpdate -u pool.ntp.org
 service nginx start
 pip install uwsgi
+
+# Workaround for ContextualVersionConflict: (six 1.5.2
+pip install --upgrade six
+
 echo ----------------- Installing Splunk Forwarder -----------------
 apt-get install -y -q rpm
 wget https://s3-ap-southeast-1.amazonaws.com/pm-builds/redist/splunkforwarder-6.2.4-271043-linux-2.6-x86_64.rpm
