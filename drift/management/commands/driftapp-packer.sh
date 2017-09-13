@@ -14,7 +14,20 @@ echo "----------------- Installing deployment-manifest.json to ~/${service}/ ---
 # mv ~/deployment-manifest.json ~/${service}/
 
 echo "----------------- Configuring Service -----------------"
-cp -v ~/aws/upstart/*.conf /etc/init/
+# Old style upstart scripts
+if [ -d ~/aws/upstart ]; then
+    if [ -n "$(ls ~/aws/upstart/*.conf)" ]; then
+        cp -v ~/aws/upstart/*.conf /etc/init/
+    fi
+fi
+
+# New style systemd scripts
+if [ -d ~/aws/systemd ]; then
+    if [ -n "$(ls ~/aws/systemd/*.service)" ]; then
+        cp -v ~/aws/systemd/*.service /lib/systemd/system/
+    fi
+fi
+
 mkdir -p /var/log/uwsgi
 chown syslog:adm /var/log/uwsgi
 mkdir -p /var/log/nginx
@@ -25,9 +38,21 @@ chown syslog:adm /var/log/${service}
 sh ~/aws/scripts/setup_instance.sh
 
 echo "----------------- Setting up Logging Config -----------------"
-cp -v ~/aws/rsyslog.d/*.conf /etc/rsyslog.d/
-cp -v ~/aws/logrotate.d/* /etc/logrotate.d/
-cp -v ~/aws/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/
-cp -v ~/aws/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/
+if [ -d ~/aws/rsyslog.d ]; then
+    if [ -n "$(ls ~/aws/rsyslog.d/*.conf)" ]; then
+        cp -v ~/aws/rsyslog.d/*.conf /etc/rsyslog.d/
+    fi
+fi
+if [ -d ~/aws/logrotate.d ]; then
+    if [ -n "$(ls ~/aws/logrotate.d)" ]; then
+        cp -v ~/aws/logrotate.d/* /etc/logrotate.d/
+    fi
+fi
+if [ -f ~/aws/splunk/inputs.conf ]; then
+    cp -v ~/aws/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/
+fi
+if [ -f ~/aws/splunk/outputs.cond ]; then
+    cp -v ~/aws/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/
+fi
 
 echo "----------------- All done -----------------"
