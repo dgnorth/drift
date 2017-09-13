@@ -480,6 +480,9 @@ def _run_command(args):
     # and then ask for a url representation of it:
     drift_config_url = get_redis_cache_backend(conf.table_store, tier_name).get_url()
 
+    # Specify the app
+    app_root = '/etc/opt/{service_name}'.format(service_name=name)
+
     tags = {
         "Name": target_name,
         "tier": tier_name,
@@ -493,6 +496,7 @@ def _run_command(args):
         "api-status": "launching",
 
         "config-url": drift_config_url,
+        "app-root": app_root,
     }
 
     tags.update(fold_tags(ami.tags))
@@ -505,11 +509,12 @@ def _run_command(args):
 # Environment variables set by drift-admin run command:
 export DRIFT_CONFIG_URL={drift_config_url}
 export DRIFT_TIER={tier_name}
+export DRIFT_APP_ROOT={app_root}
 export DRIFT_SERVICE={service_name}
 export AWS_REGION={aws_region}
 
 # Shell script from ami-run.sh:
-'''.format(drift_config_url=drift_config_url, tier_name=tier_name, service_name=name, aws_region=aws_region)
+'''.format(drift_config_url=drift_config_url, tier_name=tier_name, app_root=app_root,service_name=name, aws_region=aws_region)
 
     user_data += pkg_resources.resource_string(__name__, "ami-run.sh")
     custom_script_name = os.path.join(conf.drift_app['app_root'], 'scripts', 'ami-run.sh')
