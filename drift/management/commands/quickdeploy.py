@@ -18,9 +18,7 @@ from drift.utils import get_config
 from drift import slackbot
 
 EC2_USERNAME = 'ubuntu'
-APP_LOCATION = r"/usr/local/bin/{}"
-UWSGI_LOGFILE = "/var/log/uwsgi/uwsgi.log"
-SERVICE_PORT = 10080
+UWSGI_LOGFILE = "/var/log/drift/server.log"
 
 
 def get_options(parser):
