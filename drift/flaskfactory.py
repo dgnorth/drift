@@ -40,7 +40,7 @@ def drift_app(app):
 
     # Trigger loading of drift config
     conf = get_config()
-    app.config.update(conf.drift_app)    
+    app.config.update(conf.drift_app)
     log.info("Configuration source: %s", conf.source)
 
     _apply_patches(app)
@@ -69,7 +69,12 @@ def _find_app_root(_use_cwd=False):
 
     The 'setup.py' file must be found relative from the location of the current
     executable script or the current working directory.
+
+    The app root can be explicitly set using environment variable 'DRIFT_APP_ROOT'.
     """
+    if 'DRIFT_APP_ROOT' in os.environ:
+        return os.environ['DRIFT_APP_ROOT']
+
     exe_path, exe = os.path.split(sys.argv[0])
     if _use_cwd:
         search_path = '.'
