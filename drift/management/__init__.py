@@ -108,6 +108,9 @@ def do_execute_cmd(argv):
         os.environ['DRIFT_DEFAULT_TENANT'] = args.tenant
         print "Default tenant set to '%s'." % args.tenant
 
+    if 'DRIFT_APP_ROOT' in os.environ:
+        print "App root set: DRIFT_APP_ROOT=", os.environ['DRIFT_APP_ROOT']
+
     args.func(args)
 
 
