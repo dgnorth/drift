@@ -220,7 +220,7 @@ def get_app_name():
     out, err = p.communicate()
     if p.returncode != 0:
         raise RuntimeError(
-            "Can't get version of this deployable. Error: {} - {}".format(p.returncode, err)
+            "Can't get version of this deployable. Error: {}\n{}".format(p.returncode, err)
         )
 
     name = out.strip()
