@@ -139,9 +139,10 @@ def run_command(args):
                     run(cmd)
 
                     # Run pip install on the requirements file.
-                    cmd = "unzip -p {} {}/requirements.txt | xargs -n 1 -L 1 sudo pip install".format(
-                        dist_file, os.path.splitext(dist_file)[0])
-                    run(cmd)
+                    if not args.skiprequirements:
+                        cmd = "unzip -p {} {}/requirements.txt | xargs -n 1 -L 1 sudo pip install".format(
+                            dist_file, os.path.splitext(dist_file)[0])
+                        run(cmd)
 
             print "Running quickdeploy script on {}".format(ec2.private_ip_address)
             print quickdeploy_script
