@@ -243,6 +243,7 @@ def logsetup(app):
     handler.setFormatter(ClientLogFormatter())
     l = logging.getLogger("clientlog")
     l.propagate = False
+    l.setLevel('INFO')
     l.addHandler(handler)
 
     # Quiet down copule of very chatty loggers. This can be overridden in config.json.
