@@ -56,7 +56,7 @@ fi
 if [ -f ~/aws/splunk/inputs.conf ]; then
     cp -v ~/aws/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/
 fi
-if [ -f ~/aws/splunk/outputs.cond ]; then
+if [ -f ~/aws/splunk/outputs.conf ]; then
     cp -v ~/aws/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/
 fi
 
