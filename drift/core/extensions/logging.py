@@ -331,7 +331,7 @@ def logsetup(app):
             resp_len = -1
             try:
                 resp_len = len(response.response[0])
-                resp_text = response.response[0][:64]
+                resp_text = response.response[0][:192]
             except:
                 pass
             t = None
