@@ -126,7 +126,7 @@ def run_command(args):
         else:
             tenant.drop_db(tenant_name, db_host, tier_name)
 
-    if "create" in args.action:
+    if args.action in ['create', 'recreate']:
         # Provision resources
         with TSTransaction() as ts:
             conf = get_config(ts=ts)
@@ -141,7 +141,8 @@ def run_command(args):
                             'resource_name': provisioner_name,
                             'parameters': getattr(m, 'NEW_TIER_DEFAULTS', {}),
                         })
-                    m.provision(conf, {}, recreate='skip')
+                    recreate = 'recreate' if args.action == 'recreate' else 'skip'
+                    m.provision(conf, {}, recreate=recreate)
 
             row = ts.get_table('tenants').get(conf.tenant)
             row['state'] = 'active'
