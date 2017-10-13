@@ -195,6 +195,8 @@ def _register_command(args):
                 api = 'admin'
             elif name == 'kaleo-web':
                 api = 'kaleo'
+            elif name == 'kards-backend':
+                api = 'kards'
             else:
                 api = name
 
