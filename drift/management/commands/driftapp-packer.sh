@@ -16,6 +16,7 @@ mkdir -p /var/log/nginx
 mkdir -p /var/log/celery
 chmod a+w /var/log/celery
 mkdir -p /var/log/${service}
+chmod a+w /var/log/${service}
 mkdir -p /usr/local/bin/${service}/logs
 sh /usr/local/bin/${service}/scripts/setup_instance.sh
 echo ----------------- Setting up Logging Config -----------------
