@@ -196,7 +196,7 @@ def _register_command(args):
             elif name == 'kaleo-web':
                 api = 'kaleo'
             else:
-                continue
+                api = name
 
             row = {'tier_name': tier['tier_name'], 'deployable_name': name, 'api': api}
             ts.get_table('routing').update(row)
