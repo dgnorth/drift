@@ -157,8 +157,12 @@ def _fix_legacy_auth(auth_info):
     else:
         abort_unauthorized("Bad Request. No provider specified")
 
-    log.warning("Legacy authentication detected. Fixed for provider '%s'",
-                auth_info['provider'])
+    log.warning(
+        "Legacy authentication detected from %s using key '%s'. Fixed for provider '%s'",
+        auth_info['provider'],
+        request.remote_addr,
+        request.headers.get("Drift-Api-Key"),
+    )
 
     return auth_info
 
