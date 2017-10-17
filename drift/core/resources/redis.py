@@ -4,11 +4,15 @@ from __future__ import absolute_import
 import os
 import datetime
 import logging
+import cPickle as pickle
+
 from flask import g
 import redis
 from redlock import RedLockFactory
+from werkzeug._compat import integer_types
 
 from drift.core.resources import get_parameters
+
 
 log = logging.getLogger(__name__)
 
@@ -104,32 +108,51 @@ class RedisCache(object):
         """
         return self.key_prefix + key
 
-    def set(self, key, val, expire=None):
+    def dump_object(self, value):
+        """Dumps an object into a string for redis.  By default it serializes
+        integers as regular string and pickle dumps everything else.
         """
-        Add a key/val to the cache with an optional expire time (in seconds)
+        t = type(value)
+        if t in integer_types:
+            return str(value).encode('ascii')
+        return b'!' + pickle.dumps(value)
+
+    def load_object(self, value):
+        """The reversal of :meth:`dump_object`.  This might be called with
+        None.
         """
-        if self.disabled:
-            log.info("Redis disabled. Not writing key '%s'", key)
+        if value is None:
             return None
+        if value.startswith(b'!'):
+            try:
+                return pickle.loads(value[1:])
+            except pickle.PickleError:
+                return None
+        try:
+            return int(value)
+        except ValueError:
+            return value
+
+    def set(self, key, value, expire=-1):
         compound_key = self.make_key(key)
-        self.conn.set(compound_key, val)
-        if expire:
-            self.conn.expire(compound_key, expire)
-            log.debug("Added %s to cache. Expires in %s seconds", compound_key, expire)
+        dump = self.dump_object(value)
+        if expire == -1:
+            result = self.conn.set(name=compound_key, value=dump)
         else:
-            log.debug("Added %s to cache with no expiration", compound_key)
+            result = self.conn.setex(name=compound_key, value=dump, time=expire)
+
+
+        return result
 
     def get(self, key):
-        if self.disabled:
-            log.info("Redis disabled. Returning None for '%s'", key)
+        compound_key = self.make_key(key)
+        try:
+            ret = self.conn.get(compound_key)
+        except redis.RedisError as e:
+            self._log_error(e)
             return None
 
-        compound_key = self.make_key(key)
-        ret = self.conn.get(compound_key)
-        if ret:
-            log.debug("Retrieved %s from cache", compound_key)
-        else:
-            log.debug("%s not found in cache", compound_key)
+        ret = self.load_object(ret)
         return ret
 
     def delete(self, key):
@@ -156,7 +179,9 @@ class RedisCache(object):
             self.conn.expire(compound_key, expire)
 
     def lock(self, lock_name):
-        return self.redlock_factory.create_lock(self.make_key(lock_name))
+        return self.redlock_factory.create_lock(self.make_key(lock_name),
+                                                retry_times=20,
+                                                retry_delay=300)
 
     def delete_all(self):
         """remove all the keys for this tenant from redis"""
@@ -166,6 +191,7 @@ class RedisCache(object):
         compound_key = self.make_key("*")
         for key in self.conn.scan_iter(compound_key):
             self.conn.delete(key)
+
 
 # defaults when making a new tier
 # Note: This data structure is used by driftconfig.config.update_cache function.
