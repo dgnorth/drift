@@ -87,7 +87,7 @@ def run_command(args):
 
     if not args.localservers and not os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         print pretty("Running Flask without 'localservers' option.\n"
-            "Either specify it on the command line using --locaservers\n"
+            "Either specify it on the command line using --localservers\n"
             "or set the environment variable DRIFT_USE_LOCAL_SERVERS=1"
         )
     else:
