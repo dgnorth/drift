@@ -8,6 +8,7 @@ import httplib
 import sys
 import os.path
 import pkgutil
+import time
 
 from flask import jsonify
 from flask_restful import Api
@@ -145,13 +146,18 @@ def install_modules(app):
     )
 
     for module_name in resources + extensions:
+        t = time.time()
         m = importlib.import_module(module_name)
         if hasattr(m, "register_extension"):
             m.register_extension(app)
         else:
-            log.warning("Extension module '%s' has no register_extension() function.", module_name)
+            log.debug("Extension module '%s' has no register_extension() function.", module_name)
+        elapsed = time.time() - t
+        if elapsed > 0.1:
+            log.warning("Extension module '%s' took %.3f seconds to initialize.", module_name, elapsed)
 
     for module_name in apps:
+        t = time.time()
         m = importlib.import_module(module_name)
         blueprint_name = "{}.blueprints".format(module_name)
 
@@ -166,6 +172,9 @@ def install_modules(app):
                 m.register_blueprints(app)
             except Exception:
                 log.exception("Couldn't register blueprints for module '%s'", module_name)
+        elapsed = time.time() - t
+        if elapsed > 0.1:
+            log.warning("App module '%s' took %.3f seconds to initialize.", module_name, elapsed)
 
 
 def _apply_patches(app):
