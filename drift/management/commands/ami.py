@@ -493,7 +493,7 @@ def _run_command(args):
         # Make instance part of api-router round-robin load balancing
         "api-target": name,
         "api-port": "10080",
-        "api-status": "launching",
+        "api-status": "online2",
 
         "config-url": drift_config_url,
         "app-root": app_root,
