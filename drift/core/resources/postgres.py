@@ -5,6 +5,7 @@ import importlib
 from contextlib import contextmanager
 import socket
 import getpass
+import httplib
 
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
@@ -14,7 +15,7 @@ from alembic import command
 
 from werkzeug.local import LocalProxy
 from sqlalchemy import create_engine
-from flask import g
+from flask import g, abort
 from flask import _app_ctx_stack as stack
 
 from drift.flaskfactory import load_flask_config
@@ -44,7 +45,7 @@ SCHEMAS = ["public"]
 
 class Postgres(object):
     """Postgres Flask extension."""
-    
+
     application_name = None  # Set just in time to something sensible (see below)
 
     def __init__(self, app=None):
@@ -83,7 +84,7 @@ class Postgres(object):
 
     @classmethod
     def get_application_name(cls):
-     
+
         if cls.application_name is None:
             # Pretty print a nice name for this connection, just in time.
             cls.application_name = '{}:{}@{}'.format(
@@ -140,7 +141,7 @@ def process_connection_values(postgres_parameters):
     """
     Returns a copy of 'postgres_parameters' where values have been
     processed or or overridden if applicable.
-    """    
+    """
     postgres_parameters = postgres_parameters.copy()
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         # Override 'server'
@@ -310,10 +311,10 @@ def provision(config, args, recreate=None):
 
 def healthcheck():
     if "postgres" not in g.conf.tenant:
-        raise RuntimeError("Tenant config does not have 'postgres'")
+        abort(httplib.SERVICE_UNAVAILABLE, "Tenant config does not have 'postgres' section.")
     for k in NEW_TIER_DEFAULTS.keys():
         if not g.conf.tenant["postgres"].get(k):
-            raise RuntimeError("'postgres' config missing key '%s'" % k)
+            abort(httplib.SERVICE_UNAVAILABLE, "'postgres' config missing key '%s'" % k)
 
     rows = g.db.execute("SELECT 1+1")
     result = rows.fetchall()[0]

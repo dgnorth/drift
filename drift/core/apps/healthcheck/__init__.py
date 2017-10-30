@@ -21,27 +21,23 @@ class HealthCheckAPI(Resource):
 
     def get(self):
         details = None
-        try:
-            tenant_name = g.conf.tenant_name['tenant_name']
-            tier_name = g.conf.tier['tier_name']
-            if g.conf.tenant["state"] != "active":
-                raise RuntimeError("Tenant is in state '%s'" % g.conf.tenant["state"])
 
-            resources = current_app.config.get("resources")
-            if not resources:
-                raise RuntimeError("Deployable has no resources in config")
-            for module_name in resources:
-                m = importlib.import_module(module_name)
-                if hasattr(m, "healthcheck"):
-                    try:
-                        m.healthcheck()
-                    except Exception as e:
-                        raise RuntimeError("Healthcheck for '%s' failed: %s" % (module_name, getattr(e, "message", repr(e))))
+        # If there is no tenant, this health check is only reporting a successfull rest call
+        if not g.conf.tenant:
+            return {'result': "ok, but no tenant specified."}
 
-        except Exception as e:
-            details = getattr(e, "message", repr(e))
-            abort(httplib.BAD_REQUEST, message=details)
+        if g.conf.tenant["state"] != "active":
+            abort(httplib.SERVICE_UNAVAILABLE, ("Tenant is in state '%s' but needs to be 'active'." % g.conf.tenant["state"]))
 
-        return "OK"
+        resources = current_app.config.get("resources")
+        if not resources:
+            abort(httplib.SERVICE_UNAVAILABLE, "Deployable is missing 'resources' section in drift config.")
+
+        for module_name in resources:
+            m = importlib.import_module(module_name)
+            if hasattr(m, "healthcheck"):
+                m.healthcheck()
+
+        return {'result': "all is fine"}
 
 api.add_resource(HealthCheckAPI, "/healthcheck")
