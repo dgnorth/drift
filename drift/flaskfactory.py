@@ -148,13 +148,17 @@ def install_modules(app):
     for module_name in resources + extensions:
         t = time.time()
         m = importlib.import_module(module_name)
+        import_time = time.time() - t
         if hasattr(m, "register_extension"):
             m.register_extension(app)
         else:
             log.debug("Extension module '%s' has no register_extension() function.", module_name)
         elapsed = time.time() - t
         if elapsed > 0.1:
-            log.warning("Extension module '%s' took %.3f seconds to initialize.", module_name, elapsed)
+            log.warning(
+                "Extension module '%s' took %.3f seconds to initialize (import time was %.3f).",
+                module_name, elapsed, import_time
+            )
 
     for module_name in apps:
         t = time.time()
@@ -168,13 +172,17 @@ def install_modules(app):
                 raise
             log.warning("App module '%s' has no module '%s'", module_name, blueprint_name)
         else:
+            import_time = time.time() - t
             try:
                 m.register_blueprints(app)
             except Exception:
                 log.exception("Couldn't register blueprints for module '%s'", module_name)
-        elapsed = time.time() - t
-        if elapsed > 0.1:
-            log.warning("App module '%s' took %.3f seconds to initialize.", module_name, elapsed)
+            elapsed = time.time() - t
+            if elapsed > 0.1:
+                log.warning(
+                    "App module '%s' took %.3f seconds to initialize. (import time was %.3f).",
+                    module_name, elapsed, import_time
+                )
 
 
 def _apply_patches(app):
