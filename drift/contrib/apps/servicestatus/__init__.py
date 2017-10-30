@@ -6,7 +6,7 @@ import collections
 from flask import Blueprint, request, jsonify, current_app, g
 from flask import url_for, render_template, make_response
 from flask_restful import Api, Resource
-from drift.utils import request_wants_json, get_tier_name
+from drift.utils import get_tier_name
 from drift.core.extensions.jwt import current_user
 import datetime
 import json
@@ -95,13 +95,8 @@ class InfoPageAPI(Resource):
             d['private_key'] = '...'  # Just to be safe(r)
             ret['config_dump'] = json.dumps(d, indent=4)
 
-        if request_wants_json():
-            return make_response(jsonify(ret))
-        else:
-            page = render_template('index.html', **ret)
-            resp = make_response(page)
-            resp.headers["Content-Type"] = "text/html"
-            return resp
+        return ret
+
 
 api.add_resource(InfoPageAPI, '/', strict_slashes=False, endpoint="root")
 
