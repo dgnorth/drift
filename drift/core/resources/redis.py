@@ -48,6 +48,7 @@ class RedisExtension(object):
     def before_request(self, *args, **kw):
         # TODO: See if g.conf can be assumed here!
         if g.conf.tenant and g.conf.tenant.get("redis"):
+            redis_config = g.conf.tenant.get("redis")
             g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'], redis_config)
         else:
             g.redis = None
