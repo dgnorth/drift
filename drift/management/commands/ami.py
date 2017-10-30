@@ -588,6 +588,17 @@ export AWS_REGION={aws_region}
             )
             client.update_auto_scaling_group(**kwargs)
 
+        # Define a 2 min termination cooldown so api-router can drain the connections.
+        response = client.put_lifecycle_hook(
+            LifecycleHookName='Wait-2-minutes-on-termination',
+            AutoScalingGroupName=target_name,
+            LifecycleTransition='autoscaling:EC2_INSTANCE_TERMINATING',
+            HeartbeatTimeout=120,
+            DefaultResult='CONTINUE'
+        )
+        print "Configuring lifecycle hook, response:", response.get('ResponseMetadata')
+
+
         print "Done!"
         print "YOU MUST TERMINATE THE OLD EC2 INSTANCES YOURSELF!"
     else:
