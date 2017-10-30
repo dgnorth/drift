@@ -48,10 +48,6 @@ class RedisExtension(object):
     def before_request(self, *args, **kw):
         # TODO: See if g.conf can be assumed here!
         if g.conf.tenant and g.conf.tenant.get("redis"):
-            # HACK: Ability to override Redis hostname
-            redis_config = g.conf.tenant.get("redis")
-            if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-                redis_config['host'] = 'localhost'
             g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'], redis_config)
         else:
             g.redis = None
@@ -80,6 +76,11 @@ class RedisCache(object):
         self.service_name = service_name
         self.host = redis_config["host"]
         self.port = redis_config["port"]
+
+        # Override Redis hostname if needed
+        if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
+            self.host = 'localhost'
+
         self.conn = redis.StrictRedis(
             host=self.host,
             port=self.port,
