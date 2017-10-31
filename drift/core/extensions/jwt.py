@@ -4,7 +4,6 @@ from __future__ import absolute_import
 
 import logging
 from datetime import datetime, timedelta
-import uuid
 import json
 import httplib
 from functools import wraps
@@ -14,8 +13,7 @@ from flask import current_app, request, Blueprint, _request_ctx_stack, jsonify, 
 from flask_restful import Api, abort
 
 from werkzeug.local import LocalProxy
-from werkzeug.security import pbkdf2_hex
-from werkzeug.exceptions import HTTPException
+from werkzeug.security import pbkdf2_hex, gen_salt
 
 from drift.utils import get_tier_name
 
@@ -113,11 +111,12 @@ def requires_roles(_roles):
             required_roles = set(_roles.split(","))
             user_roles = set(current_user.get("roles", []))
             if not required_roles.intersection(user_roles):
-                log.warning("User does not have the needed roles for this "
-                            "call. User roles = '%s', Required roles = "
-                            "'%s'. current_user = '%s'",
-                            current_user.get("roles", ""),
-                            _roles, repr(current_user))
+                if not current_app.testing:
+                    log.warning("User does not have the needed roles for this "
+                                "call. User roles = '%s', Required roles = "
+                                "'%s'. current_user = '%s'",
+                                current_user.get("roles", ""),
+                                _roles, repr(current_user))
                 abort_unauthorized("You do not have access to this resource. "
                                    "It requires role '%s'" % _roles)
             return fn(*args, **kwargs)
@@ -130,7 +129,7 @@ _open_endpoints = set()
 
 
 def jwt_not_required(fn):
-    log.debug("Registering open endpoint: %s", fn.__name__)
+    log.debug("Registering open endpoint in module : %s", fn.__module__)
     _open_endpoints.add(fn)
     return fn
 
@@ -151,22 +150,19 @@ def _fix_legacy_auth(auth_info):
         auth_info['provider_details'] = {'jwt': auth_info['jwt']}
     elif "username" in auth_info:
         username = auth_info["username"]
-        if username.startswith("gamecenter:"):
-            auth_info["automatic_account_creation"] = False
-            username = "gamecenter:" + pbkdf2_hex(username, "staticsalt",
-                                                  iterations=25000)
-            log.info("Hashed gamecenter username: %s", username)
-            auth_info['provider'] = "device_id"
-            auth_info['username'] = username
-        elif username.startswith("uuid:"):
+        if username.startswith("uuid:"):
             auth_info['provider'] = "device_id"
         else:
             auth_info['provider'] = "user+pass"
     else:
         abort_unauthorized("Bad Request. No provider specified")
 
-    log.warning("Legacy authentication detected. Fixed for provider '%s'",
-                auth_info['provider'])
+    log.warning(
+        "Legacy authentication detected from %s using key '%s'. Fixed for provider '%s'",
+        auth_info['provider'],
+        request.remote_addr,
+        request.headers.get("Drift-Api-Key"),
+    )
 
     return auth_info
 
@@ -174,6 +170,11 @@ def _fix_legacy_auth(auth_info):
 def jwtsetup(app):
 
     app.register_blueprint(bp)
+
+    @app.before_request
+    def before_request(*args, **kw):
+        # Check for a valid JWT/JTI access token in the request header and populate current_user.
+        check_jwt_authorization()
 
     # Authentication endpoint
     @jwt_not_required
@@ -190,10 +191,7 @@ def jwtsetup(app):
         if "provider" not in auth_info:
             auth_info = _fix_legacy_auth(auth_info)
 
-        # HACK: Client bug workaround:
-        if auth_info.get("provider") == "gamecenter" and \
-                "provider_details" not in auth_info:
-            auth_info = _fix_legacy_auth(auth_info)
+        automatic_account_creation = auth_info.get("automatic_account_creation", True)
 
         identity = None
         provider_details = auth_info.get('provider_details')
@@ -214,64 +212,68 @@ def jwtsetup(app):
                 identity = get_cached_token(provider_details['jti'])
             if not identity:
                 abort_unauthorized("Bad Request. Invalid JTI.")
-        elif auth_info['provider'] in ['device_id', 'user+pass', 'uuid']:
+        elif auth_info['provider'] in ['device_id', 'user+pass', 'uuid', 'unit_test']:
             # Authenticate using access key, secret key pair
             # (or username, password pair)
             identity = authenticate(auth_info['username'],
-                                    auth_info['password'])
+                                    auth_info['password'],
+                                    automatic_account_creation)
         elif auth_info['provider'] == "gamecenter":
-            app_bundles = app.config.get('apple_game_center', {}) \
-                                    .get('bundle_ids')
             from drift.auth.gamecenter import validate_gamecenter_token
-            identity_id = validate_gamecenter_token(provider_details,
-                                                    app_bundles=app_bundles)
-            gc_player_id = "gamecenter:" + identity_id
-            username = "gamecenter:" + pbkdf2_hex(gc_player_id, "staticsalt",
-                                                  iterations=25000)
-            identity = authenticate(username, "")
+            identity_id = validate_gamecenter_token(provider_details)
+            # The GameCenter user_id cannot be stored in plain text, so let's
+            # give it one cycle of hashing.
+            username = "gamecenter:" + pbkdf2_hex(identity_id, "staticsalt",
+                                                  iterations=1)
+            identity = authenticate(username, "", automatic_account_creation)
         elif auth_info['provider'] == "steam":
             from drift.auth.steam import validate_steam_ticket
             identity_id = validate_steam_ticket()
             username = "steam:" + identity_id
-            identity = authenticate(username, "")
+            identity = authenticate(username, "", automatic_account_creation)
         elif auth_info['provider'] == "oculus" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "oculus:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password)
+            identity = authenticate(username, password, automatic_account_creation)
         elif auth_info['provider'] == "oculus":
             from drift.auth.oculus import validate_oculus_ticket
             identity_id = validate_oculus_ticket()
             username = "oculus:" + identity_id
-            identity = authenticate(username, "")
+            identity = authenticate(username, "", automatic_account_creation)
         elif auth_info['provider'] == "viveport" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "viveport:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password)
+            identity = authenticate(username, password, automatic_account_creation)
         elif auth_info['provider'] == "hypereal" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "hypereal:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password)
+            identity = authenticate(username, password, automatic_account_creation)
         elif auth_info['provider'] == "googleplay" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "googleplay:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password)
+            identity = authenticate(username, password, automatic_account_creation)
+        elif auth_info['provider'] == "googleplay":
+            from drift.auth.googleplay import validate_googleplay_token
+            identity_id = validate_googleplay_token()
+            username = "googleplay:" + identity_id
+            identity = authenticate(username, "", automatic_account_creation)
         elif auth_info['provider'] == "psn":
             from drift.auth.psn import validate_psn_ticket
             identity_id = validate_psn_ticket()
             username = "psn:" + identity_id
-            identity = authenticate(username, "")
+            identity = authenticate(username, "", automatic_account_creation)
         elif auth_info['provider'] == "7663":
             username = "7663:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password)
+            identity = authenticate(username, password, automatic_account_creation)
         else:
             abort_unauthorized("Bad Request. Unknown provider '%s'." %
                                auth_info['provider'])
@@ -312,7 +314,16 @@ def issue_token(payload, expire=None):
         raise RuntimeError('Payload is missing required claims: %s' %
                            ', '.join(missing_claims))
 
-    access_token = jwt.encode(payload, current_app.config['private_key'], algorithm=algorithm)
+    ts = g.conf.table_store
+    public_keys = ts.get_table('public-keys')
+    row = public_keys.get({
+        'tier_name': g.conf.tier['tier_name'], 'deployable_name': g.conf.deployable['deployable_name']
+    })
+    if not row:
+        raise RuntimeError("No public key found in config for tier '{}', deployable '{}'"
+                           .format(g.conf.tier['tier_name'], g.conf.deployable['deployable_name']))
+    key_info = row['keys'][0]  # HACK, just select the first one
+    access_token = jwt.encode(payload, key_info['private_key'], algorithm=algorithm)
     cache_token(payload, expire=expire)
     log.debug("Issuing a new token: %s.", payload)
     ret = {
@@ -396,7 +407,8 @@ def verify_token(token, auth_type):
         if not issuer:
             abort_unauthorized("Invalid JWT. The 'iss' field is missing.")
 
-        for trusted_issuer in current_app.config["jwt_trusted_issuers"]:
+        trusted_issuers = g.conf.deployable['jwt_trusted_issuers']
+        for trusted_issuer in trusted_issuers:
             if trusted_issuer["iss"] == issuer:
                 try:
                     payload = jwt.decode(token, trusted_issuer["pub_rsa"],
@@ -415,10 +427,9 @@ def verify_token(token, auth_type):
         if not tenant or not tier:
             abort_unauthorized("Invalid JWT. "
                                "Token must specify both 'tenant' and 'tier'.")
-
-        if tenant != g.driftenv["name"]:
+        if tenant != g.conf.tenant_name['tenant_name']:
             abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
-                               " is tenant '%s'" % (tenant, g.driftenv["name"]))
+                               " is tenant '%s'" % (tenant, g.conf.tenant_name['tenant_name']))
 
         cfg_tier_name = get_tier_name()
         if tier != cfg_tier_name:
@@ -434,8 +445,8 @@ def create_standard_claims(expire=None):
 
     iat = datetime.utcnow()
     exp = iat + timedelta(seconds=expire)
-    jti = str(uuid.uuid4()).replace("-", "")
-    iss = current_app.config["name"]
+    jti = gen_salt(20)
+    iss = g.conf.deployable['deployable_name']
 
     standard_claims = {
         # JWT standard fields
@@ -445,8 +456,8 @@ def create_standard_claims(expire=None):
         'iss': iss,
 
         # Drift fields
-        'tier': g.driftenv["tier_name"],
-        'tenant': g.driftenv["name"],
+        'tier': g.conf.tier['tier_name'],
+        'tenant': g.conf.tenant_name['tenant_name'],
     }
 
     return standard_claims

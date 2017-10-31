@@ -4,25 +4,29 @@ Run all apps in this project as a console server.
 import subprocess
 import sys
 import logging
+import os
+import socket
 
 from drift import webservers
+from drift.utils import pretty
 
 log = logging.getLogger(__name__)
 
 
 def get_options(parser):
     parser.add_argument("--server", '-s',
-                        help="Server type to run. Specify 'celery' to run a Celery worker.",
-                        default=None)
-    parser.add_argument("--loglevel", '-l',
-                        help="Logging level name. Default is INFO.",
-                        default='INFO')
+        help="Server type to run. Specify 'celery' to run a Celery worker.",
+        default=None
+    )
     parser.add_argument("--nodebug",
-                        help="Do not run Flask server in DEBUG mode.",
-                        action='store_false')
+        help="Do not run Flask server in DEBUG mode.",
+        action='store_false'
+    )
     parser.add_argument("--profile",
-                        help="The the server with profiler active (only works in DEBUG mode)",
-                        action='store_true')
+        help="The the server with profiler active.",
+        action='store_true'
+    )
+
 
 def run_command(args):
     if args.server == 'celery':
@@ -48,6 +52,11 @@ def run_command(args):
 
         sys.exit(p.returncode)
 
+    # Turn off current stream handler to prevent duplicate logging
+    for handler in logging.root.handlers[:]:
+        if isinstance(handler, logging.StreamHandler):
+            logging.root.removeHandler(handler)
+
     # Log to console using Splunk friendly formatter
     stream_handler = logging.StreamHandler()
     stream_handler.name = "console"
@@ -57,23 +66,52 @@ def run_command(args):
     logging.root.addHandler(stream_handler)
     logging.root.setLevel(args.loglevel)
 
-    log.info("\n\n--------------------- Drift server starting up.... --------------------\n", )
+    print pretty("\n\n--------------------- Drift server starting up.... --------------------\n", )
 
     # Importing the app as late as possible
     from drift.appmodule import app
 
     if args.nodebug:
         app.debug = True
-        log.info("Running Flask in DEBUG mode. Use 'runserver --nodebug' to run in RELEASE mode.")
+        print pretty("Running Flask in DEBUG mode. Use 'runserver --nodebug' to run in RELEASE mode.")
     else:
         app.debug = False
-        log.info("Running Flask in RELEASE mode because of --nodebug "
-                          "command line argument.")
+        print pretty("Running Flask in RELEASE mode because of --nodebug "
+            "command line argument.")
 
-    if args.profile and app.debug:
-        log.info("Starting profiler")
+    if args.profile:
+        print pretty("Starting profiler")
         from werkzeug.contrib.profiler import ProfilerMiddleware
         app.config["PROFILE"] = True
         app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
-        
+
+    if not args.localservers and not os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
+        print pretty("Running Flask without 'localservers' option.\n"
+            "Either specify it on the command line using --localservers\n"
+            "or set the environment variable DRIFT_USE_LOCAL_SERVERS=1"
+        )
+    else:
+        print pretty(
+            "Running Flask with 'localserver' option. Host names of all servers "
+            "(Postgres, Redis, etc..) will be explicitly changed to 'localhost'."
+        )
+
+    if not args.tenant:
+        from drift.utils import get_config
+        tenant_names = [t['tenant_name'] for t in get_config().tenants]
+        print pretty(
+            "WARNING: Running a server without specifying a tenant. That's madness.\n"
+            "Please pick a tenant on the command line using the -t option (See -h for help).\n"
+            "Available tenants: {}".format(", ".join(tenant_names))
+        )
+
+        for tenant_name in tenant_names:
+            if 'default' in tenant_name.lower():
+                print pretty("For now, this tenant here will be used as the default "
+                    "tenant: {}".format(tenant_name)
+                )
+                os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
+
+    print pretty("Server ready: http://{}:{}".format(socket.gethostname(), app.config.get('PORT', 80)))
+
     webservers.run_app(app, args.server)

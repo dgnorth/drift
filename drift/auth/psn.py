@@ -4,8 +4,9 @@ import httplib
 
 import requests
 from werkzeug.exceptions import Unauthorized
-from flask import current_app, request, escape
+from flask import request, escape
 from flask_restful import abort
+from drift.auth import get_provider_config
 from base64 import urlsafe_b64encode
 
 from drift.core.extensions.schemachecker import check_schema
@@ -48,11 +49,8 @@ def validate_psn_ticket():
     ob = request.get_json()
     check_schema(ob, psn_provider_schema, "Error in request body.")
     provider_details = ob['provider_details']
-    # Get authentication config
-    auth_config = current_app.config.get('authentication')
-
     # Get PSN authentication config
-    psn_config = auth_config.get('psn')
+    psn_config = get_provider_config('psn')
 
     if not psn_config:
         abort(httplib.SERVICE_UNAVAILABLE, description="PSN authentication not configured for current tenant")

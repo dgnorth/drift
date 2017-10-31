@@ -1,14 +1,61 @@
 # -*- coding: utf-8 -*-
-from flask import g, current_app
+from __future__ import absolute_import
+
+import os
+import datetime
+import logging
+import cPickle as pickle
+
+from flask import g
 import redis
 from redlock import RedLockFactory
-import cPickle as pickle
 from werkzeug._compat import integer_types
 
-import logging
+from drift.core.resources import get_parameters
+
+
 log = logging.getLogger(__name__)
 
+
 REDIS_DB = 0  # We always use the main redis db for now
+
+
+def _get_redis_connection_info():
+    """
+    Return tenant specific Redis connection info, if available, else use one that's
+    specified for the tier.
+    """
+    ci = None
+    if g.conf.tenant:
+        ci = g.conf.tenant.get('redis')
+    return ci
+
+
+class RedisExtension(object):
+    """Redis Flask extension."""
+    def __init__(self, app=None):
+        self.app = app
+        if app is not None:
+            self.init_app(app)
+
+    def init_app(self, app):
+        if not hasattr(app, 'extensions'):
+            app.extensions = {}
+
+        app.extensions['redis'] = self
+        app.before_request(self.before_request)
+
+    def before_request(self, *args, **kw):
+        # TODO: See if g.conf can be assumed here!
+        if g.conf.tenant and g.conf.tenant.get("redis"):
+            redis_config = g.conf.tenant.get("redis")
+            g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'], redis_config)
+        else:
+            g.redis = None
+
+
+def register_extension(app):
+    RedisExtension(app)
 
 
 class RedisCache(object):
@@ -20,31 +67,27 @@ class RedisCache(object):
     disabled = False
     redlock = None
 
-    def __init__(self, tenant=None, service_name=None, redis_server=None):
-        conn_info = current_app.config.get("redis_connection_info")
-        if not redis_server:
-            redis_server = current_app.config.get("redis_server", None)
-        self.disabled = conn_info.get("disabled", False)
+    def __init__(self, tenant, service_name, redis_config):
+        self.disabled = redis_config.get("disabled", False)
         if self.disabled:
             log.warning("Redis is disabled!")
             return
-        if not redis_server:
-            try:
-                redis_server = g.driftenv_objects["redis_server"]
-            except Exception:
-                log.info("'redis_server' not found in config. Using default server '%s'",
-                         conn_info["host"])
-                redis_server = conn_info["host"]
-        self.tenant = tenant or g.driftenv["name"]
-        self.service_name = service_name or current_app.config["name"]
-        self.host = redis_server
-        self.port = conn_info["port"]
+
+        self.tenant = tenant
+        self.service_name = service_name
+        self.host = redis_config["host"]
+        self.port = redis_config["port"]
+
+        # Override Redis hostname if needed
+        if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
+            self.host = 'localhost'
+
         self.conn = redis.StrictRedis(
             host=self.host,
             port=self.port,
-            socket_timeout=conn_info.get("socket_timeout", 5),
-            socket_connect_timeout=conn_info.get("socket_connect_timeout", 5),
-            db=REDIS_DB,
+            socket_timeout=redis_config.get("socket_timeout", 5),
+            socket_connect_timeout=redis_config.get("socket_connect_timeout", 5),
+            db=redis_config.get("db_number", REDIS_DB),
         )
 
         self.key_prefix = "{}.{}:".format(self.tenant, self.service_name)
@@ -54,7 +97,7 @@ class RedisCache(object):
                 {
                     'host': self.host,
                     'port': self.port,
-                    'db': REDIS_DB,
+                    'db': redis_config.get("db_number", REDIS_DB),
                 }
             ],
         )
@@ -142,3 +185,43 @@ class RedisCache(object):
                                                 retry_times=20,
                                                 retry_delay=300)
 
+    def delete_all(self):
+        """remove all the keys for this tenant from redis"""
+        if self.disabled:
+            log.info("Redis disabled. Not deleting all keys")
+            return
+        compound_key = self.make_key("*")
+        for key in self.conn.scan_iter(compound_key):
+            self.conn.delete(key)
+
+
+# defaults when making a new tier
+# Note: This data structure is used by driftconfig.config.update_cache function.
+NEW_TIER_DEFAULTS = {
+    "host": "<PLEASE FILL IN>",
+    "port": 6379,
+    "socket_timeout": 5,
+    "socket_connect_timeout": 5
+}
+
+def provision(config, args, recreate=None):
+    params = get_parameters(config, args, NEW_TIER_DEFAULTS.keys(), "redis")
+    if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
+        params['host'] = 'localhost'
+    config.tenant["redis"] = params
+
+    if recreate == 'recreate':
+        red = RedisCache(config.tenant_name['tenant_name'], config.deployable['deployable_name'], params)
+        red.delete_all()
+
+def healthcheck():
+    if "redis" not in g.conf.tenant:
+        raise RuntimeError("Tenant config does not have 'redis'")
+    for k in NEW_TIER_DEFAULTS.keys():
+        if not g.conf.tenant["redis"].get(k):
+            raise RuntimeError("'redis' config missing key '%s'" % k)
+
+    dt = datetime.datetime.utcnow().isoformat()
+    g.redis.set("healthcheck", dt, expire=120)
+    if g.redis.get("healthcheck") != dt:
+        raise RuntimeError("Unexpected redis value")

@@ -11,7 +11,10 @@ from __future__ import absolute_import
 import logging
 from logging.handlers import SysLogHandler
 import logging.config
-import json, datetime, sys, time
+import json
+import datetime
+import sys
+import time
 from uuid import uuid4
 from socket import gethostname
 from collections import OrderedDict
@@ -21,6 +24,8 @@ from functools import wraps
 from flask import g, request
 
 from drift.core.extensions.jwt import current_user
+from drift.utils import get_tier_name
+
 
 def get_stream_handler():
     """returns a stream handler with standard formatting for use in local development"""
@@ -64,8 +69,8 @@ def get_clean_path_from_url(url):
 
 def get_log_details():
     details = OrderedDict()
-    tenant = None
-    tier = None
+    tenant_name = None
+    tier_name = get_tier_name()
     remote_addr = None
 
     try:
@@ -74,14 +79,17 @@ def get_log_details():
         pass
 
     try:
-        tenant = g.driftenv["name"]
-        tier = g.driftenv["tier_name"]
-    except Exception:
-        pass
+        if hasattr(g, 'conf'):
+            tenant_name = g.conf.tenant_name['tenant_name'] if g.conf.tenant_name else '(none)'
+    except RuntimeError as e:
+        if "Working outside of application context" in repr(e):
+            pass
+        else:
+            raise
     log_context = {}
     log_context["created"] = datetime.datetime.utcnow().isoformat() + "Z"
-    log_context["tenant"] = tenant
-    log_context["tier"] = tier
+    log_context["tenant"] = tenant_name
+    log_context["tier"] = tier_name
     log_context["remote_addr"] = remote_addr
     details["logger"] = log_context
     jwt_context = {}
@@ -372,6 +380,7 @@ def logsetup(app):
     handler.setFormatter(EventLogFormatter())
     l = logging.getLogger("eventlog")
     l.propagate = False
+    l.setLevel('INFO')
     l.addHandler(handler)
 
     # Install client file handler
@@ -380,6 +389,7 @@ def logsetup(app):
     handler.setFormatter(ClientLogFormatter())
     l = logging.getLogger("clientlog")
     l.propagate = False
+    l.setLevel('INFO')
     l.addHandler(handler)
 
     # request handler

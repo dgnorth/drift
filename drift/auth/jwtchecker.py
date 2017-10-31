@@ -6,7 +6,7 @@ class ExtDeprecationWarning(DeprecationWarning):
 warnings.simplefilter('always', ExtDeprecationWarning)
 
 warnings.warn(
-    "Importing drif.auth.jwtchecker is deprecated, use drift.core.extension.jwt instead.",
+    "Importing drift.auth.jwtchecker is deprecated, use drift.core.extensions.jwt instead.",
     ExtDeprecationWarning
     )
 

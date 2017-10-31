@@ -1,30 +1,63 @@
-echo ----------------- Installing ${service}-${versionNumber}.zip to /usr/local/bin/${service}/ -----------------
-unzip ~/${service}-${versionNumber}.zip
-mkdir -p /usr/local/bin/${service}
-chmod a+w /usr/local/bin/${service}
-mv ~/${service}-${versionNumber}/* /usr/local/bin/${service}/
-rmdir ~/${service}-${versionNumber}/
-echo ----------------- Installing deployment-manifest.json to /usr/local/bin/${service}/ -----------------
-mv ~/deployment-manifest.json /usr/local/bin/${service}/         
-echo ----------- Installing Service Requirements -----------
-pip install -r /usr/local/bin/${service}/requirements.txt
-echo ----------------- Configuring Service -----------------
-cp -v /usr/local/bin/${service}/config/upstart/*.conf /etc/init/
-ln -s /usr/local/bin/${service}/config/${service}_nginx.conf /etc/nginx/sites-enabled/
+echo "----------------- pip installing ${service}-${version}.zip -----------------"
+pip install ~/${service}-${version}.zip
+
+echo "----------------- Run pip install on the requirements file. -----------------"
+unzip -p  ~/${service}-${version}.zip ${service}-${version}/requirements.txt | xargs -n 1 -L 1 pip install
+
+echo "----------------- Install application configuration files. -----------------"
+unzip ~/${service}-${version}.zip ${service}-${version}/config/*
+sudo mkdir /etc/opt/${service}
+sudo chown ubuntu /etc/opt/${service}
+mkdir /etc/opt/${service}/config
+mv ~/${service}-${version}/config/* -t /etc/opt/${service}/config
+rm -rf ${service}-${version}
+
+echo "----------------- Unzipping aws.zip to ~/aws -----------------"
+unzip ~/aws.zip -d ~
+
+echo "----------------- Installing deployment-manifest.json to ~/${service}/ -----------------"
+# mv ~/deployment-manifest.json ~/${service}/
+
+echo "----------------- Configuring Service -----------------"
+# Old style upstart scripts
+if [ -d ~/aws/upstart ]; then
+    if [ -n "$(ls ~/aws/upstart/*.conf)" ]; then
+        cp -v ~/aws/upstart/*.conf /etc/init/
+    fi
+fi
+
+# New style systemd scripts
+if [ -d ~/aws/systemd ]; then
+    if [ -n "$(ls ~/aws/systemd/*.service)" ]; then
+        cp -v ~/aws/systemd/*.service /lib/systemd/system/
+    fi
+fi
+
 mkdir -p /var/log/uwsgi
+chown syslog:adm /var/log/uwsgi
 mkdir -p /var/log/nginx
 mkdir -p /var/log/celery
 chmod a+w /var/log/celery
 mkdir -p /var/log/${service}
-chmod a+w /var/log/${service}
-mkdir -p /usr/local/bin/${service}/logs
-sh /usr/local/bin/${service}/scripts/setup_instance.sh
-echo ----------------- Setting up Logging Config -----------------
-cp -v /usr/local/bin/${service}/config/rsyslog.d/*.conf /etc/rsyslog.d/
-cp -v /usr/local/bin/${service}/config/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/
-cp -v /usr/local/bin/${service}/config/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/
-pip install six --upgrade
-drift-admin tier init ${tier_url} --activate ${tier}
-echo -------- Changing owner of service install to user ubuntu ------------
-chown ubuntu /usr/local/bin/${service} -R
-echo ----------------- All done -----------------
+chown syslog:adm /var/log/${service}
+sh ~/aws/scripts/setup_instance.sh
+
+echo "----------------- Setting up Logging Config -----------------"
+if [ -d ~/aws/rsyslog.d ]; then
+    if [ -n "$(ls ~/aws/rsyslog.d/*.conf)" ]; then
+        cp -v ~/aws/rsyslog.d/*.conf /etc/rsyslog.d/
+    fi
+fi
+if [ -d ~/aws/logrotate.d ]; then
+    if [ -n "$(ls ~/aws/logrotate.d)" ]; then
+        cp -v ~/aws/logrotate.d/* /etc/logrotate.d/
+    fi
+fi
+if [ -f ~/aws/splunk/inputs.conf ]; then
+    cp -v ~/aws/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/
+fi
+if [ -f ~/aws/splunk/outputs.conf ]; then
+    cp -v ~/aws/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/
+fi
+
+echo "----------------- All done -----------------"
