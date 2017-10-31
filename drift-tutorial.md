@@ -1,11 +1,34 @@
-# Drift TutoralThis tutorial takes you through the initial steps in setting up a Drift development environment and run the basic Drift services on your local workstation.## Create a new everything from scratch.Scenario: A game company called **KneeDeep Studios** with a title called **Snowfall**.### Install Pre-requisitesThe tutorial assumes you are using [Oh My Zsh](https://github.com/robbyrussell/oh-my-zsh). Please install and use it before continuing. [OSX setup](http://sourabhbajaj.com/mac-setup/iTerm/zsh.html) is available as well.
-> Note: Drift is Python based. [Virtual envs](http://docs.python-guide.org/en/latest/dev/virtualenvs/) are nice. It's a good idea to `pip install virtualenv virtualenvwrapper` and do `mkvirtualenv drift` and work within that virtual environment.For local development, the following packages are needed:
-#### OSX```bashpip install git+https://github.com/dgnorth/drift-config.gitpip install git+https://github.com/dgnorth/drift-base.git@feature/drift-configbrew install postgresqlbrew install redis```
+# Drift Tutoral
+This tutorial takes you through the initial steps in setting up a Drift development environment and run the basic Drift services on your local workstation.
+
+## Create a new everything from scratch.
+Scenario: A game company called **KneeDeep Studios** with a title called **Snowfall**.
+
+### Install Pre-requisites
+
+The tutorial assumes you are using [Oh My Zsh](https://github.com/robbyrussell/oh-my-zsh). Please install and use it before continuing. [OSX setup](http://sourabhbajaj.com/mac-setup/iTerm/zsh.html) is available as well.
+
+> Note: Drift is Python based. [Virtual envs](http://docs.python-guide.org/en/latest/dev/virtualenvs/) are nice. It's a good idea to `pip install virtualenv virtualenvwrapper` and do `mkvirtualenv drift` and work within that virtual environment.
+
+For local development, the following packages are needed:
+#### OSX
+```bash
+pip install git+https://github.com/dgnorth/drift-config.git
+pip install git+https://github.com/dgnorth/drift-base.git@develop
+brew install postgresql
+brew install redis
+```
 
 Run the Redis server simply by executing `redis-server`.
 
-To set up the PostgreSQL server, see [PostgreSQL setup](postgres-setup.md).### Create Drift Configuration DatabaseA single configuration database covers all configuration settings for Drift based tiers and apps. Managing this database is done using the `dconf` command line suite (and `driftconfig` in some cases).Let's create a configuration database for **KneeDeep Studios**:
-```bash
+To set up the PostgreSQL server, see [PostgreSQL setup](postgres-setup.md).
+
+
+### Create Drift Configuration Database
+A single configuration database covers all configuration settings for Drift based tiers and apps. Managing this database is done using the `dconf` command line suite (and `driftconfig` in some cases).
+
+Let's create a configuration database for **KneeDeep Studios**:
+```bash
 # We pick a location in our home directory
 driftconfig create kdstudios file://~/kdstudios
 driftconfig push kdstudios
@@ -14,7 +37,7 @@ driftconfig push kdstudios
 driftconfig list
 ```
 
-You can have multiple Drift configuration DB's active on your local workstation. To list them out, 
+You can have multiple Drift configuration DB's active on your local workstation. To list them out,
 
 
 list out all DB's using the command `driftconfig list`. If there is **more than one** on your local machine, you need to explicitly point to it using a command line option, or add a reference to it through environment variable: `DRIFT_CONFIG_URL=kdstudios`.
@@ -34,14 +57,22 @@ dconf tier add LOCAL --is-dev
 
 # Register all available Drift plugins in the config DB and associate
 # with all available tiers
-dconf deployable register all -t all```
+dconf deployable register all -t all
+```
 
-### Register our organization and product
+### Register our organization and product
 Now we have our LIVE tier set up, but all services need to run in the context of a product. Next step is to set up our organization and product.
 
 ```bash
-# Arguments: organization name, short name, display namedconf organization add kdstudios kd -d "Knee Deep Studios"# Arguments: product name prefixed with the organization short name
-dconf product add kd-snowfall```### Create a tenant
+# Arguments: organization name, short name, display name
+dconf organization add kdstudios kd -d "Knee Deep Studios"
+
+# Arguments: product name prefixed with the organization short name
+dconf product add kd-snowfall
+```
+
+
+### Create a tenant
 Drift is a multi-tenant platform. For our scenario we just need to create a tenant for our local development. Additional tenants can be created at any time as well.
 
 Tenant names must be prefixed with the organization short name. Having the word 'default' in the name will make it the default tenant when running a service locally.
@@ -50,9 +81,10 @@ Tenant names must be prefixed with the organization short name. Having the word 
 # Arguments: tenant name, product name
 dconf tenant add kd-defaultdev kd-snowfall
 ```
-At this point we have all the necessarty bits registered in our configuration database. Next steps are all about provisioning and running the actual services.
+At this point we have all the necessarty bits registered in our configuration database. Next steps are all about provisioning and running the actual services.
 
-### Running a service locallyRun the following command to start the Drift web server on your machine:
+### Running a service locally
+Run the following command to start the Drift web server on your machine:
 
 ```bash
 drift-admin runserver -s drift-base
