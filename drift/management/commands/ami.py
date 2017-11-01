@@ -555,16 +555,7 @@ export AWS_REGION={aws_region}
         groups = client.describe_auto_scaling_groups(AutoScalingGroupNames=[target_name])
 
         if not groups['AutoScalingGroups']:
-            tagsarg = [
-                {
-                    'ResourceId': tags['Name'],
-                    'ResourceType': 'auto-scaling-group',
-                    'Key': k,
-                    'Value': v,
-                    'PropagateAtLaunch': True,
-                }
-                for k, v in tags.items()
-            ]
+
             kwargs = dict(
                 AutoScalingGroupName=target_name,
                 LaunchConfigurationName=launch_config_name,
@@ -572,7 +563,6 @@ export AWS_REGION={aws_region}
                 MaxSize=autoscaling['max'],
                 DesiredCapacity=autoscaling['desired'],
                 VPCZoneIdentifier=','.join([subnet.id for subnet in subnets]),
-                Tags=tagsarg,
             )
             print "Creating a new autoscaling group using params:\n", pretty(kwargs)
             client.create_auto_scaling_group(**kwargs)
@@ -587,6 +577,20 @@ export AWS_REGION={aws_region}
                 VPCZoneIdentifier=','.join([subnet.id for subnet in subnets]),
             )
             client.update_auto_scaling_group(**kwargs)
+
+        # Prepare tags which get propagated to all new instances
+        tagsarg = [
+            {
+                'ResourceId': tags['Name'],
+                'ResourceType': 'auto-scaling-group',
+                'Key': k,
+                'Value': v,
+                'PropagateAtLaunch': True,
+            }
+            for k, v in tags.items()
+        ]
+        print "Updating tags on autoscaling group that get propagated to all new instances."
+        client.create_or_update_tags(Tags=tagsarg)
 
         # Define a 2 min termination cooldown so api-router can drain the connections.
         response = client.put_lifecycle_hook(
