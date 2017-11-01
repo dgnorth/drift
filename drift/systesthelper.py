@@ -49,6 +49,9 @@ def _get_test_target():
     return target
 
 
+_tenant_is_set_up = False
+
+
 def setup_tenant():
     """
     Called from individual test modules.
@@ -56,7 +59,17 @@ def setup_tenant():
     the kitrun's systest command
     (in which case drift_test_database has been set in environ)
     Also configure some basic parameters in the app
+
+    Returns the config object from get_config()
     """
+    global _tenant_is_set_up
+    if _tenant_is_set_up:
+        tenant_name = driftconfig.testhelpers.get_name('tenant')
+        conf = get_config(tenant_name=tenant_name)
+        return conf
+
+    _tenant_is_set_up = True
+
 
     # Always assume local servers
     os.environ['DRIFT_USE_LOCAL_SERVERS'] = '1'
@@ -101,6 +114,8 @@ def setup_tenant():
     # mixamix
     from drift.appmodule import app
     app.config['TESTING'] = True
+
+    return conf
 
 
 def remove_tenant():
