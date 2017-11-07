@@ -554,28 +554,20 @@ export AWS_REGION={aws_region}
         # Update current autoscaling group or create a new one if it doesn't exist.
         groups = client.describe_auto_scaling_groups(AutoScalingGroupNames=[target_name])
 
-        if not groups['AutoScalingGroups']:
+        kwargs = dict(
+            AutoScalingGroupName=target_name,
+            LaunchConfigurationName=launch_config_name,
+            MinSize=autoscaling['min'],
+            MaxSize=autoscaling['max'],
+            DesiredCapacity=autoscaling['desired'],
+            VPCZoneIdentifier=','.join([subnet.id for subnet in subnets]),
+        )
 
-            kwargs = dict(
-                AutoScalingGroupName=target_name,
-                LaunchConfigurationName=launch_config_name,
-                MinSize=autoscaling['min'],
-                MaxSize=autoscaling['max'],
-                DesiredCapacity=autoscaling['desired'],
-                VPCZoneIdentifier=','.join([subnet.id for subnet in subnets]),
-            )
+        if not groups['AutoScalingGroups']:
             print "Creating a new autoscaling group using params:\n", pretty(kwargs)
             client.create_auto_scaling_group(**kwargs)
         else:
             print "Updating current autoscaling group", target_name
-            kwargs = dict(
-                AutoScalingGroupName=target_name,
-                LaunchConfigurationName=launch_config_name,
-                MinSize=autoscaling['min'],
-                MaxSize=autoscaling['max'],
-                DesiredCapacity=autoscaling['desired'],
-                VPCZoneIdentifier=','.join([subnet.id for subnet in subnets]),
-            )
             client.update_auto_scaling_group(**kwargs)
 
         # Prepare tags which get propagated to all new instances
