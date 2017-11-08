@@ -52,6 +52,8 @@ if [ -d ~/aws/logrotate.d ]; then
     if [ -n "$(ls ~/aws/logrotate.d)" ]; then
         cp -v ~/aws/logrotate.d/* /etc/logrotate.d/
     fi
+    # Run logrotation logic hourly instead of daily
+    mv /etc/cron.daily/logrotate /etc/cron.hourly/
 fi
 if [ -f ~/aws/splunk/inputs.conf ]; then
     cp -v ~/aws/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/
