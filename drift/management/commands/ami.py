@@ -487,17 +487,21 @@ def _run_command(args):
         "Name": target_name,
         "tier": tier_name,
         "service-name": name,
-        "service-type": "rest-api",  # TODO: Assume there are more types to come.
-        "launched-by": iam_conn.get_user().user_name,
-
-        # Make instance part of api-router round-robin load balancing
-        "api-target": name,
-        "api-port": "10080",
-        "api-status": "online2",
-
+        "service-type": conf.drift_app.get('service_type', 'web-app'),
         "config-url": drift_config_url,
         "app-root": app_root,
+        "launched-by": iam_conn.get_user().user_name,
     }
+
+    if tags['service-type'] == 'web-app':
+        # Make instance part of api-router round-robin load balancing
+        tags.update(
+            {
+                "api-target": name,
+                "api-port": str(conf.drift_app.get('PORT', 10080)),
+                "api-status": "online",
+            }
+        )
 
     tags.update(fold_tags(ami.tags))
 
