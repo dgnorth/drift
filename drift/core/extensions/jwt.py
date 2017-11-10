@@ -172,7 +172,7 @@ def jwtsetup(app):
     app.register_blueprint(bp)
 
     @app.before_request
-    def before_request(*args, **kw):
+    def before_request():
         # Check for a valid JWT/JTI access token in the request header and populate current_user.
         check_jwt_authorization()
 

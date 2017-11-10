@@ -2,7 +2,7 @@
 from flask import g
 
 
-def before_request(*args, **kw):
+def before_request():
     g.client_debug_messages = []
 
 

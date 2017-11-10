@@ -62,7 +62,7 @@ class DriftConfig(object):
         ts = get_default_drift_config()
         return ts
 
-    def before_request(self, *args, **kw):
+    def before_request(self):
 
         try:
             conf = get_drift_config(

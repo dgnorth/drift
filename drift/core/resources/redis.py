@@ -45,7 +45,7 @@ class RedisExtension(object):
         app.extensions['redis'] = self
         app.before_request(self.before_request)
 
-    def before_request(self, *args, **kw):
+    def before_request(self):
         # TODO: See if g.conf can be assumed here!
         if g.conf.tenant and g.conf.tenant.get("redis"):
             redis_config = g.conf.tenant.get("redis")

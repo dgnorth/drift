@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 def register_extension(app):
     @app.before_request
-    def add_correlation_id(*args, **kw):
+    def add_correlation_id():
         correlation_id = request.headers.get(CORRELATION_ID)
         log.debug("%s %s", request.method, request.url)
         if not correlation_id:

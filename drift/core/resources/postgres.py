@@ -61,7 +61,7 @@ class Postgres(object):
         app.before_request(self.before_request)
         app.teardown_request(self.teardown_request)
 
-    def before_request(self, *args, **kw):
+    def before_request(self):
         # Add a just-in-time getter for session
         g.db = LocalProxy(self.get_session)
 
