@@ -343,7 +343,7 @@ class DriftBaseTestCase(unittest.TestCase):
             jwtauth.authenticate = None
 
 
-def _authenticate_mock(username, password):
+def _authenticate_mock(username, password, automatic_account_creation = True):
     ret = {
         'user_name': username,
         'identity_id': username,
