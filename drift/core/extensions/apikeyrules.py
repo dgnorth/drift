@@ -9,11 +9,13 @@ from __future__ import absolute_import
 import logging
 import httplib
 from urlparse import urlparse, urlunparse
+import re
 
 from flask import request, g, jsonify, make_response
 from flask_restful import abort
 
 from drift.utils import get_config
+from driftconfig.relib import ConstraintError
 
 
 log = logging.getLogger(__name__)
@@ -26,14 +28,7 @@ def register_extension(app):
         # available, and as it is a 'resource' module, it is guaranteed to be executed before
         # any 'extension' module code.
 
-        # We don't require the key to exist in the request header as it is usually
-        # enforced by the api router. Some endpoints are actually "keyless". But if the
-        # key does exist in the request header, we apply the rules accordingly.
-        key = request.headers.get('Drift-Api-Key')
-        if not key:
-            return
-
-        rule = get_api_key_rule(key, request.url, g.conf)
+        rule = get_api_key_rule(request.headers, request.url, g.conf)
         if not rule:
             return
 
@@ -56,12 +51,29 @@ def register_extension(app):
         return response
 
 
-def get_api_key_rule(key, request_url, conf):
+def get_api_key_rule(request_headers, request_url, conf):
     # Looks up and matches an api key rule to a given key and client version.
     # Returns None if no rule or action is in effect, else a dict with the following
     # optional entries that should be used in response to the http request:
     # 'status_code', 'response_body' and 'response_header'.
     # If no 'status_code' is returned, the request should be processed further.
+
+    # Apply pass-through rules for legacy keys
+    nginx_conf = conf.table_store.get_table('nginx').get(
+        {'tier_name': conf.tier['tier_name']})
+    if nginx_conf:
+        for rule in nginx_conf.get('api_key_passthrough', []):
+            key = request_headers.get(rule['key_name'])
+            if key and re.match(rule['key_value'], key):
+                log.info("Passing on request that contains legacy api key '%s'.", key)
+                return
+
+    # We don't require the key to exist in the request header as it is usually
+    # enforced by the api router. Some endpoints are actually "keyless". But if the
+    # key does exist in the request header, we apply the rules accordingly.
+    key = request_headers.get('Drift-Api-Key')
+    if not key:
+        return
 
     if ':' in key:
         key, version = key.rsplit(':', 1)
@@ -90,7 +102,11 @@ def get_api_key_rule(key, request_url, conf):
         }
 
     # Fist look up the API key in our config.
-    api_key = g.conf.table_store.get_table('api-keys').get({'api_key_name': key})
+    try:
+        api_key = conf.table_store.get_table('api-keys').get({'api_key_name': key})
+    except ConstraintError as e:
+        return retval(description="API Key format '{}' not recognized.".format(key))
+
     if not api_key:
         return retval(description="API Key '{}' not found.".format(key))
 
@@ -99,14 +115,14 @@ def get_api_key_rule(key, request_url, conf):
         return retval(description="API Key '{}' is disabled.".format(key))
 
     # Match the API key to the product/tenant.
-    product, tenant = g.conf.product, g.conf.tenant
+    product, tenant = conf.product, conf.tenant
     if api_key['product_name'] != product['product_name']:
         return retval(description="API Key '{}' is for product '{}'"
             " but current tenant '{}' is on product '{}'.".format(
                 key, api_key['product_name'], tenant['tenant_name'], product['product_name']))
 
     # Now we apply the actual rules for this product.
-    rules = g.conf.table_store.get_table('api-key-rules').find(
+    rules = conf.table_store.get_table('api-key-rules').find(
         {'product_name': product['product_name'], 'is_active': True})
     rules = sorted(rules, key=lambda rule: rule['assignment_order'])
 
