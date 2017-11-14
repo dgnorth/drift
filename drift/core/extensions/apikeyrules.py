@@ -36,9 +36,8 @@ def register_extension(app):
         if 'response_header' in rule:
             g.update_response_header_api_rule = rule['response_header']
 
-        if 'status_code' in rule:
-            import json
-            log.info("Applying api key rule %s", json.dumps(rule, indent=4))
+        if rule['status_code'] is not None:
+            log.info("Blocking request because of api key rule: %s", rule)
             response = make_response(jsonify(rule['response_body']), rule['status_code'])
             return response
 
@@ -56,7 +55,7 @@ def get_api_key_rule(request_headers, request_url, conf):
     # Returns None if no rule or action is in effect, else a dict with the following
     # optional entries that should be used in response to the http request:
     # 'status_code', 'response_body' and 'response_header'.
-    # If no 'status_code' is returned, the request should be processed further.
+    # If 'status_code' is None, the request should be processed further.
 
     # Apply pass-through rules for legacy keys
     nginx_conf = conf.table_store.get_table('nginx').get(
@@ -95,6 +94,7 @@ def get_api_key_rule(request_headers, request_url, conf):
 
         return {
             'status_code': status_code,
+            'response_header': {'Content-Type': 'application/json'},
             'response_body': response_body,
             'rule': rule,
             'api_key': key,
@@ -146,13 +146,11 @@ def get_api_key_rule(request_headers, request_url, conf):
             continue
 
         ret = retval(rule=rule)
-        ret['response_header'] = rule.get('response_header', {})
+        ret['response_header'].update(rule.get('response_header', {}))
 
         if rule['rule_type'] == 'pass':
+            ret['status_code'] = None  # Signal a pass on this request.
             return ret
-
-        # Mark response as json
-        ret['response_header']['Content-Type'] = 'application/json'
 
         if rule['rule_type'] == 'reject':
             if 'reject' in rule:
