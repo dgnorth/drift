@@ -349,6 +349,9 @@ def _find_latest_ami(service_name, release=None):
 
 
 def _run_command(args):
+    # Always autoscale!
+    args.autoscale = True
+
     if args.launch and args.autoscale:
         print "Error: Can't use --launch and --autoscale together."
         sys.exit(1)
@@ -370,7 +373,13 @@ def _run_command(args):
     if conf.tier['is_live']:
         print "NOTE! This tier is marked as LIVE. Special restrictions may apply. Use --force to override."
 
-    autoscaling = conf.deployable.get('autoscaling')
+    autoscaling = {
+        "min": 1,
+        "max": 1,
+        "desired": 1,
+        "instance_type": args.instance_type,
+    }
+    autoscaling.update(conf.deployable.get('autoscaling', {}))
     release = conf.deployable.get('release', '')
 
     if args.launch and autoscaling and not args.force:
@@ -379,15 +388,6 @@ def _run_command(args):
     if args.autoscale and not autoscaling and not args.force:
         print "--autoscale specified, but tier config doesn't specify 'use_autoscaling'. Use --force to override."
         sys.exit(1)
-
-    if args.autoscale and autoscaling is None:
-        # Fill using default params
-        autoscaling = {
-            "min": 1,
-            "max": 2,
-            "desired": 2,
-            "instance_type": args.instance_type,
-        }
 
     print "Launch an instance of '{}' on tier '{}'".format(name, tier_name)
     if release:
