@@ -40,9 +40,9 @@ def _figure_out_tenant():
 
     # Figure out tenant. Normally the tenant name is embedded in the hostname.
     host = request.headers.get("Host")
-    # Two dots minimum required if tenant is to be specified in the hostname.
+    # One dot minimum required if tenant is to be specified in the hostname.
     host_has_tenant = False
-    if host and host.count('.') >= 2:
+    if host and host.count('.') >= 1:
         host_has_tenant = True
         for l in host.split(":")[0].split("."):
             try:
