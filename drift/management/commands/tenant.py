@@ -111,21 +111,6 @@ def run_command(args):
         tenant_report(conf)
         return
 
-    if "recreate" in args.action:
-        actions = ["drop", "create"]
-        print "Recreating db for tenant '{}'".format(tenant_name)
-    else:
-        actions = [args.action]
-
-    if "drop" in actions:
-        print "Dropping tenant {} on {}...".format(tenant_name, db_host)
-        db_error = db_check(tenant_config)
-        if db_error:
-            print "ERROR: You cannot drop the db because it is not reachable: {}".format(db_error)
-            return
-        else:
-            tenant.drop_db(tenant_name, db_host, tier_name)
-
     if args.action in ['create', 'recreate']:
         # Provision resources
         with TSTransaction() as ts:
