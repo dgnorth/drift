@@ -13,7 +13,7 @@ import tempfile
 import shutil
 import pkg_resources
 
-from drift.management import create_deployment_manifest, get_app_version, get_ec2_instances
+from drift.management import get_ec2_instances
 from drift.utils import get_config
 from drift import slackbot
 
@@ -103,14 +103,14 @@ def run_command(args):
                 header += "export DRIFT_PORT={}\n".format(conf.drift_app['PORT'])
             header += "export UWSGI_LOGFILE={}\n\n".format(UWSGI_LOGFILE)
 
-            quickdeploy_script = os.path.join(project_folder, "scripts/quickdeploy.sh")
-            if os.path.exists(quickdeploy_script):
+            quickdeploy_script_file = os.path.join(project_folder, "scripts/quickdeploy.sh")
+            if os.path.exists(quickdeploy_script_file):
                 print "Using quickdeploy.sh from this project."
             else:
                 print "Using standard quickdeploy.sh from Drift library"
                 # Use standard quickdeploy script. Only works for web stacks.
-                quickdeploy_script = pkg_resources.resource_filename(__name__, "quickdeploy.sh")
-            with open(quickdeploy_script, 'r') as f:
+                quickdeploy_script_file = pkg_resources.resource_filename(__name__, "quickdeploy.sh")
+            with open(quickdeploy_script_file, 'r') as f:
                 src = header + f.read().replace("#!/bin/bash", "")
                 shell_scripts.append(src)
 
@@ -144,11 +144,16 @@ def run_command(args):
                             dist_file, os.path.splitext(dist_file)[0])
                         run(cmd)
 
+                    # Minor hack:
+                    if service_name in dist_file:
+                        cmd = "sudo sh -c 'unzip -p {} {}/config/config.json > /etc/opt/{}/config/config.json'".format(
+                            dist_file, os.path.splitext(dist_file)[0], service_name)
+                        run(cmd)
+
             print "Running quickdeploy script on {}".format(ec2.private_ip_address)
-            print quickdeploy_script
-            for quickdeploy_script in shell_scripts:
+            for shell_script in shell_scripts:
                 with settings(warn_only=True):
-                    run(quickdeploy_script)
+                    run(shell_script)
 
             # todo: see if this needs to be done as well:
             ## _set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
