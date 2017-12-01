@@ -1,3 +1,5 @@
+set -x
+
 echo "----------------- pip installing ${service}-${version}.zip -----------------"
 pip install ~/${service}-${version}.zip
 
@@ -63,3 +65,5 @@ if [ -f ~/aws/splunk/outputs.conf ]; then
 fi
 
 echo "----------------- All done -----------------"
+
+sleep 5

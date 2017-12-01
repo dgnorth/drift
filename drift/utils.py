@@ -146,13 +146,14 @@ def add_response_headers(headers={}):
     return decorator
 
 
-def get_tier_name():
+def get_tier_name(fail_hard=True):
     """
     Get tier name from environment
     """
-    try:
+    if 'DRIFT_TIER' in os.environ:
         return os.environ['DRIFT_TIER']
-    except KeyError:
+
+    if fail_hard:
         raise RuntimeError(
             "No tier specified. Specify one in "
             "'DRIFT_TIER' environment variable, or use the --tier command "

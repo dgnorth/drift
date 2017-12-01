@@ -11,6 +11,7 @@ import json
 from datetime import datetime
 import random
 import shlex
+import tempfile
 
 try:
     # boto library is not a hard requirement for drift.
@@ -141,7 +142,11 @@ def _bake_command(args):
     else:
         name = get_app_name()
 
-    conf = get_drift_config()
+    name = get_app_name()
+    tier_name = get_tier_name()
+    conf = get_drift_config(
+        tier_name=tier_name, deployable_name=name, drift_app=load_flask_config())
+
     domain = conf.domain.get()
     aws_region = domain['aws']['ami_baking_region']
     ec2 = boto3.resource('ec2', region_name=aws_region)
@@ -199,11 +204,30 @@ def _bake_command(args):
         # Wrap git branch modification in RAII.
         checkout(args.tag)
         try:
+            setup_script = ""
+            setup_script_custom = ""
+            with open(pkg_resources.resource_filename(__name__, "driftapp-packer.sh"), 'r') as f:
+                setup_script = f.read()
+            custom_script_name = os.path.join(conf.drift_app['app_root'], 'scripts', 'ami-bake.sh')
+            if os.path.exists(custom_script_name):
+                print "Using custom bake shell script", custom_script_name
+                setup_script_custom = "echo Executing custom bake shell script from {}\n".format(custom_script_name)
+                setup_script_custom += open(custom_script_name, 'r').read()
+                setup_script_custom += "\necho Custom bake shell script completed\n"
+            else:
+                print "Note: No custom ami-bake.sh script found for this application."
+            # custom setup needs to happen first because we might be installing some requirements for the regular setup
+            setup_script = setup_script_custom + setup_script
+            tf = tempfile.NamedTemporaryFile(delete=False)
+            tf.write(setup_script)
+            tf.close()
+            setup_script_filename = tf.name
             manifest = create_deployment_manifest('ami', comment=None)
             packer_vars = {
                 'version': get_app_version(),
-                'setup_script': pkg_resources.resource_filename(__name__, "driftapp-packer.sh"),
+                'setup_script': setup_script_filename,
             }
+
             if not args.preview:
                 cmd = ['python', 'setup.py', 'sdist', '--formats=zip']
                 ret = subprocess.call(cmd)
