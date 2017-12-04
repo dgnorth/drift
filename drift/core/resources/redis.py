@@ -151,7 +151,7 @@ class RedisCache(object):
         try:
             ret = self.conn.get(compound_key)
         except redis.RedisError as e:
-            self._log_error(e)
+            log.exception("Can't fetch key '%s'", compound_key)
             return None
 
         ret = self.load_object(ret)
