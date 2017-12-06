@@ -116,6 +116,9 @@ def get_api_key_rule(request_headers, request_url, conf):
 
     # Match the API key to the product/tenant.
     product, tenant = conf.product, conf.tenant
+    if not product or not tenant:
+        return retval(description="No product or tenant in context.")
+
     if api_key['product_name'] != product['product_name']:
         return retval(description="API Key '{}' is for product '{}'"
             " but current tenant '{}' is on product '{}'.".format(
@@ -171,8 +174,14 @@ def get_api_key_rule(request_headers, request_url, conf):
                     rule=rule,
                 )
 
+            current_tenant, domain = urlparts.hostname.split('.', 1)
+
+            # See if the host already matches the redirection.
+            if current_tenant == redirect['tenant_name']:
+                continue
+
             redirect = rule['redirect']
-            new_hostname = redirect['tenant_name'] + '.' + urlparts.hostname.split('.', 1)[1]
+            new_hostname = redirect['tenant_name'] + '.' + domain
             url = request_url.replace(urlparts.hostname, new_hostname)
             ret['status_code'] = 307  # Temporary redirect
             ret['response_body'] = {'message': "Redirecting to tier '{}'.".format(redirect['tenant_name'])}
