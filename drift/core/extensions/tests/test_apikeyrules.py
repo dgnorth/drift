@@ -18,7 +18,7 @@ def xtearDownModule():
     remove_tenant()
 
 
-class MyTest(DriftTestCase):
+class ApiKeyRulesTest(DriftTestCase):
 
     @classmethod
     def setUpClass(cls):
@@ -44,6 +44,7 @@ class MyTest(DriftTestCase):
             tier_name=cls.tier_name,
             deployable_name=cls.deployable_1,
         )
+        cls._add_rules()
 
     @classmethod
     def _add_rules(cls):
@@ -78,9 +79,65 @@ class MyTest(DriftTestCase):
 
             row['response_header'] = {'Test-Rule-Name': rule_name}  # To test response headers
 
-    def test_api_key_ruleS(self):
-        get_api_key_rule({}, "bobo", self.conf)
-        print ""
+        cls.ts.get_table('api-keys').add({
+            'api_key_name': cls.product_name,
+            'product_name': cls.product_name
+        })
+
+    def test_no_api_key_means_pass(self):
+        # The reason for this is that some endpoints don't need
+        # a key and this is enforced by nginx before it gets here
+        url = "https://%s.kaleo.io/drift" % self.tenant_name_1
+        rule = get_api_key_rule({}, url, self.conf)
+        self.assertIsNone(rule)
+
+    def test_pass_rule_passes(self):
+        headers = {
+            "Drift-Api-Key": "%s:%s" % (self.product_name, "1.6.6")
+        }
+        url = "https://%s.kaleo.io/drift" % self.tenant_name_1
+        rule = get_api_key_rule(headers, url, self.conf)
+        self.assertIsNotNone(rule)
+        self.assertIsNone(rule["status_code"])
+
+    def test_reject_rule_rejects(self):
+        headers = {
+            "Drift-Api-Key": "%s:%s" % (self.product_name, "1.6.1")
+        }
+        url = "https://%s.kaleo.io/drift" % self.tenant_name_1
+        rule = get_api_key_rule(headers, url, self.conf)
+        self.assertIsNotNone(rule)
+        self.assertEqual(rule['status_code'], 503)
+        self.assertEqual(rule['response_body']['message'], "The server is down for maintenance.")
+
+    def test_upgrade_rule_passes_with_info(self):
+        headers = {
+            "Drift-Api-Key": "%s:%s" % (self.product_name, "1.6.0")
+        }
+        url = "https://%s.kaleo.io/drift" % self.tenant_name_1
+        rule = get_api_key_rule(headers, url, self.conf)
+        self.assertIsNotNone(rule)
+        self.assertEqual(rule['status_code'], 404)
+        self.assertEqual(rule['response_body']['action'], "upgrade_client")
+
+    def test_redirect_rule_redirects(self):
+        headers = {
+            "Drift-Api-Key": "%s:%s" % (self.product_name, "1.6.5")
+        }
+        url = "https://%s.kaleo.io/drift" % self.tenant_name_1
+        rule = get_api_key_rule(headers, url, self.conf)
+        self.assertIsNotNone(rule)
+        self.assertEqual(rule['status_code'], 307)
+        self.assertEqual(rule['response_header']['Location'], "https://%s.kaleo.io/drift" % self.tenant_name_2)
+
+    def test_redirect_rule_passes_when_redirected(self):
+        headers = {
+            "Drift-Api-Key": "%s:%s" % (self.product_name, "1.6.5")
+        }
+        url = "https://%s.kaleo.io/drift" % self.tenant_name_2
+        rule = get_api_key_rule(headers, url, self.conf)
+        self.assertIsNotNone(rule)
+        self.assertIsNone(rule['status_code'])
 
 
 if __name__ == '__main__':
