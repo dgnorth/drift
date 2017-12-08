@@ -53,12 +53,12 @@ class ApiKeyRulesTest(DriftTestCase):
         # Make a few rules to test various cases:
         # Rule 1: reject clients 1.6.0 and 1.6.2 and ask them to upgrade.
         # Rule 2: redirect client 1.6.5 to another tenant.
-        # Rule 3: always let client 1.6.6 pass through.
+        # Rule 3: always let client 1.6.5, and 1.6.6 pass through.
         # Rule 4: reject all clients with message "server is down".
         rules = [
             ('upgrade-client-1.6', ["1.6.0", "1.6.2"], 'reject', [404, {"action": "upgrade_client"}]),
             ('redirect-to-new-tenant', ["1.6.5"], 'redirect', cls.tenant_name_2),
-            ('always-pass', ["1.6.6"], 'pass', cls.tenant_name_1),
+            ('always-pass', ["1.6.5", "1.6.6"], 'pass', cls.tenant_name_1),
             ('downtime-message', [], 'reject', [503, {"message": "The server is down for maintenance."}]),
         ]
 

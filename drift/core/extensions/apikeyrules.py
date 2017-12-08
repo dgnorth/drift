@@ -178,8 +178,7 @@ def get_api_key_rule(request_headers, request_url, conf):
 
             # See if the host already matches the redirection.
             if current_tenant == rule['redirect']['tenant_name']:
-                ret["status_code"] = None
-                return ret
+                continue
 
             redirect = rule['redirect']
             new_hostname = redirect['tenant_name'] + '.' + domain
