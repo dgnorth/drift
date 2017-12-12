@@ -114,6 +114,17 @@ def get_api_key_rule(request_headers, request_url, conf):
     if not api_key['in_use']:
         return retval(description="API Key '{}' is disabled.".format(key))
 
+    # Product keys must point to a product.
+    if api_key['key_type'] == 'product' and 'product_name' not in api_key:
+        return retval(
+            description="API Key type is 'product', but has no reference to any product."
+        )
+
+    # If key is not associated with any product, there are no product rules to apply
+    # so we are done here.
+    if 'product_name' not in api_key:
+        return
+
     # Match the API key to the product/tenant.
     product, tenant = conf.product, conf.tenant
     if not product or not tenant:

@@ -84,6 +84,22 @@ class ApiKeyRulesTest(DriftTestCase):
             'product_name': cls.product_name
         })
 
+        cls.ts.get_table('api-keys').add({
+            'api_key_name': 'custom-key',
+            'key_type': 'custom',
+        })
+
+    def test_custom_key(self):
+        # Only keys of type 'product' need to be associated with a product. Custom keys can
+        # be universal and thus implicitly excempt from any product rule.
+        headers = {
+            "Drift-Api-Key": "custom-key",
+        }
+        url = "https://%s.kaleo.io/drift" % self.tenant_name_1
+        rule = get_api_key_rule(headers, url, self.conf)
+        self.assertIsNone(rule)
+
+
     def test_no_api_key_means_pass(self):
         # The reason for this is that some endpoints don't need
         # a key and this is enforced by nginx before it gets here
