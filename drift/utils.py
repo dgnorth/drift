@@ -2,12 +2,9 @@
 import os
 import httplib
 import logging
-import requests
 from functools import wraps
 from socket import gethostname
 import uuid
-import time
-import boto.ec2
 import json
 
 # pygments is optional for now

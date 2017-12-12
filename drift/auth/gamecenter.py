@@ -50,7 +50,10 @@ def validate_gamecenter_token(gc_token):
         abort(httplib.SERVICE_UNAVAILABLE, description="Game Center authentication not configured for current tenant")
 
     app_bundles = gamecenter_config.get("bundle_ids", None)
+    return run_gamecenter_token_validation(gc_token=gc_token, app_bundles=app_bundles)
 
+
+def run_gamecenter_token_validation(gc_token, app_bundles):
     token_desc = dict(gc_token)
     token_desc["signature"] = token_desc.get("signature", "?")[:10]
     error_title = 'Invalid Game Center token: %s' % token_desc

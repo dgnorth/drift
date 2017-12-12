@@ -6,7 +6,7 @@ import datetime
 import requests
 from werkzeug.exceptions import Unauthorized
 
-from drift.auth.gamecenter import validate_gamecenter_token, TRUSTED_ORGANIZATIONS
+from drift.auth.gamecenter import run_gamecenter_token_validation, TRUSTED_ORGANIZATIONS
 
 
 template = {
@@ -109,7 +109,7 @@ class GameCenterCase(unittest.TestCase):
 
     def test_gamecenter(self):
         # This should fly straight through
-        validate_gamecenter_token(template, app_bundles=app_bundles)
+        run_gamecenter_token_validation(template, app_bundles=app_bundles)
 
     def test_missing_fields(self):
         # Verify missing field check. The exception will list out all missing fields, so by removing
@@ -117,13 +117,13 @@ class GameCenterCase(unittest.TestCase):
         with self.assertRaises(Unauthorized) as context:
             t = template.copy()
             del t['salt']
-            validate_gamecenter_token(t)
+            run_gamecenter_token_validation(t, app_bundles=app_bundles)
         self.assertIn("The token is missing required fields: salt.", context.exception.description)
 
     def test_app_bundles(self):
         # Verify that the token is issued to the appropriate app.
         with self.assertRaises(Unauthorized) as context:
-            validate_gamecenter_token(template, app_bundles=['dummy'])
+            run_gamecenter_token_validation(template, app_bundles=['dummy'])
         self.assertIn("'app_bundle_id' not one of ['dummy']", context.exception.description)
 
     def test_broken_url(self):
@@ -131,7 +131,7 @@ class GameCenterCase(unittest.TestCase):
         with self.assertRaises(Unauthorized) as context:
             t = template.copy()
             t['public_key_url'] = 'broken url'
-            validate_gamecenter_token(t)
+            run_gamecenter_token_validation(t, app_bundles=app_bundles)
         self.assertIn("Can't fetch url 'broken url'", context.exception.description)
 
     def test_broken_cert(self):
@@ -139,7 +139,7 @@ class GameCenterCase(unittest.TestCase):
         with self.assertRaises(Unauthorized) as context:
             t = template.copy()
             t['public_key_url'] = 'broken cert'
-            validate_gamecenter_token(t)
+            run_gamecenter_token_validation(t, app_bundles=app_bundles)
         self.assertIn("Can't load certificate", context.exception.description)
 
     def test_cert_validation(self):
@@ -148,7 +148,7 @@ class GameCenterCase(unittest.TestCase):
         TRUSTED_ORGANIZATIONS[:] = ['Mordor Inc.']
         try:
             with self.assertRaises(Unauthorized) as context:
-                validate_gamecenter_token(template)
+                run_gamecenter_token_validation(template, app_bundles=app_bundles)
             self.assertIn("Certificate is issued to 'Apple Inc.' which is not one of ['Mordor Inc.'].", context.exception.description)
         finally:
             TRUSTED_ORGANIZATIONS[:] = _tmp
@@ -156,7 +156,7 @@ class GameCenterCase(unittest.TestCase):
     @mock.patch('datetime.datetime', DateOutside)
     def test_cert_expiration(self):
         with self.assertRaises(Unauthorized) as context:
-            validate_gamecenter_token(template, app_bundles=app_bundles)
+            run_gamecenter_token_validation(template, app_bundles=app_bundles)
         self.assertIn("Certificate is expired", context.exception.description)
 
     def test_signature(self):
@@ -164,7 +164,7 @@ class GameCenterCase(unittest.TestCase):
         with self.assertRaises(Unauthorized) as context:
             t = template.copy()
             t['signature'] = t['signature'][:84] + '5' + t['signature'][85:]  # Just modify one random letter.
-            validate_gamecenter_token(t)
+            run_gamecenter_token_validation(t, app_bundles=app_bundles)
         self.assertIn("Can't verify signature:", context.exception.description)
         self.assertIn("'padding check failed'", context.exception.description)
 
@@ -172,7 +172,7 @@ class GameCenterCase(unittest.TestCase):
         with self.assertRaises(Unauthorized) as context:
             t = template.copy()
             t['player_id'] = 'G:5637867917'
-            validate_gamecenter_token(t)
+            run_gamecenter_token_validation(t, app_bundles=app_bundles)
         self.assertIn("Can't verify signature:", context.exception.description)
         self.assertIn("'bad signature'", context.exception.description)
 
@@ -187,5 +187,6 @@ class GameCenterCase(unittest.TestCase):
 
 
 if __name__ == "__main__":
-
+    import logging
+    logging.basicConfig(level='INFO')
     unittest.main()
