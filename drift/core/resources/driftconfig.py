@@ -17,7 +17,7 @@ from driftconfig.util import get_drift_config, get_default_drift_config, TenantN
 
 
 from drift.flaskfactory import TenantNotFoundError
-from drift.core.extensions.tenancy import current_tenant
+from drift.core.extensions.tenancy import tenant_from_hostname
 from drift.utils import get_tier_name
 
 DEFAULT_TENANT = "global"
@@ -67,18 +67,19 @@ class DriftConfig(object):
         try:
             conf = get_drift_config(
                 ts=current_app.extensions['driftconfig'].table_store,
-                tenant_name=current_tenant,
+                tenant_name=tenant_from_hostname,
                 tier_name=get_tier_name(),
                 deployable_name=current_app.config['name']
             )
         except TenantNotConfigured as e:
             abort(httplib.NOT_FOUND, description=str(e))
 
-        if conf.tenant and conf.tenant['state'] != 'active' and request.endpoint != "admin.adminprovisionapi":
-            raise TenantNotFoundError(
-                "Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
-                    conf.tenant['tenant_name'], get_tier_name(), current_app.config['name'], conf.tenant['state'])
-            )
+        if 0:  # Disabling this as it needs to be refactored into a JIT like feature. This simply blocks everything.
+            if conf.tenant and conf.tenant['state'] != 'active' and request.endpoint != "admin.adminprovisionapi":
+                raise TenantNotFoundError(
+                    "Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
+                        conf.tenant['tenant_name'], get_tier_name(), current_app.config['name'], conf.tenant['state'])
+                )
 
         # Add applicable config tables to 'g'
         g.conf = conf

@@ -87,7 +87,7 @@ def run_command(args):
 
     if not args.localservers and not os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         print pretty("Running Flask without 'localservers' option.\n"
-            "Either specify it on the command line using --localservers\n"
+            "Either specify it on the command line using --localservers "
             "or set the environment variable DRIFT_USE_LOCAL_SERVERS=1"
         )
     else:
@@ -99,18 +99,21 @@ def run_command(args):
     if not args.tenant:
         from drift.utils import get_config
         tenant_names = [t['tenant_name'] for t in get_config().tenants]
-        print pretty(
-            "WARNING: Running a server without specifying a tenant. That's madness.\n"
-            "Please pick a tenant on the command line using the -t option (See -h for help).\n"
-            "Available tenants: {}".format(", ".join(tenant_names))
-        )
-
         for tenant_name in tenant_names:
             if 'default' in tenant_name.lower():
                 print pretty("For now, this tenant here will be used as the default "
                     "tenant: {}".format(tenant_name)
                 )
                 os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
+
+        if 'DRIFT_DEFAULT_TENANT' not in os.environ:
+            print pretty(
+                "WARNING: Running a server without specifying a tenant. That's madness.\n"
+                "Please pick a tenant on the command line using the -t option (See -h for help).\n"
+                "Available tenants: {}".format(", ".join(tenant_names))
+            )
+        else:
+            print pretty("Note, default tenant is '{}'.".format(os.environ['DRIFT_DEFAULT_TENANT']))
 
     print pretty("Server ready: http://{}:{}".format(socket.gethostname(), app.config.get('PORT', 80)))
 
