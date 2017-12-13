@@ -19,7 +19,7 @@ def main():
         for repo in repos:
             if not repo.active:
                 continue
-            print u"Checking repo: {}\n{}".format(repo.slug, repo.description)
+            print u"Checking repo: {}\n{!r}".format(repo.slug, repo.description)
             try:
                 build = conn.build(repo.last_build_id)
                 if "kitrun.py" in build.config.get("script", [""])[0]:
