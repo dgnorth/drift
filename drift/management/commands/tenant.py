@@ -14,7 +14,6 @@ from driftconfig.util import get_default_drift_config, TenantNotConfigured, get_
 from driftconfig.config import TSTransaction
 from drift.utils import get_tier_name, get_config
 from drift.core.resources.postgres import db_exists, process_connection_values, db_check
-from drift.core.extensions.tenancy import current_tenant
 from drift.utils import pretty
 
 POSTGRES_PORT = 5432
