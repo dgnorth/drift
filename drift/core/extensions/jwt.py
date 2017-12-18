@@ -230,30 +230,30 @@ def jwtsetup(app):
             from drift.auth.steam import validate_steam_ticket
             identity_id = validate_steam_ticket()
             username = "steam:" + identity_id
-            identity = authenticate(username, "", automatic_account_creation)
+            identity = authenticate(username, "", True or automatic_account_creation)
         elif auth_info['provider'] == "oculus" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "oculus:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password, automatic_account_creation)
+            identity = authenticate(username, password, True or automatic_account_creation)
         elif auth_info['provider'] == "oculus":
             from drift.auth.oculus import validate_oculus_ticket
             identity_id = validate_oculus_ticket()
             username = "oculus:" + identity_id
-            identity = authenticate(username, "", automatic_account_creation)
+            identity = authenticate(username, "", True or automatic_account_creation)
         elif auth_info['provider'] == "viveport" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "viveport:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password, automatic_account_creation)
+            identity = authenticate(username, password, True or automatic_account_creation)
         elif auth_info['provider'] == "hypereal" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
             username = "hypereal:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password, automatic_account_creation)
+            identity = authenticate(username, password, True or automatic_account_creation)
         elif auth_info['provider'] == "googleplay" and provider_details.get('provisional', False):
             if len(provider_details['username']) < 1:
                 abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
@@ -273,7 +273,7 @@ def jwtsetup(app):
         elif auth_info['provider'] == "7663":
             username = "7663:" + provider_details['username']
             password = provider_details['password']
-            identity = authenticate(username, password, automatic_account_creation)
+            identity = authenticate(username, password, True or automatic_account_creation)
         else:
             abort_unauthorized("Bad Request. Unknown provider '%s'." %
                                auth_info['provider'])
