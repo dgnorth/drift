@@ -41,6 +41,8 @@ def _figure_out_tenant():
 
     # Figure out tenant. Normally the tenant name is embedded in the hostname.
     host = str(request.headers.get("Host"))
+    if ':' in host:
+        host, port = host.split(':', 1)
     if '.' in host and not _is_valid_ipv4_address(host) and not _is_valid_ipv6_address(host):
         tenant_name, domain = host.split('.', 1)
 
