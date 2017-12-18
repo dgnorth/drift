@@ -1,0 +1,71 @@
+# -*- coding: utf-8 -*-
+"""
+JWT Session Management
+
+By including this resource module in a Drift app, it will be able to accept JWT from a list
+of trusted issuers and issue and sign new JWT's.
+
+Custom attributes for top level registration:
+
+    key_size:            <int>  Size in bytes of private key.
+    trusted_issuers:     <list of deployable names>  Default value is ['drift-base']
+    expiry_days:         <int>  Expiration in days, default is 365.
+"""
+import logging
+import datetime
+
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends import default_backend
+
+DEFAULT_KEY_SIZE = 1024
+DEFAULT_EXPIRY_DAYS = 365
+
+log = logging.getLogger(__name__)
+
+
+def register_deployable(ts, registration_row, attributes):
+    pass
+
+
+def register_deployable_on_tier(ts, registration_row, attributes):
+    # Add a route to this deployable.
+    pk = {'tier_name': registration_row['tier_name'], 'deployable_name': registration_row['deployable_name']}
+    row = ts.get_table('public-keys').get(pk)
+    if row is None:
+        row = ts.get_table('public-keys').add(pk)
+
+    # Generate RSA key pairs
+    private_key = rsa.generate_private_key(
+        public_exponent=65537,
+        key_size=attributes.get('key_size', DEFAULT_KEY_SIZE),
+        backend=default_backend()
+    )
+
+    public_key = private_key.public_key()
+
+    private_pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.TraditionalOpenSSL,
+        encryption_algorithm=serialization.NoEncryption()
+    )
+
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+
+    now = datetime.datetime.utcnow()
+    expiry_days = attributes.get('expiry_days', DEFAULT_EXPIRY_DAYS)
+
+    keypair = {
+        'issued': now.isoformat() + "Z",
+        'expires': (now + datetime.timedelta(days=expiry_days)).isoformat() + "Z",
+        'public_key': public_pem,
+        'private_key': private_pem,
+    }
+    row.setdefault('keys', []).append(keypair)
+
+
+def register_deployable_on_tenant(ts, deployable_name, tier_name, tenant_name, resource_attributes):
+    pass

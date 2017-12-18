@@ -318,3 +318,11 @@ def healthcheck():
 
     rows = g.db.execute("SELECT 1+1")
     result = rows.fetchall()[0]
+
+
+def provision_tier(config):
+    pass
+
+
+def provision_tenant(config):
+    return provision(config, args)

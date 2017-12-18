@@ -5,10 +5,12 @@ import subprocess
 import json
 import datetime
 
-from drift.management import get_app_version, get_app_name
 from driftconfig.util import get_drift_config, get_default_drift_config
 from driftconfig.config import TSTransaction
+from drift.utils import pretty, get_config
 
+from drift.management import get_app_version, get_app_name
+from drift.core.resources import register_this_deployable, register_this_deployable_on_tier
 # regions:
 # eu-west-1 : ami-234ecc54
 #             ready-made: ami-71196e06
@@ -23,6 +25,19 @@ IAM_ROLE = "ec2"
 
 # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
 AMI_OWNER_CANONICAL = '099720109477'
+
+
+# Enable simple in-line color and styling of output
+try:
+    from colorama.ansi import Fore, Back, Style
+    styles = {'f': Fore, 'b': Back, 's': Style}
+    # Example: "{s.BRIGHT}Bold and {f.RED}red{f.RESET}{s.NORMAL}".format(**styles)
+except ImportError:
+    class EmptyString(object):
+        def __getattr__(self, name):
+            return ''
+
+    styles = {'f': EmptyString(), 'b': EmptyString(), 's': EmptyString()}
 
 
 def get_options(parser):
@@ -49,7 +64,11 @@ def get_options(parser):
     # The 'register' command
     p = subparsers.add_parser(
         'register',
-        description='Register or update the registration of this deployable in the default config.',
+        description="Creates or updates the registration info for this deployable in Drift config database."
+    )
+    p.add_argument(
+        "--tiers", help="List of tiers to register this deployble. Ommit this arument to register deployable on all tiers.",
+        nargs='*',
     )
     p.add_argument(
         "--preview", help="Only preview the changes, do not commit to origin.", action="store_true"
@@ -160,87 +179,106 @@ def _info_command(args):
             print "\tActive on tiers:".ljust(25), tiers
 
 
+
 def _register_command(args):
 
     info = get_package_info()
-    conf = get_drift_config()
     name = info['name']
+
+    # click.secho("Product {s.BRIGHT}{}{s.NORMAL}:".format(product['product_name'], **styles))
+    print "Registering/updating deployable {s.BRIGHT}{}{s.NORMAL}:".format(name, **styles)
+    print "Package info:"
+    print pretty(info)
+    print ""
+
     is_active = not args.inactive
 
-    print "Registering/updating deployable: ", name
-    _display_package_info()
-
-    if not is_active:
-        print "Marking the deployable as inactive!"
+    # TODO: This is perhaps not ideal, or what?
+    from drift.flaskfactory import load_flask_config
+    app_config = load_flask_config()
 
     with TSTransaction(commit_to_origin=not args.preview) as ts:
-        # Insert or update name
-        row = {'deployable_name': name,  'display_name': info['description']}
-        if 'long-description' in info and info['long-description'] != "UNKNOWN":
-            row['description'] = info['long-cdescription']
-        ts.get_table('deployable-names').update(row)
+        ret = register_this_deployable(
+            ts=ts,
+            package_info=info,
+            resources=app_config.get("resources", []),
+            resource_attributes=app_config.get("resource_attributes", {}),
+        )
+        orig_row = ret['old_registration']
+        row = ret['new_registration']
 
-        # Make deployable (in)active on all tiers
-        deployables = ts.get_table('deployables')
+        if orig_row is None:
+            print "New registration entry added:"
+            print pretty(row)
+        elif orig_row == row:
+            print "Current registration unchanged:"
+            print pretty(row)
+        else:
+            print "Updating current registration info:"
+            print pretty(row)
+            print "\nPrevious registration info:"
+            print pretty(orig_row)
+
+        print ""
+
         for tier in ts.get_table('tiers').find():
-            row = {'tier_name': tier['tier_name'], 'deployable_name': name, 'is_active': is_active}
-            deployables.update(row)
+            tier_name = tier['tier_name']
+            if args.tiers and tier_name not in args.tiers:
+                continue
 
-            # Now let's do some api-router specific stuff which is by no means my concern!
-            if name == 'drift-base':
-                api = 'drift'
-            elif name == 'themachines-backend':
-                api = 'themachines'
-            elif name == 'themachines-admin':
-                api = 'admin'
-            elif name == 'kaleo-web':
-                api = 'kaleo'
-            elif name == 'kards-backend':
-                api = 'kards'
-            else:
-                api = name
+            print "Registering on tier {s.BRIGHT}{}{s.NORMAL}:".format(tier_name, **styles)
+            ret = register_this_deployable_on_tier(ts, tier_name, deployable_name=name)
 
-            row = {'tier_name': tier['tier_name'], 'deployable_name': name, 'api': api}
-            ts.get_table('routing').update(row)
 
-            # Now let's do some drift-base specific stuff which is by no means my concern!
-            # Generate RSA key pairs
-            from cryptography.hazmat.primitives.asymmetric import rsa
-            from cryptography.hazmat.primitives import serialization
-            from cryptography.hazmat.backends import default_backend
 
-            private_key = rsa.generate_private_key(
-                public_exponent=65537,
-                key_size=1024,
-                backend=default_backend()
-            )
+        if 0:
+            if not is_active:
+                print "Note: Marking the deployable as inactive!"
 
-            public_key = private_key.public_key()
+            # Make deployable (in)active on all tiers
+            deployables = ts.get_table('deployables')
+            for tier in ts.get_table('tiers').find():
+                row = {'tier_name': tier['tier_name'], 'deployable_name': name, 'is_active': is_active}
+                deployables.update(row)
 
-            private_pem = private_key.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.NoEncryption()
-            )
+                # Now let's do some drift-base specific stuff which is by no means my concern!
+                # Generate RSA key pairs
+                from cryptography.hazmat.primitives.asymmetric import rsa
+                from cryptography.hazmat.primitives import serialization
+                from cryptography.hazmat.backends import default_backend
 
-            public_pem = public_key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo
-            )
+                private_key = rsa.generate_private_key(
+                    public_exponent=65537,
+                    key_size=1024,
+                    backend=default_backend()
+                )
 
-            now = datetime.datetime.utcnow()
-            row = {
-                'tier_name': tier['tier_name'], 'deployable_name': name,
-                'keys': [
-                    {
-                        'issued': now.isoformat() + "Z",
-                        'expires': (now + datetime.timedelta(days=365)).isoformat() + "Z",
-                        'public_key': public_pem,
-                        'private_key': private_pem,
-                    }
-                ]
-            }
-            ts.get_table('public-keys').update(row)
+                public_key = private_key.public_key()
+
+                private_pem = private_key.private_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PrivateFormat.TraditionalOpenSSL,
+                    encryption_algorithm=serialization.NoEncryption()
+                )
+
+                public_pem = public_key.public_bytes(
+                    encoding=serialization.Encoding.PEM,
+                    format=serialization.PublicFormat.SubjectPublicKeyInfo
+                )
+
+                now = datetime.datetime.utcnow()
+                row = {
+                    'tier_name': tier['tier_name'], 'deployable_name': name,
+                    'keys': [
+                        {
+                            'issued': now.isoformat() + "Z",
+                            'expires': (now + datetime.timedelta(days=365)).isoformat() + "Z",
+                            'public_key': public_pem,
+                            'private_key': private_pem,
+                        }
+                    ]
+                }
+                ts.get_table('public-keys').update(row)
 
     if args.preview:
         print "Preview changes only, not committing to origin."

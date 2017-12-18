@@ -6,14 +6,13 @@ import sys
 import os
 import importlib
 
-from sqlalchemy import create_engine
 from colorama import Fore, Style
 
 from driftconfig.util import get_default_drift_config, TenantNotConfigured, get_drift_config, \
-    define_tenant, prepare_tenant_name, refresh_tenants
+    define_tenant, prepare_tenant_name
 from driftconfig.config import TSTransaction
 from drift.utils import get_tier_name, get_config
-from drift.core.resources.postgres import db_exists, process_connection_values, db_check
+from drift.core.resources.postgres import process_connection_values, db_check
 from drift.utils import pretty
 
 POSTGRES_PORT = 5432
@@ -73,28 +72,16 @@ def get_options(parser):
         help="Name of the product.",
     )
 
-    # The enable command
+    # The refresh command
     p = subparsers.add_parser(
-        'enable',
-        help="Enable a tenant on a tier.",
-        description="Enable a tenant on a tier."
+        'refresh',
+        help="Refresh tenant.",
+        description="Refresh a tenants on a tier."
     )
     p.add_argument(
         'tenant-name',
         action='store',
         help="Name of the tenant.",
-    )
-
-    # The refresh command
-    p = subparsers.add_parser(
-        'refresh',
-        help="Refresh tenant information.",
-        description="Refresh tenant information."
-    )
-    p.add_argument(
-        'tenant-name',
-        action='store',
-        help="Name of the tenant, or ommit for all tenants.",
         nargs='?',
     )
 
@@ -104,7 +91,7 @@ def list_command(args):
     for product in ts.get_table('products').find():
         tenants = ts.get_table('tenant-names').find({'product_name': product['product_name']})
         if tenants:
-            print "\n[{}]".format(product['product_name'])
+            print "\n[Product: {}]".format(product['product_name'])
             for tenant in tenants:
                 print "  ", tenant['tenant_name'],
                 on_tiers = ts.get_table('tenants').find({'tenant_name': tenant['tenant_name']})
@@ -112,7 +99,7 @@ def list_command(args):
                     tiers = set(t['tier_name'] for t in on_tiers)
                     print "-->", ", ".join(tiers)
                 else:
-                    print ""
+                    print " (unassigned! run 'tenant enable' to enable it.)"
 
 
 def show_command(args):
@@ -131,6 +118,9 @@ def show_command(args):
             tenant_name, tier_name)
         sys.exit(1)
 
+    print "Tenant info for '{}' on tier '{}':".format(tenant_name, tier_name)
+    print pretty(tenant_info2)
+
 
 def create_command(args):
 
@@ -144,10 +134,14 @@ def create_command(args):
         )
         tenant_name = prep['tenant_name']
 
-        if ts.get_table('tenant-names').get({'tenant_name': tenant_name}):
-            print "Tenant '{}' already exists. Use 'tenant refresh' command to refresh it.".format(
-            tenant_name)
-            sys.exit(1)
+        tenant = ts.get_table('tenant-names').get({'tenant_name': tenant_name})
+        if tenant:
+            if tenant['tier_name'] != tier_name:
+                print "Tenant '{}' is on tier '{}'. Exiting.".format(tenant_name, tenant['tier_name'])
+                sys.exit(1)
+
+            print "Tenant '{}' already exists. Refreshing it for tier '{}'...".format(
+                tenant_name, tier_name)
 
         result = define_tenant(
             ts=ts,
@@ -156,46 +150,30 @@ def create_command(args):
             tier_name=tier_name
         )
 
-    print "Tenant '{}' created. Note, config is not committed!".format(tenant_name)
-    print "State of tenant for deployables:"
-    for deployable_name, state in result['report']:
-        print "\t{}: {}".format(deployable_name, state)
-    else:
-        print "\tNo deployable associated with this tenant!"
-
-
-def enable_command(args):
-
-    tier_name=get_tier_name()
-    tenant_name = vars(args)['tenant-name']
-
-    with TSTransaction() as ts:
-
-        results = refresh_tenants(ts=ts, tenant_name=tenant_name,tier_name=tier_name)
-
-    results = list(results)
-    print "Result:", results
+    print "Tenant '{}' created/refreshed on tier '{}'.".format(tenant_name, tier_name)
+    print pretty(result)
 
 
 def refresh_command(args):
+
     tenant_name = vars(args)['tenant-name']
-    tier_name = get_tier_name(fail_hard=False)
+    print "Refreshing '{}':".format(tenant_name)
 
     with TSTransaction(commit_to_origin=False, write_to_scratch=False) as ts:
-        print "Refreshing configuration for tenants and deployables..."
-        for report in refresh_tenants(ts=ts, tenant_name=tenant_name, tier_name=tier_name):
-            print report
-        else:
-            print "No configuration found."
+        tenant_info = ts.get_table('tenant-names').get({'tenant_name': tenant_name})
+        if not tenant_info:
+            print "Tenant '{}' not found!".format(tenant_name)
+            sys.exit(1)
 
-    print "Hints for associating tenants and deployables:"
-    print "  Make sure deployables are registered and available on a tier."
-    print "  Take a look at 'drift-admin register' to register deployables."
-    print "  Then run 'dconf deployable register all' for good measure."
-    print "  Run 'drift-admin deployable list' to see registration."
-    print("  Run 'dconf product edit <product name>' and make sure your product includes all the "
-        "necessary deployables.")
+        result = define_tenant(
+            ts=ts,
+            tenant_name=tenant_name,
+            product_name=tenant_info['product_name'],
+            tier_name=tenant_info['tier_name'],
+        )
 
+    print "Result:"
+    print pretty(result)
 
 
 def tenant_report(conf):

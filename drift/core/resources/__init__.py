@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
-
 import logging
+import importlib
+
+
 log = logging.getLogger(__name__)
+
 
 def get_parameters(config, args, required_keys, resource_name):
     defaults = config.tier.get('resource_defaults', [])
@@ -26,3 +29,75 @@ def get_parameters(config, args, required_keys, resource_name):
     if args:
         log.info("Connection info for '%s' with custom parameters: %s", resource_name, params)
     return params
+
+
+def register_this_deployable(ts, package_info, resources, resource_attributes):
+    """
+    Registers top level information for a deployable package.
+
+    'package_info' is a dict containing Python package info for current deployable. The dict contains
+    at a minimum 'name' and 'description' fields.
+
+    'resources' is a list of resource modules in use by this deployable.
+
+    'resource_attributes' is a dict containing optional attributes for resources. Key is the resource
+    module name, value is a dict of any key values attributes which gets passed into registration callback
+    functions in the resource modules.
+
+    Returns a dict with 'old_registration' row and 'new_registration' row.
+    """
+    tbl = ts.get_table('deployable-names')
+    pk = {'deployable_name': package_info['name']}
+    orig_row = tbl.get(pk)
+    if orig_row:
+        row, orig_row = orig_row, orig_row.copy()
+    else:
+        row = tbl.add(pk)
+
+    row['display_name'] = package_info['description']
+    if 'long-description' in package_info and package_info['long-description'] != "UNKNOWN":
+        row['description'] = package_info['long-description']
+    row['resources'] = resources
+    row['resource_attributes'] = resource_attributes
+
+    # Call hooks for top level registration.
+    for module_name in row['resources']:
+        m = importlib.import_module(module_name)
+        if hasattr(m, "register_deployable"):
+            m.register_deployable(
+                ts=ts,
+                registration_row=row,
+                attributes=resource_attributes.get(module_name, {}),
+            )
+
+    return {'old_registration': orig_row, 'new_registration': row}
+
+
+def register_this_deployable_on_tier(ts, tier_name, deployable_name):
+    """
+    Registers tier specific info for a deployable package.
+
+    Returns a dict with 'old_registration' row and 'new_registration' row.
+    """
+    tbl = ts.get_table('deployables')
+    pk = {'tier_name': tier_name, 'deployable_name': deployable_name}
+    orig_row = tbl.get(pk)
+    if orig_row:
+        row, orig_row = orig_row, orig_row.copy()
+    else:
+        row = tbl.add(pk)
+
+    registration_row = ts.get_table('deployable-names').get({'deployable_name': deployable_name})
+    resource_attributes = registration_row['resource_attributes']
+
+    # Call hooks for tier registration info.
+    for module_name in registration_row['resources']:
+        m = importlib.import_module(module_name)
+        if hasattr(m, "register_deployable_on_tier"):
+            m.register_deployable_on_tier(
+                ts=ts,
+                registration_row=row,
+                attributes=resource_attributes.get(module_name, {}),
+            )
+
+    return {'old_registration': orig_row, 'new_registration': row}
