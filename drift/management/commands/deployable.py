@@ -63,7 +63,8 @@ def get_options(parser):
     # The 'register' command
     p = subparsers.add_parser(
         'register',
-        description="Creates or updates the registration info for this deployable in Drift config database."
+        description="Creates or updates the registration info for this deployable in Drift config database.\n"
+        "It will also create or update resource registration and tier default value registration."
     )
     p.add_argument(
         "--tiers", help="List of tiers to register this deployble. Ommit this arument to register deployable on all tiers.",
