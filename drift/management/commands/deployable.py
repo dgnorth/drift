@@ -227,58 +227,15 @@ def _register_command(args):
                 continue
 
             print "Registering on tier {s.BRIGHT}{}{s.NORMAL}:".format(tier_name, **styles)
-            ret = register_this_deployable_on_tier(ts, tier_name, deployable_name=name)
+            ret = register_this_deployable_on_tier(ts, tier_name=tier_name, deployable_name=name)
 
+            if ret['new_registration']['is_active'] != is_active:
+                ret['new_registration']['is_active'] = is_active
+                print "Note: Marking this deployable as {} on tier '{}'.".format(
+                    "active" if is_active else "inactive", tier_name)
 
-
-        if 0:
-            if not is_active:
-                print "Note: Marking the deployable as inactive!"
-
-            # Make deployable (in)active on all tiers
-            deployables = ts.get_table('deployables')
-            for tier in ts.get_table('tiers').find():
-                row = {'tier_name': tier['tier_name'], 'deployable_name': name, 'is_active': is_active}
-                deployables.update(row)
-
-                # Now let's do some drift-base specific stuff which is by no means my concern!
-                # Generate RSA key pairs
-                from cryptography.hazmat.primitives.asymmetric import rsa
-                from cryptography.hazmat.primitives import serialization
-                from cryptography.hazmat.backends import default_backend
-
-                private_key = rsa.generate_private_key(
-                    public_exponent=65537,
-                    key_size=1024,
-                    backend=default_backend()
-                )
-
-                public_key = private_key.public_key()
-
-                private_pem = private_key.private_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PrivateFormat.TraditionalOpenSSL,
-                    encryption_algorithm=serialization.NoEncryption()
-                )
-
-                public_pem = public_key.public_bytes(
-                    encoding=serialization.Encoding.PEM,
-                    format=serialization.PublicFormat.SubjectPublicKeyInfo
-                )
-
-                now = datetime.datetime.utcnow()
-                row = {
-                    'tier_name': tier['tier_name'], 'deployable_name': name,
-                    'keys': [
-                        {
-                            'issued': now.isoformat() + "Z",
-                            'expires': (now + datetime.timedelta(days=365)).isoformat() + "Z",
-                            'public_key': public_pem,
-                            'private_key': private_pem,
-                        }
-                    ]
-                }
-                ts.get_table('public-keys').update(row)
+            print pretty(ret['new_registration'])
+            print ""
 
     if args.preview:
         print "Preview changes only, not committing to origin."
