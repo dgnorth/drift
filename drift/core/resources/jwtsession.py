@@ -100,5 +100,15 @@ def register_deployable_on_tier(ts, deployable, attributes):
         })
 
 
+def register_resource_on_tier(ts, tier, attributes):
+    """
+    Tier registration callback.
+    'tier' is from table 'tiers'.
+    'attributes' is a dict containing optional attributes for default values.
+    """
+    # LEGACY SUPPORT! Register the service user
+    tier.setdefault('service_user', {"password": "SERVICE", "username": "user+pass:$SERVICE$"})
+
+
 def register_deployable_on_tenant(ts, deployable_name, tier_name, tenant_name, resource_attributes):
     pass
