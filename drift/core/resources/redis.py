@@ -20,6 +20,14 @@ log = logging.getLogger(__name__)
 REDIS_DB = 0  # We always use the main redis db for now
 
 
+# defaults when making a new tier
+TIER_DEFAULTS = {
+    "host": "<PLEASE FILL IN>",
+    "port": 6379,
+    "socket_timeout": 5,
+    "socket_connect_timeout": 5
+}
+
 def _get_redis_connection_info():
     """
     Return tenant specific Redis connection info, if available, else use one that's
