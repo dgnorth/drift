@@ -24,17 +24,21 @@ DEFAULT_EXPIRY_DAYS = 365
 log = logging.getLogger(__name__)
 
 
-def register_deployable(ts, registration_row, attributes):
+def register_deployable(ts, deployablename, attributes):
+    """
+    Deployable registration callback.
+    'deployablename' is from table 'deployable-names'.
+    """
     pass
 
 
-def register_deployable_on_tier(ts, registration_row, attributes):
+def register_deployable_on_tier(ts, deployable, attributes):
     """
-    Deployable registration callback.
-    'registration_row' is from table 'deployables'.
+    Deployable registration callback for tier.
+    'deployable' is from table 'deployables'.
     """
     # Add a route to this deployable.
-    pk = {'tier_name': registration_row['tier_name'], 'deployable_name': registration_row['deployable_name']}
+    pk = {'tier_name': deployable['tier_name'], 'deployable_name': deployable['deployable_name']}
     row = ts.get_table('public-keys').get(pk)
     if row is None:
         row = ts.get_table('public-keys').add(pk)
@@ -81,7 +85,7 @@ def register_deployable_on_tier(ts, registration_row, attributes):
         row.setdefault('keys', []).append(keypair)
 
     # LEGACY SUPPORT! Register drift-base as trusted issuer. Always.
-    issuers = registration_row.setdefault('jwt_trusted_issuers', [])
+    issuers = deployable.setdefault('jwt_trusted_issuers', [])
     for issuer in issuers:
         if issuer.get('iss') == 'drift-base':
             log.warning("Legacy support: drift-base already configured as trusted issuer.")

@@ -24,6 +24,44 @@ from drift.core.resources import get_parameters
 import logging
 log = logging.getLogger(__name__)
 
+
+def register_deployable(ts, deployablename, attributes):
+    """
+    Deployable registration callback.
+    'deployablename' is from table 'deployable-names'.
+    """
+    pass
+
+
+# defaults when making a new tier
+TIER_DEFAULTS = {
+    "server": "<PLEASE FILL IN>",
+    "database": None,
+    "port": 5432,
+    "username": "zzp_user",
+    "password": "zzp_user",
+    "driver": "postgresql",
+}
+
+
+def register_resource_on_tier(ts, tier, attributes):
+    """
+    Tier registration callback.
+    'tier' is from table 'tiers'.
+    'attributes' is a dict containing optional attributes for default values.
+    """
+    pass
+
+
+def register_deployable_on_tier(ts, deployable, attributes):
+    """
+    Deployable registration callback.
+    'deployable' is from table 'deployables'.
+    """
+    # Add default parameters for Postgres connection if needed.
+    pass
+
+
 # defaults when making a new tier
 NEW_TIER_DEFAULTS = {
     "server": "<PLEASE FILL IN>",

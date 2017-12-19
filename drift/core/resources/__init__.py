@@ -63,10 +63,10 @@ def register_this_deployable(ts, package_info, resources, resource_attributes):
     # Call hooks for top level registration.
     for module_name in row['resources']:
         m = importlib.import_module(module_name)
-        if hasattr(m, "register_deployable"):
+        if hasattr(m, 'register_deployable'):
             m.register_deployable(
                 ts=ts,
-                registration_row=row,
+                deployablename=row,
                 attributes=resource_attributes.get(module_name, {}),
             )
 
@@ -93,11 +93,79 @@ def register_this_deployable_on_tier(ts, tier_name, deployable_name):
     # Call hooks for tier registration info.
     for module_name in registration_row['resources']:
         m = importlib.import_module(module_name)
-        if hasattr(m, "register_deployable_on_tier"):
+        if hasattr(m, 'register_deployable_on_tier'):
             m.register_deployable_on_tier(
                 ts=ts,
-                registration_row=row,
+                deployable=row,
                 attributes=resource_attributes.get(module_name, {}),
             )
 
     return {'old_registration': orig_row, 'new_registration': row}
+
+
+def get_tier_resource_modules(ts, tier_name, skip_loading=False):
+    """
+    Returns a list of all resource modules registered on 'tier_name'.
+    Each entry is a dict with 'module_name', 'module' and 'default_attributes'.
+    If 'skip_loading' the 'module' value is None.
+    """
+    resources = set()
+    deployables = ts.get_table('deployables')
+    for deployable in deployables.find({'tier_name': tier_name}):
+        row = deployables.get_foreign_row(deployable, 'deployable-names')
+        resources |= set(row['resources'])
+
+    modules = []
+    for module_name in resources:
+        if skip_loading:
+            m = None
+        else:
+            m = importlib.import_module(module_name)
+        modules.append({
+            'module_name': module_name,
+            'module': m,
+            'default_attributes': getattr(m, 'TIER_DEFAULTS', {}),
+        })
+
+    return modules
+
+
+def register_tier(ts, tier_name, resources=None):
+    """
+    Registers tier specific default values for resources.
+    Note, this is deployable-agnostic info.
+    If 'resources' is set, it must originate from get_tier_resource_modules(). This is to
+    give the option of modifying values in 'default_attributes'.
+    """
+    # Enumerate all resource modules from all registered deployables on this tier,
+    # configure default vaules and call hooks for tier registration info.
+    tier = ts.get_table('tiers').get({'tier_name': tier_name})
+    module_resources = resources or get_tier_resource_modules(ts=ts, tier_name=tier_name)
+    config_resources = tier.setdefault('resources', {})
+
+    for resource in module_resources:
+        # Create or refresh default attributes entry in config
+        attributes = config_resources.setdefault(resource['module_name'], {})
+        # Only add new entries to 'attributes' otherwise we override some values with placeholder data.
+        for k, v in resource['default_attributes'].items():
+            if k not in attributes or attributes[k] == "<PLEASE FILL IN>":
+                attributes[k] = v
+
+        # Give resource module chance to do any custom work
+        if hasattr(resource['module'], 'register_resource_on_tier'):
+            resource['module'].register_resource_on_tier(
+                ts=ts,
+                tier=tier,
+                attributes=attributes,
+            )
+
+
+# IS THIS SUPERFLUOUS?
+def get_resource_defaults(ts, tier_name):
+    """
+    Returns tier default attributes for each resource.
+    Key is resource name, value is the default attributes.
+    """
+    resources = get_tier_resource_modules(ts=ts, tier_name=tier_name, skip_loading=True)
+    default_attributes = {m['module_name']: m['default_attributes'] for m in resources}
+    return default_attributes

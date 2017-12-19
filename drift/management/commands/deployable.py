@@ -3,14 +3,13 @@ Build an AWS AMI for this service
 """
 import subprocess
 import json
-import datetime
 
 from driftconfig.util import get_drift_config, get_default_drift_config
 from driftconfig.config import TSTransaction
-from drift.utils import pretty, get_config
 
+from drift.utils import pretty
 from drift.management import get_app_version, get_app_name
-from drift.core.resources import register_this_deployable, register_this_deployable_on_tier
+from drift.core.resources import get_tier_resource_modules, register_tier, register_this_deployable, register_this_deployable_on_tier
 # regions:
 # eu-west-1 : ami-234ecc54
 #             ready-made: ami-71196e06
@@ -227,6 +226,31 @@ def _register_command(args):
                 continue
 
             print "Registering on tier {s.BRIGHT}{}{s.NORMAL}:".format(tier_name, **styles)
+
+            # For convenience, register resource default values as well. This
+            # is idempotent so it's fine to call it periodically.
+            resources = get_tier_resource_modules(ts=ts, tier_name=tier_name)
+            default_attributes = {m['module_name']: m['default_attributes'] for m in resources}
+
+            # See if there is any attribute that needs prompting,
+            # Any default parameter from a resource module that is marked as <PLEASE FILL IN> and
+            # is not already set in the config, is subject to prompting.
+            tier = ts.get_table('tiers').get({'tier_name': tier_name})
+            config_resources = tier.get('resources', {})
+
+            for resource in resources:
+                for k, v in resource['default_attributes'].items():
+                    if v == "<PLEASE FILL IN>":
+                        # Let's prompt if and only if the value isn't already set.
+                        attributes = config_resources.get(resource['module_name'], {})
+                        if k not in attributes or attributes[k] == "<PLEASE FILL IN>":
+                            print "Enter value for {s.BRIGHT}{}.{}{s.NORMAL}:".format(resource['module_name'], k, **styles),
+                            resource['default_attributes'][k] = raw_input()
+
+            print "\nDefault values for resources on this tier:"
+            print pretty(default_attributes)
+
+            register_tier(ts=ts, tier_name=tier_name, resources=resources)
             ret = register_this_deployable_on_tier(ts, tier_name=tier_name, deployable_name=name)
 
             if ret['new_registration']['is_active'] != is_active:
@@ -234,6 +258,7 @@ def _register_command(args):
                 print "Note: Marking this deployable as {} on tier '{}'.".format(
                     "active" if is_active else "inactive", tier_name)
 
+            print "\nRegistration values for this deployable on this tier:"
             print pretty(ret['new_registration'])
             print ""
 
