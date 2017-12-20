@@ -159,13 +159,3 @@ def register_tier(ts, tier_name, resources=None):
                 attributes=attributes,
             )
 
-
-# IS THIS SUPERFLUOUS?
-def get_resource_defaults(ts, tier_name):
-    """
-    Returns tier default attributes for each resource.
-    Key is resource name, value is the default attributes.
-    """
-    resources = get_tier_resource_modules(ts=ts, tier_name=tier_name, skip_loading=True)
-    default_attributes = {m['module_name']: m['default_attributes'] for m in resources}
-    return default_attributes
