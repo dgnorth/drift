@@ -6,6 +6,7 @@ import json
 
 from driftconfig.util import get_drift_config, get_default_drift_config
 from driftconfig.config import TSTransaction
+from driftconfig.relib import copy_table_store
 
 from drift.utils import pretty
 from drift.management import get_app_version, get_app_name
@@ -198,6 +199,7 @@ def _register_command(args):
     app_config = load_flask_config()
 
     with TSTransaction(commit_to_origin=not args.preview) as ts:
+        old_ts = copy_table_store(ts)
         ret = register_this_deployable(
             ts=ts,
             package_info=info,
@@ -248,8 +250,8 @@ def _register_command(args):
                             print "Enter value for {s.BRIGHT}{}.{}{s.NORMAL}:".format(resource['module_name'], k, **styles),
                             resource['default_attributes'][k] = raw_input()
 
-            print "\nDefault values for resources on this tier:"
-            print pretty(default_attributes)
+            print "\nDefault values for resources configured for this tier:"
+            print pretty(config_resources)
 
             register_tier(ts=ts, tier_name=tier_name, resources=resources)
             ret = register_this_deployable_on_tier(ts, tier_name=tier_name, deployable_name=name)
@@ -263,14 +265,14 @@ def _register_command(args):
             print pretty(ret['new_registration'])
             print ""
 
+        # Display the diff
+        _diff_ts(ts, old_ts)
+
     if args.preview:
         print "Preview changes only, not committing to origin."
 
-    # Display the diff
-    _diff_ts(ts, get_default_drift_config())
 
-
-def _diff_ts(ts1, ts2, details=True):
+def _diff_ts(ts1, ts2):
     from driftconfig.relib import diff_meta, diff_tables
     # Get local table store and its meta state
     local_m1, local_m2 = ts1.refresh_metadata()
@@ -295,11 +297,22 @@ def _diff_ts(ts1, ts2, details=True):
         print "\tDeleted tables:", diff['deleted_tables']
         print "\tModified tables:", diff['modified_tables']
 
-        if details:
+        try:
+            import jsondiff
+        except ImportError:
+            print "To get detailed diff do {s.BRIGHT}pip install jsondiff{s.NORMAL}".format(**styles)
+        else:
             # Diff origin
             for table_name in diff['modified_tables']:
                 t1 = ts1.get_table(table_name)
                 t2 = ts2.get_table(table_name)
                 tablediff = diff_tables(t1, t2)
-                print "\nTable diff for", table_name, "\n(first=local, second=origin):"
-                print json.dumps(tablediff, indent=4, sort_keys=True)
+                print "\nTable diff for {s.BRIGHT}{}{s.NORMAL}".format(table_name, **styles)
+
+                for modified_row in tablediff['modified_rows']:
+                    d = json.loads(jsondiff.diff(
+                        modified_row['second'], modified_row['first'], dump=True)
+                    )
+                    print pretty(d)
+
+
