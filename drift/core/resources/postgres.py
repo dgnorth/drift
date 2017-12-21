@@ -62,6 +62,24 @@ def register_deployable_on_tier(ts, deployable, attributes):
     pass
 
 
+def provision_resource(ts, tenant_config, attributes):
+    if tenant_config['state'] == 'initializing':
+        # Create or recreate db
+        params = process_connection_values(attributes)
+        if not params["database"]:
+            print "GENERATE DB NAME"
+            params["database"] = "{}.{}".format(tenant_config['tenant_name'], tenant_config['deployable_name'])
+        attributes['database'] = params["database"]
+
+        if db_exists(params):
+            drop_db(params)
+
+        create_db(params)
+    elif tenant_config['state'] == 'uninitializing':
+        # Archive or delete db
+        pass
+
+
 # defaults when making a new tier
 NEW_TIER_DEFAULTS = {
     "server": "<PLEASE FILL IN>",
