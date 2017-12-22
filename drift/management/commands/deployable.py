@@ -4,7 +4,7 @@ Build an AWS AMI for this service
 import subprocess
 import json
 
-from driftconfig.util import get_drift_config, get_default_drift_config
+from driftconfig.util import get_drift_config
 from driftconfig.config import TSTransaction
 from driftconfig.relib import copy_table_store
 
@@ -180,7 +180,6 @@ def _info_command(args):
             print "\tActive on tiers:".ljust(25), tiers
 
 
-
 def _register_command(args):
 
     info = get_package_info()
@@ -233,7 +232,6 @@ def _register_command(args):
             # For convenience, register resource default values as well. This
             # is idempotent so it's fine to call it periodically.
             resources = get_tier_resource_modules(ts=ts, tier_name=tier_name)
-            default_attributes = {m['module_name']: m['default_attributes'] for m in resources}
 
             # See if there is any attribute that needs prompting,
             # Any default parameter from a resource module that is marked as <PLEASE FILL IN> and
@@ -275,6 +273,8 @@ def _register_command(args):
 def _diff_ts(ts1, ts2):
     from driftconfig.relib import diff_meta, diff_tables
     # Get local table store and its meta state
+    ts1 = copy_table_store(ts1)
+    ts2 = copy_table_store(ts2)
     local_m1, local_m2 = ts1.refresh_metadata()
 
     # Get origin table store meta info
