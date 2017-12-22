@@ -63,21 +63,43 @@ def register_deployable_on_tier(ts, deployable, attributes):
 
 
 def provision_resource(ts, tenant_config, attributes):
+    """
+    Create, recreate or delete resources for a tenant.
+    'tenant_config' is a row from 'tenants' table for the particular tenant, tier and deployable.
+    LEGACY SUPPORT: 'attributes' points to the current resource attributes within 'tenant_config'.
+    """
+    report = []
+    if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
+            # Override 'server'
+            attributes['server'] = 'localhost'
+
+    # Initialize the DB name if applicable
+    if not attributes["database"]:
+        attributes["database"] = "{}.{}".format(
+            tenant_config['tenant_name'], tenant_config['deployable_name'])
+
     if tenant_config['state'] == 'initializing':
         # Create or recreate db
-        params = process_connection_values(attributes)
-        if not params["database"]:
-            print "GENERATE DB NAME"
-            params["database"] = "{}.{}".format(tenant_config['tenant_name'], tenant_config['deployable_name'])
-        attributes['database'] = params["database"]
-
-        if db_exists(params):
-            drop_db(params)
-
-        create_db(params)
+        if db_exists(attributes):
+            drop_db(attributes)
+            report.append("Database for tenant already existed, dropped the old DB.")
+        create_db(attributes)
+        report.append("Created a new DB: {}".format(format_connection_string(attributes)))
+    elif tenant_config['state'] == 'active':
+        if not db_exists(attributes):
+            log.warning(
+                "Database for tenant '%s' doesn't exist, which is unexpected. Creating one now.",
+                tenant_config['tenant_name']
+            )
+            create_db(attributes)
+            report.append("Database didn't exist, which was unexpected, so a new DB was created: {}".format(
+                format_connection_string(attributes)))
+        report.append("Database check successfull for DB: {}".format(format_connection_string(attributes)))
     elif tenant_config['state'] == 'uninitializing':
         # Archive or delete db
         pass
+
+    return report
 
 
 # defaults when making a new tier

@@ -28,6 +28,7 @@ TIER_DEFAULTS = {
     "socket_connect_timeout": 5
 }
 
+
 def _get_redis_connection_info():
     """
     Return tenant specific Redis connection info, if available, else use one that's
@@ -37,6 +38,28 @@ def _get_redis_connection_info():
     if g.conf.tenant:
         ci = g.conf.tenant.get('redis')
     return ci
+
+
+def provision_resource(ts, tenant_config, attributes):
+    """
+    Create, recreate or delete resources for a tenant.
+    'tenant_config' is a row from 'tenants' table for the particular tenant, tier and deployable.
+    LEGACY SUPPORT: 'attributes' points to the current resource attributes within 'tenant_config'.
+    """
+    report = []
+    attributes = attributes.copy()  # Make a copy so we won't modify the actual drift config db.
+    if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
+        attributes['host'] = 'localhost'
+
+    # Reset Redis cache when initializing or uninitializing.
+    if tenant_config['state'] in ['initializing', 'uninitializing']:
+        red = RedisCache(tenant_config['tenant_name'], tenant_config['deployable_name'], attributes)
+        red.delete_all()
+        report.append("Redis cache was deleted.")
+    else:
+        report.append("No action needed.")
+
+    return report
 
 
 class RedisExtension(object):
