@@ -7,13 +7,13 @@ import importlib
 import httplib
 
 from flask import Blueprint, current_app, url_for, abort, request, g
-from flask_restful import Api, Resource
+from flask_restful import Api, Resource, reqparse
 
-from driftconfig.util import get_drift_config
+from driftconfig.config import TSTransaction
+
+from driftconfig.util import get_drift_config, define_tenant, provision_tenant_resources
 from driftconfig.relib import create_backend, get_store_from_url
-from drift.core.extensions.jwt import jwt_not_required
 
-from drift.auth.jwtchecker import requires_roles
 from drift.core.extensions.schemachecker import simple_schema_request
 
 log = logging.getLogger(__name__)
@@ -87,3 +87,59 @@ class AdminProvisionAPI(Resource):
 
 
 api.add_resource(AdminProvisionAPI, "/provision")
+
+
+class AdminProvisionAPI2(Resource):
+
+    no_jwt_check = ["GET", "POST"]
+
+    get_args = reqparse.RequestParser()
+    get_args.add_argument("tenant_name", type=str)
+
+    @simple_schema_request({
+        "tenant_name": {"type": "string"}
+    }, required=[])
+    def get(self):
+        args = self.get_args.parse_args()
+        tenant_name = args.tenant_name
+        if tenant_name:
+            crit = {'tenant_name': tenant_name}
+        else:
+            crit = {'tier_name': g.conf.tier['tier_name']}
+
+        tenants = g.conf.table_store.get_table('tenants').find(crit)
+        return tenants
+
+    @simple_schema_request({
+        "tenant_name": {"type": "string"},
+        "preview": {"type": "boolean"},
+    }, required=[])
+    def post(self):
+        tenant_name = request.json.get('tenant_name') if request.json else None
+        preview = request.json.get('preview', False) if request.json else False
+        result = []
+
+        with TSTransaction(commit_to_origin=not preview) as ts:
+
+            if tenant_name:
+                crit = {'tenant_name': tenant_name}
+            else:
+                crit = {'tier_name': g.conf.tier['tier_name']}
+
+            for tenant_info in ts.get_table('tenant-names').find(crit):
+                tenant_name = tenant_info['tenant_name']
+                # Refresh for good measure
+                define_tenant(
+                    ts=ts,
+                    tenant_name=tenant_name,
+                    product_name=tenant_info['product_name'],
+                    tier_name=tenant_info['tier_name'],
+                )
+
+                report = provision_tenant_resources(ts=ts, tenant_name=tenant_name, preview=preview)
+                result.append(report)
+
+        return result
+
+
+api.add_resource(AdminProvisionAPI2, "/admin/provision")
