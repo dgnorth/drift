@@ -54,6 +54,10 @@ def provision_resource(ts, tenant_config, attributes):
     # Reset Redis cache when initializing or uninitializing.
     if tenant_config['state'] in ['initializing', 'uninitializing']:
         red = RedisCache(tenant_config['tenant_name'], tenant_config['deployable_name'], attributes)
+        log.info(
+            "Deleting redis cache  on '%s' as the tenant is %s.",
+            red.make_key("*"), tenant_config['state']
+        )
         red.delete_all()
         report.append("Redis cache was deleted.")
     else:
@@ -174,14 +178,13 @@ class RedisCache(object):
         else:
             result = self.conn.setex(name=compound_key, value=dump, time=expire)
 
-
         return result
 
     def get(self, key):
         compound_key = self.make_key(key)
         try:
             ret = self.conn.get(compound_key)
-        except redis.RedisError as e:
+        except redis.RedisError:
             log.exception("Can't fetch key '%s'", compound_key)
             return None
 
@@ -221,8 +224,10 @@ class RedisCache(object):
         if self.disabled:
             log.info("Redis disabled. Not deleting all keys")
             return
+        self.set('_dummy', 'ok')
         compound_key = self.make_key("*")
-        for key in self.conn.scan_iter(compound_key):
+        for key in self.conn.scan_iter(compound_key, count=150000):  # Arbitrary count but otherwise it locks up.
+            print "CONN DELETEING KEY", key
             self.conn.delete(key)
 
 
