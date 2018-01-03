@@ -52,6 +52,7 @@ def register_this_deployable(ts, package_info, resources, resource_attributes):
     if orig_row:
         row, orig_row = orig_row, orig_row.copy()
     else:
+        pk['display_name'] = package_info['description']  # This is a required field
         row = tbl.add(pk)
 
     row['display_name'] = package_info['description']
@@ -73,7 +74,7 @@ def register_this_deployable(ts, package_info, resources, resource_attributes):
     return {'old_registration': orig_row, 'new_registration': row}
 
 
-def register_this_deployable_on_tier(ts, tier_name, deployable_name):
+def register_this_deployable_on_tier(ts, tier_name, deployable_name, app_config):
     """
     Registers tier specific info for a deployable package.
 
@@ -94,11 +95,17 @@ def register_this_deployable_on_tier(ts, tier_name, deployable_name):
     for module_name in registration_row['resources']:
         m = importlib.import_module(module_name)
         if hasattr(m, 'register_deployable_on_tier'):
+            attributes = resource_attributes.setdefault(module_name, {})
             m.register_deployable_on_tier(
                 ts=ts,
                 deployable=row,
-                attributes=resource_attributes.get(module_name, {}),
+                attributes=attributes,
+                app_config=app_config
             )
+
+            # For cleanliness, remove resource attribute entry if it's empty
+            if not attributes:
+                del resource_attributes[module_name]
 
     return {'old_registration': orig_row, 'new_registration': row}
 
@@ -158,4 +165,3 @@ def register_tier(ts, tier_name, resources=None):
                 tier=tier,
                 attributes=attributes,
             )
-

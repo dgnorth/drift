@@ -252,7 +252,7 @@ def _register_command(args):
             print pretty(config_resources)
 
             register_tier(ts=ts, tier_name=tier_name, resources=resources)
-            ret = register_this_deployable_on_tier(ts, tier_name=tier_name, deployable_name=name)
+            ret = register_this_deployable_on_tier(ts, tier_name=tier_name, deployable_name=name, app_config=app_config)
 
             if ret['new_registration']['is_active'] != is_active:
                 ret['new_registration']['is_active'] = is_active

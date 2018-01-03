@@ -53,13 +53,16 @@ def register_resource_on_tier(ts, tier, attributes):
     pass
 
 
-def register_deployable_on_tier(ts, deployable, attributes):
+def register_deployable_on_tier(ts, deployable, attributes, app_config):
     """
     Deployable registration callback.
     'deployable' is from table 'deployables'.
     """
     # Add default parameters for Postgres connection if needed.
-    pass
+
+    # For somewhat legacy purposes we automatically inject the db model module names
+    # in the config here:
+    attributes['models'] = app_config['models']
 
 
 def provision_resource(ts, tenant_config, attributes):
@@ -69,6 +72,19 @@ def provision_resource(ts, tenant_config, attributes):
     LEGACY SUPPORT: 'attributes' points to the current resource attributes within 'tenant_config'.
     """
     report = []
+    attributes = attributes.copy()
+
+    # LEGACY SUPPORT:
+    # The old provision logic would load in config.json on its own to get the app name. Now we simply
+    # inject this info into the attributes/params dict.
+    attributes['application_name'] = tenant_config['deployable_name']
+
+    # MORE LEGACY STUFF:
+    # The db model module names are registered in 'deployable-names' table. We inject this info into
+    # the attributes/params dict.
+    depl = ts.get_table('deployable-names').get({'deployable_name': tenant_config['deployable_name']})
+    attributes['models'] = depl['resource_attributes']['drift.core.resources.postgres']['models']
+
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
             # Override 'server'
             attributes['server'] = 'localhost'
@@ -81,7 +97,7 @@ def provision_resource(ts, tenant_config, attributes):
     if tenant_config['state'] == 'initializing':
         # Create or recreate db
         if db_exists(attributes):
-            drop_db(attributes)
+            drop_db(attributes, force=True)
             report.append("Database for tenant already existed, dropped the old DB.")
         create_db(attributes)
         report.append("Created a new DB: {}".format(format_connection_string(attributes)))
@@ -118,7 +134,6 @@ MASTER_USER = 'postgres'
 MASTER_PASSWORD = 'postgres'
 ECHO_SQL = False
 SCHEMAS = ["public"]
-
 
 
 class Postgres(object):
@@ -169,9 +184,10 @@ class Postgres(object):
                 load_flask_config()['name'],
                 getpass.getuser(),
                 socket.gethostname().split(".")[0],
-                )
+            )
 
         return cls.application_name
+
 
 def register_extension(app):
     Postgres(app)
@@ -191,7 +207,7 @@ def get_sqlalchemy_session(conn_string=None):
         conn_string = format_connection_string(ci)
 
     log.debug("Creating sqlalchemy session with connection string '%s'", conn_string)
-    connect_args={
+    connect_args = {
         'connect_timeout': 10,
         'application_name': Postgres.get_application_name(),
     }
@@ -234,13 +250,14 @@ def format_connection_string(postgres_parameters):
 
 
 def connect(params, connect_timeout=None):
+
     engine = create_engine(
         format_connection_string(params),
         echo=ECHO_SQL,
         isolation_level='AUTOCOMMIT',
         connect_args={
             'connect_timeout': connect_timeout or 10,
-            'application_name': Postgres.get_application_name(),
+            'application_name': params['application_name'],
         }
     )
     return engine
@@ -301,8 +318,9 @@ def create_db(params):
 
     # TODO: Alembic (and sqlalchemy for that matter) don't like schemas. We should
     # figure out a way to add these later
-    config = load_flask_config()
-    models = config.get("models", [])
+    # LEGACY SUPPORT: We can't load config.json arbitrarily here so instead we just assume
+    # db model modules are found in "<flugger>"
+    models = params.get("models", [])
     if not models:
         raise Exception("This app has no models defined in config")
 
@@ -312,16 +330,20 @@ def create_db(params):
         models.ModelBase.metadata.create_all(engine)
 
     # stamp the db with the latest alembic upgrade version
-    from drift.flaskfactory import _find_app_root
-    approot = _find_app_root()
-    ini_path = os.path.join(approot, "alembic.ini")
-    alembic_cfg = Config(ini_path)
-    script_path = os.path.join(os.path.split(os.path.abspath(ini_path))[0], "alembic")
-    alembic_cfg.set_main_option("script_location", script_path)
-    db_names = alembic_cfg.get_main_option('databases')
-    connection_string = format_connection_string(params)
-    alembic_cfg.set_section_option(db_names, "sqlalchemy.url", connection_string)
-    command.stamp(alembic_cfg, "head")
+    alembic_not_supported = True
+    if alembic_not_supported:
+        log.warning("NOTE! Alembic not supported at the moment. No db upgrades are run.")
+    else:
+        from drift.flaskfactory import _find_app_root
+        approot = _find_app_root()
+        ini_path = os.path.join(approot, "alembic.ini")
+        alembic_cfg = Config(ini_path)
+        script_path = os.path.join(os.path.split(os.path.abspath(ini_path))[0], "alembic")
+        alembic_cfg.set_main_option("script_location", script_path)
+        db_names = alembic_cfg.get_main_option('databases')
+        connection_string = format_connection_string(params)
+        alembic_cfg.set_section_option(db_names, "sqlalchemy.url", connection_string)
+        command.stamp(alembic_cfg, "head")
 
     for schema in SCHEMAS:
         # Note that this does not automatically grant on tables added later
@@ -395,12 +417,4 @@ def healthcheck():
             abort(httplib.SERVICE_UNAVAILABLE, "'postgres' config missing key '%s'" % k)
 
     rows = g.db.execute("SELECT 1+1")
-    result = rows.fetchall()[0]
-
-
-def provision_tier(config):
-    pass
-
-
-def provision_tenant(config):
-    return provision(config, args)
+    rows.fetchall()[0]
