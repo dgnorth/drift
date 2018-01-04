@@ -20,6 +20,15 @@ log = logging.getLogger(__name__)
 REDIS_DB = 0  # We always use the main redis db for now
 
 
+# defaults when making a new tier
+TIER_DEFAULTS = {
+    "host": "<PLEASE FILL IN>",
+    "port": 6379,
+    "socket_timeout": 5,
+    "socket_connect_timeout": 5
+}
+
+
 def _get_redis_connection_info():
     """
     Return tenant specific Redis connection info, if available, else use one that's
@@ -29,6 +38,32 @@ def _get_redis_connection_info():
     if g.conf.tenant:
         ci = g.conf.tenant.get('redis')
     return ci
+
+
+def provision_resource(ts, tenant_config, attributes):
+    """
+    Create, recreate or delete resources for a tenant.
+    'tenant_config' is a row from 'tenants' table for the particular tenant, tier and deployable.
+    LEGACY SUPPORT: 'attributes' points to the current resource attributes within 'tenant_config'.
+    """
+    report = []
+    attributes = attributes.copy()  # Make a copy so we won't modify the actual drift config db.
+    if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
+        attributes['host'] = 'localhost'
+
+    # Reset Redis cache when initializing or uninitializing.
+    if tenant_config['state'] in ['initializing', 'uninitializing']:
+        red = RedisCache(tenant_config['tenant_name'], tenant_config['deployable_name'], attributes)
+        log.info(
+            "Deleting redis cache  on '%s' as the tenant is %s.",
+            red.make_key("*"), tenant_config['state']
+        )
+        red.delete_all()
+        report.append("Redis cache was deleted.")
+    else:
+        report.append("No action needed.")
+
+    return report
 
 
 class RedisExtension(object):
@@ -143,14 +178,13 @@ class RedisCache(object):
         else:
             result = self.conn.setex(name=compound_key, value=dump, time=expire)
 
-
         return result
 
     def get(self, key):
         compound_key = self.make_key(key)
         try:
             ret = self.conn.get(compound_key)
-        except redis.RedisError as e:
+        except redis.RedisError:
             log.exception("Can't fetch key '%s'", compound_key)
             return None
 
@@ -190,8 +224,10 @@ class RedisCache(object):
         if self.disabled:
             log.info("Redis disabled. Not deleting all keys")
             return
+        self.set('_dummy', 'ok')
         compound_key = self.make_key("*")
-        for key in self.conn.scan_iter(compound_key):
+        for key in self.conn.scan_iter(compound_key, count=150000):  # Arbitrary count but otherwise it locks up.
+            print "CONN DELETEING KEY", key
             self.conn.delete(key)
 
 

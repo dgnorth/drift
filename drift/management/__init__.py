@@ -38,6 +38,8 @@ def execute_cmd():
     except AppRootNotFound as e:
         # A very common case that needs pretty printing
         print str(e)
+    except KeyboardInterrupt:
+        print " Aborting because you said so."
 
 
 def do_execute_cmd(argv):
