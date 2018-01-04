@@ -57,7 +57,8 @@ def _freeze_command(args):
         print "'requirements-to-freeze.txt' file not found!"
         sys.exit(1)
 
-    shutil.rmtree('env')
+    if os.path.exists('env'):
+        shutil.rmtree('env')
     virtualenv.create_environment('env')
 
     if os.path.exists('requirements.txt'):
