@@ -19,7 +19,7 @@ def setUpModule():
         class Response(object):
             def json(self):
                 return loads(self.content)
-        
+
         response = Response()
         response.status_code = 200
 
@@ -94,5 +94,6 @@ class SteamCase(unittest.TestCase):
 
 
 if __name__ == "__main__":
-
+    import logging
+    logging.basicConfig(level='INFO')
     unittest.main()

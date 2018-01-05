@@ -23,14 +23,14 @@ def fetch_url(url, error_title, expire=None):
     content = None
     if _app_ctx_stack.top and hasattr(g, "redis"):
         content = g.redis.get("urlget:" + url)
-        redis = g.redis 
+        redis = g.redis
 
     if not content:
         signed_url = _aws_s3_sign_url(url)
 
         try:
             ret = requests.get(signed_url)
-        except requests.exceptions.RequestException as e:            
+        except requests.exceptions.RequestException as e:
             log.warning(error_title + "Url '%s' can't be fetched. %s", signed_url, e)
             raise ServiceUnavailable()
         if ret.status_code != 200:

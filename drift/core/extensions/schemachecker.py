@@ -36,30 +36,6 @@ class SchemaChecker(object):
 
     def init_app(self, app):
         self.app = app
-
-        # Schema files are stored in 'schemas' folders. By default, we will
-        # do a recursive search from the application root.
-        self._schemas = {}
-        schema_root_folder = app.config.get('JSONSCHEMA_ROOT')
-        if not schema_root_folder:
-            schema_root_folder = os.path.join(app.instance_path, "..")
-        for root, dirs, files in os.walk(schema_root_folder):
-            head, tail = os.path.split(root)
-            if tail != "schemas":
-                continue
-
-            loaded = []
-            for filename in files:
-                schema_file = os.path.join(root, filename)
-                if schema_file.lower().endswith(".json"):
-                    with open(schema_file) as f:
-                        short_name, ext = os.path.splitext(filename)
-                        self._schemas[short_name] = json.load(f)
-                        loaded.append(short_name)
-
-            if loaded:
-                log.info("Loading %s from %s", loaded, root)
-
         app.extensions['jsonschema'] = self
 
     def get_schema_for_media_type(self, media_type_name):

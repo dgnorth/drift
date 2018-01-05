@@ -11,18 +11,66 @@ from __future__ import absolute_import
 import logging
 from logging.handlers import SysLogHandler
 import logging.config
-import json, datetime, sys
+import json
+import datetime
+import sys
+import time
+from uuid import uuid4
 from socket import gethostname
 from collections import OrderedDict
+from urlparse import urlsplit
+from functools import wraps
 
 from flask import g, request
 
 from drift.core.extensions.jwt import current_user
+from drift.utils import get_tier_name
+
+
+def get_stream_handler():
+    """returns a stream handler with standard formatting for use in local development"""
+    stream_handler = logging.StreamHandler()
+    stream_formatter = logging.Formatter(
+        fmt='%(asctime)s %(levelname)-8s %(name)-15s %(message)s')
+    stream_handler.setFormatter(stream_formatter)
+    return stream_handler
+
+def get_caller():
+    """returns a nice string representing caller for logs
+    Note: This is heavy"""
+    import inspect
+    curframe = inspect.currentframe()
+    calframe = inspect.getouterframes(curframe, 2)
+    caller = "{} ({}#{})".format(calframe[2][3], calframe[2][1], calframe[2][2])
+    return caller
+
+def get_clean_path_from_url(url):
+    """extract the endpoint path from the passed in url and remove
+    service information and any id's so that the endpoint path
+    might be easily used in grouping.
+    """
+    clean_path = None
+    try:
+        lst = urlsplit(url)
+        path = lst.path
+        lst = path.split("/")
+        for i in xrange(len(lst)):
+            l = lst[i]
+            try:
+                num = int(l)
+                lst[i] = "<int>"
+            except:
+                pass
+        # assume that the service name is the first part so we skip it
+        clean_path = "/" + "/".join(lst[2:])
+    except:
+        pass
+    return clean_path
 
 def get_log_details():
     details = OrderedDict()
-    tenant = None
-    tier = None
+    tenant_name = None
+    tier_name = get_tier_name()
     remote_addr = None
 
     try:
@@ -31,14 +79,17 @@ def get_log_details():
         pass
 
     try:
-        tenant = g.driftenv["name"]
-        tier = g.driftenv["tier_name"]
-    except Exception:
-        pass
+        if hasattr(g, 'conf'):
+            tenant_name = g.conf.tenant_name['tenant_name'] if g.conf.tenant_name else '(none)'
+    except RuntimeError as e:
+        if "Working outside of application context" in repr(e):
+            pass
+        else:
+            raise
     log_context = {}
     log_context["created"] = datetime.datetime.utcnow().isoformat() + "Z"
-    log_context["tenant"] = tenant
-    log_context["tier"] = tier
+    log_context["tenant"] = tenant_name
+    log_context["tier"] = tier_name
     log_context["remote_addr"] = remote_addr
     details["logger"] = log_context
     jwt_context = {}
@@ -166,6 +217,10 @@ class ServerLogFormatter(JSONFormatter):
         data = self.get_formatted_data(record)
         data["message"] = super(JSONFormatter, self).format(record)
         data["level"] = record.levelname
+        try:
+            data["request"] = "{} {}".format(request.method, request.url)
+        except:
+            pass
         return self.json_format(data)
 
 
@@ -183,6 +238,65 @@ class ClientLogFormatter(JSONFormatter):
     def format(self, record):
         data = self.get_formatted_data(record)
         data.update(getattr(record, "extra", {}))
+        return self.json_format(data)
+
+
+def trim_logger(data):
+    # remove unnecessary logger fields
+    for k, v in data["logger"].items():
+        if k not in ["name", "tier", "tenant", "correlation_id"]:
+            del data["logger"][k]
+
+
+def format_request_body(key, value):
+    if key == "password":
+        return "*"
+    else:
+        # constrain the body to 64 characters per key and convert to string
+        return str(value)[:64]
+
+
+class RequestLogFormatter(JSONFormatter):
+    log_tag = "request"
+    def format(self, record):
+        data = self.get_formatted_data(record)
+        trim_logger(data)
+
+        try:
+            data["method"] = request.method
+            data["url"] = request.url
+            data["remote_addr"] = request.remote_addr
+        except Exception:
+            pass
+
+        data["endpoint"] = get_clean_path_from_url(request.url)
+
+        request_body = None
+        try:
+            if request.json:
+                request_body = {key: format_request_body(key, value)
+                                for key, value in request.json.iteritems()}
+            else:
+                request_body = request.data
+        except Exception:
+            pass
+
+        if request_body:
+            data["request_body"] = request_body
+
+        try:
+            data.update(getattr(record, "extra", {}))
+        except Exception:
+           pass
+
+        if data.get('log_level') == 1:
+            data = {
+                'timestamp': data['timestamp'],
+                'tenant': data['tenant'],
+                'method': data['method'],
+                'endpoint': data['endpoint']
+                }
+
         return self.json_format(data)
 
 # Calling 'logsetup' more than once may result in multiple handlers emitting
@@ -209,11 +323,50 @@ def logsetup(app):
         return
     _setup_done = True
 
+
+    @app.before_request
+    def log_before_request():
+        g.request_start_time = time.time()
+        g.request_log_level = 2
+
+    if app.config.get("log_request", True):
+        @app.after_request
+        def log_after_request(response):
+            log_level = getattr(g, 'request_log_level', 2)
+            if log_level == 0:
+                return
+            resp_text = ""
+            resp_len = -1
+            try:
+                resp_len = len(response.response[0])
+                resp_text = response.response[0][:192]
+            except:
+                pass
+            t = None
+            if hasattr(g, 'request_start_time'):
+                t = float("%.3f" % (time.time()-g.request_start_time))
+            extra = {
+                "response_code": response.status_code,
+                "response_length": resp_len,
+                "response_time": t,
+                "log_level": log_level,
+            }
+            if response.status_code >= 400:
+                extra["response"] = resp_text
+            if hasattr(g, "database"):
+                extra["database"] = g.database
+            logging.getLogger("request").info("{} {} - {}".format(request.method, request.url, response.status_code), extra=extra)
+
+            return response
+
     logging.setLoggerClass(ContextAwareLogger)
 
     syslog_path = '/dev/log'
+
     if sys.platform == 'darwin':
         syslog_path = '/var/run/syslog'
+    elif sys.platform == 'win32':
+        syslog_path = ('localhost', 514)
 
     # Install log file handler
     handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_USER)
@@ -227,6 +380,7 @@ def logsetup(app):
     handler.setFormatter(EventLogFormatter())
     l = logging.getLogger("eventlog")
     l.propagate = False
+    l.setLevel('INFO')
     l.addHandler(handler)
 
     # Install client file handler
@@ -234,6 +388,15 @@ def logsetup(app):
     handler.name = "clientlog"
     handler.setFormatter(ClientLogFormatter())
     l = logging.getLogger("clientlog")
+    l.propagate = False
+    l.setLevel('INFO')
+    l.addHandler(handler)
+
+    # request handler
+    handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_LOCAL2)
+    handler.name = "request"
+    handler.setFormatter(RequestLogFormatter())
+    l = logging.getLogger("request")
     l.propagate = False
     l.addHandler(handler)
 
@@ -264,3 +427,15 @@ def logsetup(app):
 
 def register_extension(app):
     logsetup(app)
+
+
+def request_log_level(level):
+    def wrapper(fn):
+        @wraps(fn)
+        def decorated(*args, **kwargs):
+            g.request_log_level = int(level)
+            return fn(*args, **kwargs)
+
+        return decorated
+    return wrapper
+

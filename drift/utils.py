@@ -2,21 +2,67 @@
 import os
 import httplib
 import logging
-import requests
 from functools import wraps
 from socket import gethostname
-import json
 import uuid
-import time
-from boto.utils import get_instance_metadata
-import boto.ec2
+import json
 
-from flask.globals import _app_ctx_stack
-from flask import g, make_response, jsonify, request, url_for
+# pygments is optional for now
+try:
+    got_pygments = True
+    from pygments import highlight, util
+    from pygments.lexers import get_lexer_by_name
+    from pygments.formatters import get_formatter_by_name, get_all_formatters
+    from pygments.styles import get_style_by_name, get_all_styles
+except ImportError:
+    got_pygments = False
+
+from flask import g, make_response, jsonify, request, url_for, current_app
+
+from driftconfig.util import get_drift_config
+from drift.core.extensions.tenancy import tenant_from_hostname
 
 log = logging.getLogger(__name__)
 
 host_name = gethostname()
+
+
+def get_config(ts=None, tier_name=None, tenant_name=None):
+    """Wraps get_drift_config() by providing default values for tier, tenant and drift_app."""
+    # Hack: Must delay import this
+    from drift.flaskfactory import load_flask_config
+    if current_app:
+        app_ts = current_app.extensions['driftconfig'].table_store
+        if ts is not app_ts:
+            log.warning("Mismatching table_store objects in get_config(): ts=%s, app ts=%s", ts, app_ts)
+        ts = app_ts
+
+    conf = get_drift_config(
+        ts=ts,
+        tier_name=tier_name or get_tier_name(),
+        tenant_name=tenant_name or tenant_from_hostname,
+        drift_app=load_flask_config(),
+    )
+    return conf
+
+
+def get_tenant_name():
+    """
+    Return the current tenant name.
+    If inside a Flask request context, it's the one defined by that context,
+    and if not, then it must be specified explicitly in the environment
+    variable 'DRIFT_DEFAULT_TENANT'.
+    """
+    if g and hasattr(g, 'conf'):
+        return g.conf.tenant['tenant_name']
+    elif 'DRIFT_DEFAULT_TENANT' in os.environ:
+        return os.environ['DRIFT_DEFAULT_TENANT']
+    else:
+        raise RuntimeError(
+            "No default tenant available in this context. Specify one in "
+            "'DRIFT_DEFAULT_TENANT' environment variable, or use the --tenant command "
+            "line argument."
+        )
 
 
 def uuid_string():
@@ -97,103 +143,19 @@ def add_response_headers(headers={}):
     return decorator
 
 
-def get_tier_name(config_path=None):
+def get_tier_name(fail_hard=True):
     """
-    Get tier name from an AWS EC2 tag or the file TIER
-    inside the config/ folder for the service
-
-    Typically the build process might put the proper tier into
-    the file based on the build configuration.
-
-    A more advanced method will be to use the tag in an AWS instance
-    to pick the right configuration so that a single build/AMI could
-    be used in several tiers.
-
-    Currently supports only DEV, STAGING, DGN-DEV and LIVE tiers.
+    Get tier name from environment
     """
-    # cache the tier name if we have an app context
-    disable_cache = False
-    if not _app_ctx_stack.top or not hasattr(g, "driftenv"):
-        disable_cache = True
-    else:
-        try:
-            return g.driftenv["tier_name"]
-        except KeyError:
-            pass
+    if 'DRIFT_TIER' in os.environ:
+        return os.environ['DRIFT_TIER']
 
-    tier_name = None
-    metastore_url = "http://169.254.169.254/latest/meta-data"
-    try:
-        r = requests.get("%s/placement/availability-zone" % metastore_url, timeout=0.1)
-        # on travis-ci the request above sometimes actually succeeds and returns a 404
-        # so we need to check for that and handle the case like we do local servers.
-        if r.status_code == 404:
-            raise Exception("404")
-        region = r.text.strip()[:-1]  # skip the a, b, c at the end
-        r = requests.get("%s/instance-id" % metastore_url, timeout=1.0)
-        instance_id = r.text.strip()
-        n = 0
-        tier_name = None
-        # try to get the tier tag for 10 seconds. Tags might not be ready in AWS when we start up
-        while n < 10:
-            conn = boto.ec2.connect_to_region(region)
-            ec2 = conn.get_all_reservations(filters={"instance-id": instance_id})[0]
-            tags = ec2.instances[0].tags
-            if "tier" in tags:
-                tier_name = tags["tier"]
-                break
-            else:
-                n += 1
-                time.sleep(1.0)
-        if tier_name is None:
-            raise RuntimeError("Could not find the 'tier' tag on the EC2 instance %s.", instance_id)
-
-    except Exception as e:
-        if is_ec2():
-            log.error("Could not query EC2 metastore")
-            raise RuntimeError("Could not query EC2 metastore: %s" % e)
-
-    if not tier_name:
-        if not config_path:
-            # tier config is in the .drift folder in your home directory
-            config_path = os.path.join(os.path.expanduser("~"), ".drift")
-        if config_path:
-            tier_filename = os.path.join(config_path, "TIER")
-            try:
-                with open(tier_filename) as f:
-                    tier_name = f.read().strip().upper()
-                log.debug("Got tier '%s' from %s", tier_name, tier_filename)
-            except Exception:
-                log.debug("No tier config file found in %s.", tier_filename)
-
-    if not tier_name:
-        raise RuntimeError("You do not have have a tier selected. Please run "
-                           "kitrun.py tier [tier-name]")
-
-    if not disable_cache:
-        g.driftenv["tier_name"] = tier_name
-        log.debug("Caching tier '%s'", tier_name)
-
-    return tier_name
-
-
-def merge_dicts(dict1, dict2):
-    """
-    Merges two nested dictionaries together into one.
-    Caller needs to cast the results to dict.
-    """
-    for k in set(dict1.keys()).union(dict2.keys()):
-        if k in dict1 and k in dict2:
-            if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
-                yield (k, dict(merge_dicts(dict1[k], dict2[k])))
-            else:
-                # If one of the values is not a dict, you can't continue merging it.
-                # Value from second dict overrides one in first and we move on.
-                yield (k, dict2[k])
-        elif k in dict1:
-            yield (k, dict1[k])
-        else:
-            yield (k, dict2[k])
+    if fail_hard:
+        raise RuntimeError(
+            "No tier specified. Specify one in "
+            "'DRIFT_TIER' environment variable, or use the --tier command "
+            "line argument."
+        )
 
 
 def request_wants_json():
@@ -221,3 +183,65 @@ def url_player(player_id):
 
 def url_client(client_id):
     return url_for("clients.client", client_id=client_id, _external=True)
+
+
+PRETTY_FORMATTER = 'console256'
+PRETTY_STYLE = 'tango'
+
+
+def pretty(ob, lexer=None):
+    """
+    Return a pretty console text representation of 'ob'.
+    If 'ob' is something else than plain text, specify it in 'lexer'.
+
+    If 'ob' is not string, Json lexer is assumed.
+
+    Command line switches can be used to control highlighting and style.
+    """
+    if lexer is None:
+        if isinstance(ob, basestring):
+            lexer = 'text'
+        else:
+            lexer = 'json'
+
+    if lexer == 'json':
+        ob = json.dumps(ob, indent=4, sort_keys=True)
+
+    if got_pygments:
+        lexerob = get_lexer_by_name(lexer)
+        formatter = get_formatter_by_name(PRETTY_FORMATTER, style=PRETTY_STYLE)
+        #from pygments.filters import *
+        #lexerob.add_filter(VisibleWhitespaceFilter())
+        ret = highlight(ob, lexerob, formatter)
+    else:
+        ret = ob
+
+    return ret.rstrip()
+
+
+def set_pretty_settings(formatter=None, style=None):
+    if not got_pygments:
+        return
+
+    global PRETTY_FORMATTER
+    global PRETTY_STYLE
+
+    try:
+        if formatter:
+            get_formatter_by_name(formatter)
+            PRETTY_FORMATTER = formatter
+
+        if style:
+            get_style_by_name(style)
+            PRETTY_STYLE = style
+
+    except util.ClassNotFound as e:
+        print "Note: ", e
+        print get_avaible_pretty_settings()
+
+
+def get_avaible_pretty_settings():
+    formatters = ', '.join([f.aliases[0] for f in get_all_formatters()])
+    styles = ', '.join(list(get_all_styles()))
+    s = "Available formatters: {}\nAvailable styles: {}".format(formatters, styles)
+    return s

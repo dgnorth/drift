@@ -1,4 +1,4 @@
-7# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
 import os
 import logging
@@ -8,94 +8,128 @@ import httplib
 import sys
 import os.path
 import pkgutil
+import time
 
-from flask import jsonify, current_app, _app_ctx_stack
+from flask import jsonify
 from flask_restful import Api
 from flask import make_response
 from flask.json import dumps
 import flask_restful
-
 from werkzeug.contrib.fixers import ProxyFix
 
-from drift.utils import get_tier_name, merge_dicts
 from drift.fixers import ReverseProxied, CustomJSONEncoder
 import drift.core.extensions
-from drift.management import get_config_path
+from drift.utils import get_config
+
 
 log = logging.getLogger(__name__)
 
 
-def load_config(tier_name=None):
-    if not tier_name:
-        tier_name = get_tier_name()
-    config_filename = os.environ["drift_CONFIG"]
-    config_values = {}
+class AppRootNotFound(RuntimeError):
+    """To enable CLI to filter on this particular case."""
+    pass
 
+
+def drift_app(app):
+
+    # Find application root and initialize paths and search path
+    # for module imports
+    app_root = _find_app_root()
+    sys.path.append(app_root)
+    app.instance_path = app_root
+    app.static_folder = os.path.join(app_root, 'static')
+
+    # Trigger loading of drift config
+    conf = get_config()
+    app.config.update(conf.drift_app)
+    log.info("Configuration source: %s", conf.source)
+
+    _apply_patches(app)
+
+    # Install apps, api's and extensions.
+    install_modules(app)
+
+    # TODO: Remove this or find a better place for it
+    if not app.debug:
+        log.info("Flask server is running in RELEASE mode.")
+    else:
+        log.info("Flask server is running in DEBUG mode.")
+        try:
+            from flask_debugtoolbar import DebugToolbarExtension
+            DebugToolbarExtension(app)
+        except ImportError:
+            log.info("Flask DebugToolbar not available: Do 'pip install "
+                     "flask-debugtoolbar' to enable.")
+
+    return app
+
+
+def _find_app_root(_use_cwd=False):
+    """
+    Find the root of this application by searching for 'setup.py' file.
+
+    The 'setup.py' file must be found relative from the location of the current
+    executable script or the current working directory.
+
+    The app root can be explicitly set using environment variable 'DRIFT_APP_ROOT'.
+    """
+    if 'DRIFT_APP_ROOT' in os.environ:
+        return os.environ['DRIFT_APP_ROOT']
+
+    exe_path, exe = os.path.split(sys.argv[0])
+    if _use_cwd:
+        search_path = '.'
+    else:
+        search_path = exe_path
+    search_path = os.path.abspath(search_path)
+    setupfile_pathname = 'setup.py'
+    start_path = search_path
+    setupscript = ''
+
+    while True:
+        parent = os.path.abspath(os.path.join(search_path, setupfile_pathname))
+        if parent == setupscript:  # No change after traversing up
+            if not _use_cwd:
+                log.info("Can't locate app root after starting from %s. Trying current dir now..",
+                    start_path
+                )
+                return _find_app_root(_use_cwd=True)
+            else:
+                raise AppRootNotFound(
+                    "Can't locate setup.py, neither from executable location '{}' and from "
+                    "current dir '{}'.".format(exe_path, start_path)
+                )
+
+        setupscript = parent
+        if os.path.exists(setupscript):
+            break
+
+        log.debug("setup.py not found at: %s", setupscript)
+
+        search_path = os.path.join(search_path, '..')
+
+    app_root = os.path.abspath(os.path.join(setupscript, ".."))
+    return app_root
+
+
+def load_flask_config(app_root=None):
+    app_root = app_root or _find_app_root()
+    config_filename = os.path.join(app_root, 'config', 'config.json')
     log.info("Loading configuration from %s", config_filename)
-   
     with open(config_filename) as f:
         config_values = json.load(f)
-    config_values["config_filename"] = config_filename
-    config_values["tier_name"] = tier_name
 
-    load_config_files(tier_name, config_values, log_progress=False)
-
+    config_values['app_root'] = app_root
     return config_values
 
 
-def load_config_files(tier_name, config_values, log_progress):
-    tier_name_normalized = tier_name.upper()
-    # Apply global tier config
-    host_config = _get_local_config('tiers/{}/tierconfig.json'.format(tier_name_normalized), log_progress)
-    config_values.update(host_config)
-
-    # Apply deployable config specific to current tier
-    host_config = _get_local_config('tiers/{}/{}.json'.format(tier_name_normalized, config_values['name']), log_progress)
-    config_values.update(host_config)
-
-    # Apply local host config
-    host_config = _get_local_config('{}.json'.format(config_values['name']), log_progress)
-    config_values.update(host_config)
-
-    # update servers for tenants according to defaults
-    for tenant in config_values.get("tenants", []):
-        # if the tenant does not specify servers we use the defaults for the tier
-        tenant.setdefault('db_server', config_values.get('db_server'))
-        tenant.setdefault('redis_server', config_values.get('redis_server'))
-
-
-def _get_local_config(file_name, log_progress):
-    log_progress = True
-    config_filename = get_config_path(file_name=file_name)
-    if not os.path.exists(config_filename):
-        if log_progress:
-            log.warning("No config file found at '%s'.", config_filename)
-        return {}
-
-    with open(config_filename, "r") as f:
-        json_text = f.read()
-        host_configs = json.loads(json_text)
-        if log_progress:
-            log.info(
-                "Applying host config file '%s', contains %s keys.",
-                config_filename, len(host_configs)
-            )
-        return host_configs
-
-
-def make_app(app):
-    instance_path = None
-    if "drift_CONFIG" in os.environ:
-        instance_path = os.path.split(os.environ["drift_CONFIG"])[0]
-        app.instance_path = instance_path
-        app.static_folder = os.path.join(instance_path, "..", "static")
-        sys.path.append(os.path.join(instance_path, "..", ".."))
-    _apply_patches(app)
-
-
-def install_extras(app):
+def install_modules(app):
     """Install built-in and product specific apps and extensions."""
 
+    # TODO: Use package manager to enumerate and load the modules.
+
+    resources = app.config.get("resources", [])
+    resources.insert(0, 'drift.core.resources.driftconfig')
     # Include all core extensions and those referenced in the config.
     pkgpath = os.path.dirname(drift.core.extensions.__file__)
     extensions = [
@@ -107,18 +141,27 @@ def install_extras(app):
 
     apps = app.config.get("apps", [])
     log.info(
-        "Installing extras:\nExtensions:\n\t%s\nApps:\n\t%s",
-        "\n\t".join(extensions), "\n\t".join(apps)
+        "Installing extras:\nResources:\n\t%s\nExtensions:\n\t%s\nApps:\n\t%s",
+        "\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps)
     )
 
-    for module_name in extensions:
+    for module_name in resources + extensions:
+        t = time.time()
         m = importlib.import_module(module_name)
+        import_time = time.time() - t
         if hasattr(m, "register_extension"):
             m.register_extension(app)
         else:
-            log.warning("Extension module '%s' has no register_extension() function.", module_name)
+            log.debug("Extension module '%s' has no register_extension() function.", module_name)
+        elapsed = time.time() - t
+        if elapsed > 0.1:
+            log.warning(
+                "Extension module '%s' took %.3f seconds to initialize (import time was %.3f).",
+                module_name, elapsed, import_time
+            )
 
     for module_name in apps:
+        t = time.time()
         m = importlib.import_module(module_name)
         blueprint_name = "{}.blueprints".format(module_name)
 
@@ -129,16 +172,17 @@ def install_extras(app):
                 raise
             log.warning("App module '%s' has no module '%s'", module_name, blueprint_name)
         else:
+            import_time = time.time() - t
             try:
                 m.register_blueprints(app)
             except Exception:
                 log.exception("Couldn't register blueprints for module '%s'", module_name)
-
-    log.info("Starting up on tier '%s'", app.config.get("tier_name"))
-    log.info("Default Redis Server: '%s' - Default DB Server: '%s'",
-             app.config.get("redis_server"), app.config.get("db_server"))
-    tenants_txt = ", ".join([str(t["name"]) for t in app.config.get("tenants", [])])
-    log.info("This app supports the following tenants: %s", tenants_txt)
+            elapsed = time.time() - t
+            if elapsed > 0.1:
+                log.warning(
+                    "App module '%s' took %.3f seconds to initialize. (import time was %.3f).",
+                    module_name, elapsed, import_time
+                )
 
 
 def _apply_patches(app):
@@ -147,12 +191,9 @@ def _apply_patches(app):
     become obsolete with proper fixes made to these libraries in the future.
     """
     # "X-Forwarded-For" remote_ip fixup when running behind a load balancer.
-    # Assuming we are running behind two proxies (or load balancers), the API
-    # router, and the auto-scaling group.
+    # Normal setup on AWS includes a single ELB which appends to "X-Forwarded-For"
+    # header value, thus one proxy.
     num_proxies = 1
-    import socket
-    if socket.gethostname().startswith("ip-10-60-"):
-        num_proxies = 2
     app.wsgi_app = ProxyFix(app.wsgi_app, num_proxies=num_proxies)
 
     # Fixing SCRIPT_NAME/url_scheme when behind reverse proxy (i.e. the

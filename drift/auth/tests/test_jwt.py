@@ -120,7 +120,7 @@ class JWTCase(DriftTestCase):
         # check for a valid JWT/JTI access token in the request header
         # and populate current_user
         @app.before_request
-        def jwt_check_hook(*args, **kw):
+        def jwt_check_hook():
             check_jwt_authorization()
 
         # Deployables implement the authenticate() callback function
@@ -140,17 +140,8 @@ class JWTCase(DriftTestCase):
         "roles": [],
     }
 
-    def authenticate(self, username, password):
-        self.custom_payload['user_name'] = username
-        return self.custom_payload
 
-    def private_key(self):
-        return private_key
-
-    def test_access_control(self):
-        g.driftenv = {}
-        g.driftenv["tier_name"] = 'unittest_tier'
-        g.driftenv["name"] = 'unittest_tenant'
+    def setUp(self):
 
         # Make myself a trusted issuer
         issuer = {
@@ -159,6 +150,34 @@ class JWTCase(DriftTestCase):
         }
         self.app.config["jwt_trusted_issuers"] = [issuer]
 
+
+    def authenticate(self, username, password):
+        self.custom_payload['user_name'] = username
+        return self.custom_payload
+
+
+    def private_key(self):
+        return private_key
+
+
+    @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
+    def test_oculus_authentication(self):
+        # Oculus provisional authentication check
+        data = {
+            "provider": "oculus",
+            "provider_details": {
+                "provisional": True, "username": "someuser", "password": "somepass"
+            }
+        }
+        self.post(200, '/auth', data=data)
+
+        # We don't want empty username at this point
+        data['provider_details']['username'] = ""
+        self.post(401, '/auth', data=data)
+
+
+    @unittest.skip("Can't run this test from 'drift'. It should be in 'drift-base'.")
+    def test_access_control(self):
         rv = self.post(200, '/auth', data={"username": "someuser", "password": "somepass"})
         data = rv.json
         self.assertIn('token', data)

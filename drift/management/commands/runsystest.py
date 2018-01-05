@@ -9,6 +9,9 @@ import importlib
 import unittest
 import logging
 
+from drift.systesthelper import setup_tenant
+from drift.utils import get_config
+
 try:
     from teamcity import is_running_under_teamcity
     from teamcity.unittestpy import TeamcityTestRunner
@@ -18,11 +21,6 @@ except ImportError:
 
 
 def get_options(parser):
-    parser.add_argument(
-        "--server",
-        help="Server type to run (e.g. tornado)",
-        default=None
-    )
     parser.add_argument(
         "--db",
         help="Database to create and retain for later tests",
@@ -55,41 +53,27 @@ def get_options(parser):
         default=False,
         action="store_true"
     )
+    parser.add_argument(
+        "--preview",
+        "-p",
+        help="Only list out which tests would be run.",
+        action="store_true"
+    )
 
 
 def run_command(args):
-    from drift.utils import uuid_string
-    from drift.appmodule import app as _app
-    from drift.tenant import create_db, drop_db
-    from drift.utils import get_tier_name
-
-    tier_name = get_tier_name()
-    tenant = None
-    if args.target:
-        print "Using test target: {}".format(args.target)
-        os.environ["drift_test_target"] = args.target
-    else:
-        # only provision the DB is the test target is not specified
-        db_host = _app.config["systest_db"]["server"]
-        if args.db:
-            tenant = args.db
-            print "Using database {} from commandline on host {}".format(
-                tenant, db_host
-            )
-            create_db(tenant, db_host, tier_name)
-        else:
-            tenant = "test{}".format(uuid_string())
-            print "Creating database {} on host {}".format(tenant, db_host)
-            create_db(tenant, db_host, tier_name)
-        os.environ["drift_test_database"] = tenant
-
     pick_tests = []
     if args.tests:
         pick_tests = [t.lower() for t in args.tests.split(",")]
         print "Picking tests {}".format(pick_tests)
 
+    # Set up a mock tenant so we can bootstrap the app and inspect
+    # the modules within.
+    setup_tenant()
+    conf = get_config()
     test_modules = []
-    for app in _app.config["apps"]:
+
+    for app in conf.drift_app['apps']:
         m = importlib.import_module(app)
         path = dirname(m.__file__)
         tests_path = os.path.join(path, "tests")
@@ -122,20 +106,22 @@ def run_command(args):
                     for p in pick_tests:
                         if p in str(t).lower():
                             tests_to_run.append(t)
-                    else:
-                        tests_to_skip.append(t)
+                        else:
+                            tests_to_skip.append(t)
                 else:
                     tests_to_run.append(t)
 
     print "Running {} test(s) from {} module(s)".format(len(tests_to_run), len(suites))
-    if tests_to_skip:
-        print "Skipping {} test(s)".format(len(tests_to_skip))
+    print "Skipping {} test(s)".format(len(tests_to_skip))
     if pick_tests:
         print "Just running the following tests:"
         if not tests_to_run:
             print "   No tests found!"
         for t in tests_to_run:
             print "   {}".format(t)
+
+    if args.preview:
+        return
 
     test_suite = unittest.TestSuite(tests_to_run)
     verbosity = 1
@@ -152,9 +138,6 @@ def run_command(args):
     results = cls(verbosity=verbosity, failfast=args.failfast).run(test_suite)
 
     # if a tenant was not specified on the commandline we destroy it
-    if not args.db and tenant:
-        drop_db(tenant, db_host, tier_name)
-        pass
 
     if not results.wasSuccessful():
         sys.exit(1)

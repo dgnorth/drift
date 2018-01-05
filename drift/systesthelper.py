@@ -9,11 +9,13 @@ import responses
 import requests
 import re
 from datetime import datetime, timedelta
-from os.path import abspath, join
 import jwt
+import importlib
+from binascii import crc32
 
-from drift.utils import get_tier_name
-from drift.tenant import construct_db_name
+from drift.utils import get_config
+from driftconfig.util import set_sticky_config
+import driftconfig.testhelpers
 
 import logging
 log = logging.getLogger(__name__)
@@ -29,6 +31,11 @@ def uuid_string():
     return str(uuid.uuid4()).split("-")[0]
 
 
+def make_unique(name):
+    """Make 'name' unique by appending random numbers to it."""
+    return name + uuid_string()
+
+
 db_name = None
 
 
@@ -38,13 +45,11 @@ def flushwrite(text):
 
 
 def _get_test_target():
-    target = os.environ.get("drift_test_target")
+    target = os.environ.get("DRIFT_TEST_TARGET")
     return target
 
 
-def _get_test_db():
-    db = os.environ.get("drift_test_database")
-    return db
+_tenant_is_set_up = False
 
 
 def setup_tenant():
@@ -54,71 +59,63 @@ def setup_tenant():
     the kitrun's systest command
     (in which case drift_test_database has been set in environ)
     Also configure some basic parameters in the app
+
+    Returns the config object from get_config()
     """
-    from appmodule import app
-    global db_name
-    tenant_name = _get_test_db()
-    service_name = app.config["name"]
-    from drift.utils import get_tier_name
-    tier_name = get_tier_name()
+    global _tenant_is_set_up
+    if _tenant_is_set_up:
+        tenant_name = driftconfig.testhelpers.get_name('tenant')
+        conf = get_config(tenant_name=tenant_name)
+        return conf
 
-    db_name = construct_db_name(tenant_name, service_name, tier_name)
-    test_target = _get_test_target()
-    if test_target:
-        flushwrite(
-            "Skipping tenant setup due to "
-            "manually specified test target: %s" % test_target
-        )
-        return
+    _tenant_is_set_up = True
 
-    db_host = app.config["systest_db"]["server"]
-    app.config["db_connection_info"]["server"] = db_host
-    app.config["default_tenant"] = tenant_name
-    app.config["service_user"] = {
-        "username": service_username,
-        "password": service_password
-    }
-    conn_string = "postgresql://zzp_user:zzp_user@{}/{}" \
-                  .format(db_host, db_name)
-    test_tenant = {
-        "name": tenant_name,
-        "db_connection_string": conn_string,
-    }
-    app.config["tenants"].insert(0, test_tenant)
-    # flushwrite("Adding test tenant '%s'" % test_tenant)
-    # TODO: _get_env assumes "*" is the last tenant and screws things up
-    # if you append something else at the end. Fix this plz.
 
-    # Add public and private key for jwt.
+    # Always assume local servers
+    os.environ['DRIFT_USE_LOCAL_SERVERS'] = '1'
 
-    app.config['private_key'] = private_test_key
-    app.config['jwt_trusted_issuers'] = [
-        {
-            "iss": app.config['name'],
-            "pub_rsa": public_test_key,
-        }
+    # TODO: Refactor deployable name logic once it's out of flask config.
+    from drift.flaskfactory import load_flask_config
+    driftconfig.testhelpers.DEPL_NAME = str(load_flask_config()['name'])
+
+    ts = driftconfig.testhelpers.create_test_domain()
+    set_sticky_config(ts)
+
+    # Create a test tenant
+    tier_name = driftconfig.testhelpers.get_name('tier')
+    tenant_name = driftconfig.testhelpers.get_name('tenant')
+    os.environ['DRIFT_TIER'] = tier_name
+    os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
+    conf = get_config(tenant_name=tenant_name)
+
+    # Fixup tier defaults
+    conf.tier['resource_defaults'] = [
     ]
 
-private_test_key = '''
------BEGIN RSA PRIVATE KEY-----
-MIIBygIBAAJhAOOEkKLzpVY5zNbn2zZlz/JlRe383fdnsuy2mOThXpJc9Tq+GuI+
-PJJXsNa5wuPBy32r46/N8voe/zUG4qYrrRCRyjmV0yu4kZeNPSdO4uM4K98P1obr
-UaYrik9cpwnu8QIDAQABAmA+BSAMW5CBfcYZ+yAlpwFVmUfDxT+YtpruriPlmI3Y
-JiDvP21CqSaH2gGptv+qaGQVq8E1xcxv9jT1qK3b7wm7+xoxTYyU0XqZC3K+lGeW
-5L+77H59RwQznG21FvjtRgECMQDzihOiirv8LI2S7yg11/DjC4c4lIzupjnhX2ZH
-weaLJcjGogS/labJO3b2Q8RUimECMQDvKKKl1KiAPNvuylcrDw6+yXOBDw+qcwiP
-rKysATJ2iCsOgnLC//Rk3+SN3R2+TpECMGjAglOOsu7zxu1levk16cHu6nm2w6u+
-yfSbkSXaTCyb0vFFLR+u4e96aV/hpCfs4QIwd/I0aOFYRUDAuWmoAEOEDLHyiSbp
-n34kLBLZY0cSbRpsJdHNBvniM/mKoo/ki/7RAjEAtpt6ixFoEP3w/2VLh5cut61x
-E74vGa3+G/KdGO94ZnI9uxySb/czhnhvOGkpd9/p
------END RSA PRIVATE KEY-----
-'''
+    conf.tier['service_user'] = {
+        "password": "SERVICE",
+        "username": "user+pass:$SERVICE$"
+    }
 
-public_test_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDjhJCi86VWOc" \
-    "zW59s2Zc/yZUXt/N33Z7Lstpjk4V6SXPU6vhriPjySV7DWucLjwct9q+Ovz" \
-    "fL6Hv81BuKmK60Qkco5ldMruJGXjT0nTuLjOCvfD9aG61GmK4pPXKcJ7vE=" \
-    " unittest@dg-api.com"
+    # Provision resources
+    resources = conf.drift_app.get("resources")
+    for module_name in resources:
+        m = importlib.import_module(module_name)
+        if hasattr(m, "provision"):
+            provisioner_name = m.__name__.split('.')[-1]
+            log.info("Provisioning '%s' for tenant '%s' on tier '%s'", provisioner_name, tenant_name, tier_name)
+            conf.tier['resource_defaults'].append({
+                'resource_name': provisioner_name,
+                'parameters': getattr(m, 'NEW_TIER_DEFAULTS', {}),
+                })
+            m.provision(conf, {}, recreate='recreate')
 
+
+    # mixamix
+    from drift.appmodule import app
+    app.config['TESTING'] = True
+
+    return conf
 
 
 def remove_tenant():
@@ -135,22 +132,6 @@ def remove_tenant():
         )
         return
     # TODO: Not implemented!
-
-
-def user_payload(user_id=1, player_id=1, role="player", user_name="user_name", client_id=1):
-    """Returns a dictionary containing typical user data for a JWT"""
-    return {
-        "user_id": user_id,
-        "player_id": player_id,
-        "roles": [role],
-        "user_name": user_name,
-        "client_id": client_id,
-    }
-
-
-def set_config_file(test_filename):
-    config_file = abspath(join(test_filename, "..", "..", "..", "config", "config.json"))
-    os.environ.setdefault("drift_CONFIG", config_file)
 
 
 def create_standard_claims_for_test():
@@ -185,7 +166,6 @@ def create_standard_claims_for_test():
 
 
 class DriftBaseTestCase(unittest.TestCase):
-
     headers = {}
     token = None
     current_user = {}
@@ -214,7 +194,7 @@ class DriftBaseTestCase(unittest.TestCase):
         """
         Note that here we must use a inner function, otherwise mock
         will be evaluated at the module import time, by which time
-        the 'drift_test_target' environ variable has not been setup yet
+        the 'DRIFT_TEST_TARGET' environ variable has not been setup yet
         """
         @DriftBaseTestCase.mock
         def inner(self, method, endpoint, data, params, *args, **kw):
@@ -296,32 +276,25 @@ class DriftBaseTestCase(unittest.TestCase):
     def setUp(self):
         pass
 
-    def auth(self, payload=None, username="systest"):
+    def auth(self, username=None):
         """
-        If payload is supplied we JWT encode it using the current
-        app's secret and add it to the headers.
-        If payload is not supplied we do an auth call against the
-        current app's /auth endpoint
+        Do an auth call against the current app's /auth endpoint and fetch the
+        root document which includes all user endpoints.
         """
-        if not payload:
-            payload = {
-                "username": username,
-                "password": local_password,
-            }
-            resp = self.post("/auth", data=payload)
-            token = resp.json()["token"]
-            jti = resp.json()["jti"]
-        else:
-            payload.update(create_standard_claims_for_test())
-            from appmodule import app
-            token = jwt.encode(payload, app.config['private_key'], algorithm='RS256')
-            jti = payload["jti"]
-        self.token = token
-        self.jti = jti
+        username = username or "systest"
+        payload = {
+            "provider": "unit_test",
+            "username": username,
+            "password": local_password,
+        }
+        resp = self.post("/auth", data=payload)
+
+        self.token = resp.json()["token"]
+        self.jti = resp.json()["jti"]
         self.current_user = jwt.decode(self.token, verify=False)
         self.player_id = self.current_user["player_id"]
         self.user_id = self.current_user["user_id"]
-        self.headers = {"Authorization": "JWT " + token, }
+        self.headers = {"Authorization": "JWT " + self.token}
 
         r = self.get("/")
         self.endpoints = r.json()["endpoints"]
@@ -350,12 +323,33 @@ class DriftBaseTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        setup_tenant()
         target = _get_test_target()
         cls.host = target or "http://localhost"
         if not target:
             from appmodule import app
             cls.app = app.test_client()
 
+        import drift.core.extensions.jwt as jwtauth
+        if jwtauth.authenticate is None:
+            jwtauth.authenticate = _authenticate_mock
+
     @classmethod
     def tearDownClass(cls):
-        pass
+        remove_tenant()
+
+        import drift.core.extensions.jwt as jwtauth
+        if jwtauth.authenticate is _authenticate_mock:
+            jwtauth.authenticate = None
+
+
+def _authenticate_mock(username, password, automatic_account_creation = True):
+    ret = {
+        'user_name': username,
+        'identity_id': username,
+        'user_id': crc32(username),
+        'player_id': crc32(username),
+        'roles': ['service'] if username == service_username else [],
+    }
+
+    return ret
