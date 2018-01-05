@@ -32,7 +32,7 @@ def register_deployable(ts, deployablename, attributes):
     pass
 
 
-def register_deployable_on_tier(ts, deployable, attributes, app_config):
+def register_deployable_on_tier(ts, deployable, attributes):
     """
     Deployable registration callback for tier.
     'deployable' is from table 'deployables'.

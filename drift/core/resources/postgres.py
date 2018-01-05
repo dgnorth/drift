@@ -25,14 +25,6 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def register_deployable(ts, deployablename, attributes):
-    """
-    Deployable registration callback.
-    'deployablename' is from table 'deployable-names'.
-    """
-    pass
-
-
 # defaults when making a new tier
 TIER_DEFAULTS = {
     "server": "<PLEASE FILL IN>",
@@ -44,6 +36,26 @@ TIER_DEFAULTS = {
 }
 
 
+def register_deployable(ts, deployablename, attributes):
+    """
+    Deployable registration callback.
+    'deployablename' is from table 'deployable-names'.
+    """
+    # Make sure 'models' is specified in attributes
+    if 'models' not in attributes:
+        raise RuntimeError('''
+'models' is a required attribute for postgres resource.
+Add to config.json the name of the modules containing your SQLAlchemy db models.
+Example:
+
+    "resource_attributes": {
+            "drift.core.resources.postgres": {
+                "models": ["%s.db.models"]
+            }
+    }
+    ''' % deployablename['deployable_name'].replace('-', ''))
+
+
 def register_resource_on_tier(ts, tier, attributes):
     """
     Tier registration callback.
@@ -53,16 +65,13 @@ def register_resource_on_tier(ts, tier, attributes):
     pass
 
 
-def register_deployable_on_tier(ts, deployable, attributes, app_config):
+def register_deployable_on_tier(ts, deployable, attributes):
     """
     Deployable registration callback.
     'deployable' is from table 'deployables'.
     """
     # Add default parameters for Postgres connection if needed.
-
-    # For somewhat legacy purposes we automatically inject the db model module names
-    # in the config here:
-    attributes['models'] = app_config['models']
+    pass
 
 
 def provision_resource(ts, tenant_config, attributes):

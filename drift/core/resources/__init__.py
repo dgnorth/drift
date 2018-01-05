@@ -50,7 +50,8 @@ def register_this_deployable(ts, package_info, resources, resource_attributes):
     pk = {'deployable_name': package_info['name']}
     orig_row = tbl.get(pk)
     if orig_row:
-        row, orig_row = orig_row, orig_row.copy()
+        row = orig_row
+        orig_row = orig_row.copy()
     else:
         pk['display_name'] = package_info['description']  # This is a required field
         row = tbl.add(pk)
@@ -65,16 +66,21 @@ def register_this_deployable(ts, package_info, resources, resource_attributes):
     for module_name in row['resources']:
         m = importlib.import_module(module_name)
         if hasattr(m, 'register_deployable'):
+            attributes = resource_attributes.setdefault(module_name, {})
             m.register_deployable(
                 ts=ts,
                 deployablename=row,
-                attributes=resource_attributes.get(module_name, {}),
+                attributes=attributes,
             )
+
+            # For cleanliness, remove resource attribute entry if it's empty
+            if not attributes:
+                del resource_attributes[module_name]
 
     return {'old_registration': orig_row, 'new_registration': row}
 
 
-def register_this_deployable_on_tier(ts, tier_name, deployable_name, app_config):
+def register_this_deployable_on_tier(ts, tier_name, deployable_name):
     """
     Registers tier specific info for a deployable package.
 
@@ -100,7 +106,6 @@ def register_this_deployable_on_tier(ts, tier_name, deployable_name, app_config)
                 ts=ts,
                 deployable=row,
                 attributes=attributes,
-                app_config=app_config
             )
 
             # For cleanliness, remove resource attribute entry if it's empty
@@ -158,7 +163,7 @@ def register_tier(ts, tier_name, resources=None):
             if k not in attributes or attributes[k] == "<PLEASE FILL IN>":
                 attributes[k] = v
 
-        # Give resource module chance to do any custom work
+        # Give resource module chance to do custom work
         if hasattr(resource['module'], 'register_resource_on_tier'):
             resource['module'].register_resource_on_tier(
                 ts=ts,

@@ -13,7 +13,7 @@ Drift deployables are now self-registering. It is done using a CLI or REST API.
 Example:
 
 ```bash
-drift-admin --config dgnorth deployable register --tiers DEVNORTH
+drift-admin --config dgnorth register --tiers DEVNORTH
 ```
 This command creates or updates the registration info for this deployable in Drift config database. It will also create or update resource registration and tier default value registration.
 
