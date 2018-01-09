@@ -59,7 +59,7 @@ def provision_resource(ts, tenant_config, attributes):
             red.make_key("*"), tenant_config['state']
         )
         red.delete_all()
-        report.append("Redis cache was deleted.")
+        report.append("Redis cache was flushed.")
     else:
         report.append("No action needed.")
 
