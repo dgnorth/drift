@@ -142,7 +142,7 @@ def get_tier_resource_modules(ts, tier_name, skip_loading=False):
     return modules
 
 
-def register_tier(ts, tier_name, resources=None):
+def register_tier_defaults(ts, tier_name, resources=None):
     """
     Registers tier specific default values for resources.
     Note, this is deployable-agnostic info.

@@ -1,17 +1,17 @@
 """
-Build an AWS AMI for this service
+Register or update a deploable.
 """
 import subprocess
 import json
-import logging
+import sys
 
-from driftconfig.util import get_drift_config
 from driftconfig.config import TSTransaction
 from driftconfig.relib import copy_table_store
 
 from drift.utils import pretty
-from drift.management import get_app_version, get_app_name
-from drift.core.resources import get_tier_resource_modules, register_tier, register_this_deployable, register_this_deployable_on_tier
+from drift.core.resources import (
+    get_tier_resource_modules, register_tier_defaults, register_this_deployable,
+    register_this_deployable_on_tier)
 
 
 # Enable simple in-line color and styling of output
@@ -30,7 +30,7 @@ except ImportError:
 def get_options(parser):
 
     parser.add_argument(
-        "--tiers", help="List of tiers to register this deployble. Ommit this arument to register deployable on all tiers.",
+        "--tiers", help="List of tiers to enable this deployable. (Optional)",
         nargs='*',
     )
     parser.add_argument(
@@ -46,7 +46,6 @@ def run_command(args):
     info = get_package_info()
     name = info['name']
 
-    # click.secho("Product {s.BRIGHT}{}{s.NORMAL}:".format(product['product_name'], **styles))
     print "Registering/updating deployable {s.BRIGHT}{}{s.NORMAL}:".format(name, **styles)
     print "Package info:"
     print pretty(info)
@@ -83,16 +82,27 @@ def run_command(args):
 
         print ""
 
-        for tier in ts.get_table('tiers').find():
-            tier_name = tier['tier_name']
-            if args.tiers and tier_name not in args.tiers:
-                continue
+        if not args.tiers:
+            print "Not enabling this deployable on any tier. (See --tiers argument)."
 
-            print "Registering on tier {s.BRIGHT}{}{s.NORMAL}:".format(tier_name, **styles)
+        for tier_name in args.tiers:
+            print "Enable deployable on tier {s.BRIGHT}{}{s.NORMAL}:".format(tier_name, **styles)
+            tier = ts.get_table('tiers').get({'tier_name': tier_name})
+            if not tier:
+                print "{f.RED}Tier '{}' not found! Exiting.".format(tier_name, **styles)
+                sys.exit(1)
+
+            ret = register_this_deployable_on_tier(ts, tier_name=tier_name, deployable_name=name)
+
+            if ret['new_registration']['is_active'] != is_active:
+                ret['new_registration']['is_active'] = is_active
+                print "Note: Marking this deployable as {} on tier '{}'.".format(
+                    "active" if is_active else "inactive", tier_name)
 
             # For convenience, register resource default values as well. This
             # is idempotent so it's fine to call it periodically.
-            resources = get_tier_resource_modules(ts=ts, tier_name=tier_name)
+            resources = get_tier_resource_modules(
+                ts=ts, tier_name=tier_name, skip_loading=True)
 
             # See if there is any attribute that needs prompting,
             # Any default parameter from a resource module that is marked as <PLEASE FILL IN> and
@@ -106,19 +116,14 @@ def run_command(args):
                         # Let's prompt if and only if the value isn't already set.
                         attributes = config_resources.get(resource['module_name'], {})
                         if k not in attributes or attributes[k] == "<PLEASE FILL IN>":
-                            print "Enter value for {s.BRIGHT}{}.{}{s.NORMAL}:".format(resource['module_name'], k, **styles),
+                            print "Enter value for {s.BRIGHT}{}.{}{s.NORMAL}:".format(
+                                resource['module_name'], k, **styles),
                             resource['default_attributes'][k] = raw_input()
 
             print "\nDefault values for resources configured for this tier:"
             print pretty(config_resources)
 
-            register_tier(ts=ts, tier_name=tier_name, resources=resources)
-            ret = register_this_deployable_on_tier(ts, tier_name=tier_name, deployable_name=name)
-
-            if ret['new_registration']['is_active'] != is_active:
-                ret['new_registration']['is_active'] = is_active
-                print "Note: Marking this deployable as {} on tier '{}'.".format(
-                    "active" if is_active else "inactive", tier_name)
+            register_tier_defaults(ts=ts, tier_name=tier_name, resources=resources)
 
             print "\nRegistration values for this deployable on this tier:"
             print pretty(ret['new_registration'])
