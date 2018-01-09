@@ -28,6 +28,7 @@ To set up the PostgreSQL server, see [PostgreSQL setup](postgres-setup.md).
 A single configuration database covers all configuration settings for Drift based tiers and apps. Managing this database is done using the `dconf` command line suite (and `driftconfig` in some cases).
 
 Let's create a configuration database for **KneeDeep Studios**:
+
 ```bash
 # We pick a location in our home directory
 driftconfig create kdstudios file://~/kdstudios
