@@ -99,7 +99,7 @@ def provision_resource(ts, tenant_config, attributes):
             attributes['server'] = 'localhost'
 
     # Initialize the DB name if applicable
-    if not attributes.get('database)':
+    if not attributes.get('database'):
         attributes["database"] = "{}.{}".format(
             tenant_config['tenant_name'], tenant_config['deployable_name'])
 
