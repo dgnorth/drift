@@ -125,7 +125,7 @@ def get_tier_resource_modules(ts, tier_name, skip_loading=False):
     deployables = ts.get_table('deployables')
     for deployable in deployables.find({'tier_name': tier_name}):
         row = deployables.get_foreign_row(deployable, 'deployable-names')
-        resources |= set(row['resources'])
+        resources |= set(row.get('resources', []))  # Update resource module list
 
     modules = []
     for module_name in resources:
