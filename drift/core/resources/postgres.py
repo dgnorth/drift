@@ -81,7 +81,6 @@ def provision_resource(ts, tenant_config, attributes):
     LEGACY SUPPORT: 'attributes' points to the current resource attributes within 'tenant_config'.
     """
     report = []
-    attributes = attributes.copy()
 
     # LEGACY SUPPORT:
     # The old provision logic would load in config.json on its own to get the app name. Now we simply
@@ -105,21 +104,21 @@ def provision_resource(ts, tenant_config, attributes):
 
     if tenant_config['state'] == 'initializing':
         # Create or recreate db
-        if db_exists(attributes):
-            drop_db(attributes, force=True)
+        if db_exists(attributes.copy()):
+            drop_db(attributes.copy(), force=True)
             report.append("Database for tenant already existed, dropped the old DB.")
-        create_db(attributes)
-        report.append("Created a new DB: {}".format(format_connection_string(attributes)))
+        create_db(attributes.copy())
+        report.append("Created a new DB: {}".format(format_connection_string(attributes.copy())))
     elif tenant_config['state'] == 'active':
-        if not db_exists(attributes):
+        if not db_exists(attributes.copy()):
             log.warning(
                 "Database for tenant '%s' doesn't exist, which is unexpected. Creating one now.",
                 tenant_config['tenant_name']
             )
-            create_db(attributes)
+            create_db(attributes.copy())
             report.append("Database didn't exist, which was unexpected, so a new DB was created: {}".format(
-                format_connection_string(attributes)))
-        report.append("Database check successfull for DB: {}".format(format_connection_string(attributes)))
+                format_connection_string(attributes.copy())))
+        report.append("Database check successfull for DB: {}".format(format_connection_string(attributes.copy())))
     elif tenant_config['state'] == 'uninitializing':
         # Archive or delete db
         pass
