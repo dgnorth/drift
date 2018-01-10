@@ -6,7 +6,7 @@ import subprocess
 from driftconfig.config import TSTransaction
 
 from drift.utils import pretty
-from drift.core.resources import register_this_deployable
+from driftconfig.util import register_this_deployable
 
 
 # Enable simple in-line color and styling of output

@@ -11,7 +11,7 @@ import redis
 from redlock import RedLockFactory
 from werkzeug._compat import integer_types
 
-from drift.core.resources import get_parameters
+from driftconfig.util import get_parameters
 
 
 log = logging.getLogger(__name__)
@@ -227,7 +227,6 @@ class RedisCache(object):
         self.set('_dummy', 'ok')
         compound_key = self.make_key("*")
         for key in self.conn.scan_iter(compound_key, count=150000):  # Arbitrary count but otherwise it locks up.
-            print "CONN DELETEING KEY", key
             self.conn.delete(key)
 
 

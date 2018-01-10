@@ -64,9 +64,7 @@ def setup_tenant():
     """
     global _tenant_is_set_up
     if _tenant_is_set_up:
-        tenant_name = driftconfig.testhelpers.get_name('tenant')
-        conf = get_config(tenant_name=tenant_name)
-        return conf
+        return
 
     _tenant_is_set_up = True
 
@@ -74,48 +72,26 @@ def setup_tenant():
     # Always assume local servers
     os.environ['DRIFT_USE_LOCAL_SERVERS'] = '1'
 
+
     # TODO: Refactor deployable name logic once it's out of flask config.
     from drift.flaskfactory import load_flask_config
     driftconfig.testhelpers.DEPL_NAME = str(load_flask_config()['name'])
 
+    # Create a test tenant, including the kitchen sink.
     ts = driftconfig.testhelpers.create_test_domain()
     set_sticky_config(ts)
 
-    # Create a test tenant
-    tier_name = driftconfig.testhelpers.get_name('tier')
-    tenant_name = driftconfig.testhelpers.get_name('tenant')
+    tier = ts.get_table('tiers').find()[0]
+    tier_name = tier['tier_name']
+    tenant = ts.get_table('tenant-names').find({'tier_name': tier_name})[0]
+    tenant_name = tenant['tenant_name']
     os.environ['DRIFT_TIER'] = tier_name
     os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
-    conf = get_config(tenant_name=tenant_name)
-
-    # Fixup tier defaults
-    conf.tier['resource_defaults'] = [
-    ]
-
-    conf.tier['service_user'] = {
-        "password": "SERVICE",
-        "username": "user+pass:$SERVICE$"
-    }
-
-    # Provision resources
-    resources = conf.drift_app.get("resources")
-    for module_name in resources:
-        m = importlib.import_module(module_name)
-        if hasattr(m, "provision"):
-            provisioner_name = m.__name__.split('.')[-1]
-            log.info("Provisioning '%s' for tenant '%s' on tier '%s'", provisioner_name, tenant_name, tier_name)
-            conf.tier['resource_defaults'].append({
-                'resource_name': provisioner_name,
-                'parameters': getattr(m, 'NEW_TIER_DEFAULTS', {}),
-                })
-            m.provision(conf, {}, recreate='recreate')
-
 
     # mixamix
     from drift.appmodule import app
     app.config['TESTING'] = True
 
-    return conf
 
 
 def remove_tenant():

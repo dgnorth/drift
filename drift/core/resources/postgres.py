@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
 import os
 import os.path
 import importlib
@@ -19,7 +20,7 @@ from flask import g, abort
 from flask import _app_ctx_stack as stack
 
 from drift.flaskfactory import load_flask_config
-from drift.core.resources import get_parameters
+from driftconfig.util import get_parameters
 
 import logging
 log = logging.getLogger(__name__)
