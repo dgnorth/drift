@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
-import httplib
 import unittest
 
-from driftconfig.testhelpers import create_test_domain, get_name
-from driftconfig.util import set_sticky_config, get_drift_config
+from driftconfig.testhelpers import create_test_domain
+from driftconfig.util import get_drift_config
 from drift.core.extensions.apikeyrules import get_api_key_rule
 from drift.tests import DriftTestCase
 
@@ -98,7 +97,6 @@ class ApiKeyRulesTest(DriftTestCase):
         url = "https://%s.kaleo.io/drift" % self.tenant_name_1
         rule = get_api_key_rule(headers, url, self.conf)
         self.assertIsNone(rule)
-
 
     def test_no_api_key_means_pass(self):
         # The reason for this is that some endpoints don't need
