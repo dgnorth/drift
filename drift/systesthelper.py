@@ -68,17 +68,12 @@ def setup_tenant():
 
     _tenant_is_set_up = True
 
-
-    # Always assume local servers
-    os.environ['DRIFT_USE_LOCAL_SERVERS'] = '1'
-
-
     # TODO: Refactor deployable name logic once it's out of flask config.
     from drift.flaskfactory import load_flask_config
     driftconfig.testhelpers.DEPL_NAME = str(load_flask_config()['name'])
 
     # Create a test tenant, including the kitchen sink.
-    ts = driftconfig.testhelpers.create_test_domain()
+    ts = driftconfig.testhelpers.create_test_domain(provision_resources=True)
     set_sticky_config(ts)
 
     tier = ts.get_table('tiers').find()[0]
