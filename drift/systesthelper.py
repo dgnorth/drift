@@ -70,10 +70,14 @@ def setup_tenant():
 
     # TODO: Refactor deployable name logic once it's out of flask config.
     from drift.flaskfactory import load_flask_config
-    driftconfig.testhelpers.DEPL_NAME = str(load_flask_config()['name'])
+    app_config = load_flask_config()
+    driftconfig.testhelpers.DEPL_NAME = str(app_config['name'])
 
     # Create a test tenant, including the kitchen sink.
-    ts = driftconfig.testhelpers.create_test_domain(provision_resources=True)
+    ts = driftconfig.testhelpers.create_test_domain(
+        resources=app_config['resources'],
+        resource_attributes=app_config['resource_attributes'],
+    )
     set_sticky_config(ts)
 
     tier = ts.get_table('tiers').find()[0]
