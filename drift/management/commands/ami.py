@@ -41,8 +41,14 @@ UBUNTU_RELEASE = UBUNTU_XENIAL_IMAGE_NAME
 
 IAM_ROLE = "ec2"
 
+
 # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
-AMI_OWNER_CANONICAL = '099720109477'
+def _get_canonical_owner_id(region_id):
+    """Returns region specific owner id for Canonical which is the maintainer of Ubuntu images."""
+    if region_id.startswith('cn-'):
+        return '837727238323'
+    else:
+        return '099720109477'
 
 
 def get_options(parser):
@@ -142,14 +148,21 @@ def _bake_command(args):
     else:
         name = get_app_name()
 
-    name = get_app_name()
-    tier_name = get_tier_name()
-    conf = get_drift_config(
-        tier_name=tier_name, deployable_name=name, drift_app=load_flask_config())
+    conf = get_drift_config(deployable_name=name, drift_app=load_flask_config())
 
     domain = conf.domain.get()
+    if 'aws' not in domain or 'ami_baking_region' not in domain['aws']:
+        print "Missing configuration value in table 'domain'. Specify the AWS region in " \
+            "'aws.ami_baking_region'."
+        sys.exit(1)
     aws_region = domain['aws']['ami_baking_region']
     ec2 = boto3.resource('ec2', region_name=aws_region)
+
+    # Do some compatibility checks
+    if aws_region.startswith("cn-"):
+        print "NOTE!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        print "If this command fails with some AWS access crap, you may need to switch packer version."
+        print "More info: https://github.com/hashicorp/packer/issues/5447"
 
     print "DOMAIN:\n", json.dumps(domain, indent=4)
     if not args.ubuntu:
@@ -164,7 +177,7 @@ def _bake_command(args):
         filters = [
             {'Name': 'name', 'Values': [UBUNTU_RELEASE]},
         ]
-        amis = list(ec2.images.filter(Owners=[AMI_OWNER_CANONICAL], Filters=filters))
+        amis = list(ec2.images.filter(Owners=[_get_canonical_owner_id(aws_region)], Filters=filters))
         if not amis:
             print "No AMI found matching '{}'. Not sure what to do now.".format(UBUNTU_RELEASE)
             sys.exit(1)
@@ -384,8 +397,14 @@ def _run_command(args):
     tier_name = get_tier_name()
     conf = get_drift_config(
         tier_name=tier_name, deployable_name=name, drift_app=load_flask_config())
-    aws_region = conf.tier['aws']['region']
 
+    if not conf.deployable:
+        print "The deployable '{}' is not registered and/or assigned to tier {}.".format(name, tier_name)
+        print "Run 'drift-admin register' to register this deployable."
+        print "Run 'driftconfig assign-tier {}' to assign it to the tier.".format(name)
+        sys.exit(1)
+
+    aws_region = conf.tier['aws']['region']
 
     print "AWS REGION:", aws_region
     print "DOMAIN:\n", json.dumps(conf.domain.get(), indent=4)
