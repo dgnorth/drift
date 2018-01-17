@@ -30,12 +30,12 @@ pip install uwsgi
 # Workaround for ContextualVersionConflict: (six 1.5.2
 pip install --upgrade six
 
-echo ----------------- Installing Splunk Forwarder -----------------
-apt-get install -y -q rpm
-wget https://s3-ap-southeast-1.amazonaws.com/pm-builds/redist/splunkforwarder-6.2.4-271043-linux-2.6-x86_64.rpm
-rpm -i --nodeps splunkforwarder-6.2.4-271043-linux-2.6-x86_64.rpm
-/opt/splunkforwarder/bin/splunk start --answer-yes --no-prompt --accept-license
-/opt/splunkforwarder/bin/splunk enable boot-start
+# echo ----------------- Installing Splunk Forwarder -----------------
+# apt-get install -y -q rpm
+# wget https://s3-ap-southeast-1.amazonaws.com/pm-builds/redist/splunkforwarder-6.2.4-271043-linux-2.6-x86_64.rpm
+# rpm -i --nodeps splunkforwarder-6.2.4-271043-linux-2.6-x86_64.rpm
+# /opt/splunkforwarder/bin/splunk start --answer-yes --no-prompt --accept-license
+# /opt/splunkforwarder/bin/splunk enable boot-start
 echo ----------------- Configuring environment -----------------
 sh -c 'sudo echo PYTHONDONTWRITEBYTECODE=1 >> /etc/environment'
 
