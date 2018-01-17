@@ -25,14 +25,7 @@ except ImportError:
 def get_options(parser):
 
     parser.add_argument(
-        "--tiers", help="List of tiers to enable this deployable. (Optional)",
-        nargs='*',
-    )
-    parser.add_argument(
         "--preview", help="Only preview the changes, do not commit to origin.", action="store_true"
-    )
-    parser.add_argument(
-        "--inactive", help="Mark the deployable inactive. By default the deployable will be marked as active.", action="store_true"
     )
 
 
