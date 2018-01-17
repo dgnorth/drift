@@ -20,7 +20,6 @@ from flask import g, abort
 from flask import _app_ctx_stack as stack
 
 from drift.flaskfactory import load_flask_config
-from driftconfig.util import get_parameters
 
 import logging
 log = logging.getLogger(__name__)
@@ -127,15 +126,6 @@ def provision_resource(ts, tenant_config, attributes):
     return report
 
 
-# defaults when making a new tier
-NEW_TIER_DEFAULTS = {
-    "server": "<PLEASE FILL IN>",
-    "database": None,
-    "port": 5432,
-    "username": "zzp_user",
-    "password": "zzp_user",
-    "driver": "postgresql",
-}
 
 # we need a single master db on all db instances to perform db maintenance
 MASTER_DB = 'postgres'
@@ -400,28 +390,10 @@ def drop_db(_params, force=False):
     log.info("Database '%s' has been dropped on '%s'", db_name, params["server"])
 
 
-def provision(config, args, recreate=None):
-    params = get_parameters(config, args, NEW_TIER_DEFAULTS.keys(), "postgres")
-    params = process_connection_values(params)
-    if not params["database"]:
-        params["database"] = "{}.{}".format(config.tenant_name['tenant_name'], config.deployable['deployable_name'])
-    config.tenant["postgres"] = params
-
-    if db_exists(params):
-        if recreate == 'recreate':
-            drop_db(params)
-        elif recreate == 'skip':
-            return
-        else:
-            raise RuntimeError("Database already exists. %s" % format_connection_string(params))
-
-    create_db(params)
-
-
 def healthcheck():
     if "postgres" not in g.conf.tenant:
         abort(httplib.SERVICE_UNAVAILABLE, "Tenant config does not have 'postgres' section.")
-    for k in NEW_TIER_DEFAULTS.keys():
+    for k in TIER_DEFAULTS.keys():
         if not g.conf.tenant["postgres"].get(k):
             abort(httplib.SERVICE_UNAVAILABLE, "'postgres' config missing key '%s'" % k)
 

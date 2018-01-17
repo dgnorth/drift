@@ -230,17 +230,10 @@ class RedisCache(object):
             self.conn.delete(key)
 
 
-# defaults when making a new tier
-# Note: This data structure is used by driftconfig.config.update_cache function.
-NEW_TIER_DEFAULTS = {
-    "host": "<PLEASE FILL IN>",
-    "port": 6379,
-    "socket_timeout": 5,
-    "socket_connect_timeout": 5
-}
 
+# NOTE THIS IS DEPRECATED AND NEEDS TO BE UPGRADED TO NU STYLE PROVISIONING LOGIC
 def provision(config, args, recreate=None):
-    params = get_parameters(config, args, NEW_TIER_DEFAULTS.keys(), "redis")
+    params = get_parameters(config, args, TIER_DEFAULTS.keys(), "redis")
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         params['host'] = 'localhost'
     config.tenant["redis"] = params
@@ -252,7 +245,7 @@ def provision(config, args, recreate=None):
 def healthcheck():
     if "redis" not in g.conf.tenant:
         raise RuntimeError("Tenant config does not have 'redis'")
-    for k in NEW_TIER_DEFAULTS.keys():
+    for k in TIER_DEFAULTS.keys():
         if not g.conf.tenant["redis"].get(k):
             raise RuntimeError("'redis' config missing key '%s'" % k)
 
