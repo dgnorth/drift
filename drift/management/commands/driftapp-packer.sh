@@ -1,5 +1,12 @@
 set -x
 
+AWS_WHERE=`curl -s http://169.254.169.254/latest/meta-data/services/partition`
+if [ ${AWS_WHERE} = 'aws-cn' ]; then
+    echo "----------------- Using China Pypi mirror: http://mirrors.aliyun.com/pypi/simple -----------------"
+    export PIP_INDEX_URL=http://mirrors.aliyun.com/pypi/simple
+    export PIP_TRUSTED_HOST=mirrors.aliyun.com
+fi
+
 echo "----------------- pip installing ${service}-${version}.zip -----------------"
 pip install ~/${service}-${version}.zip
 
