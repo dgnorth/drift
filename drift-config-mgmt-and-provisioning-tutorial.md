@@ -69,7 +69,8 @@ Register the Kaleo deployable if it hasn't been done already:
 
 ```bash
 # In kaleo-web folder:
-drift-admin --config dgnorth deployable register --tiers DEVNORTH
+drift-admin --config dgnorth register --tiers DEVNORTH
+driftconfig assign-tier --config dgnorth kaleo-web --tiers DEVNORTH
 ```		
 
 Next step is to create the Kaleo tenant itself and provision its resources:
