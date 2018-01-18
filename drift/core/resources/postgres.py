@@ -62,7 +62,19 @@ def register_resource_on_tier(ts, tier, attributes):
     'tier' is from table 'tiers'.
     'attributes' is a dict containing optional attributes for default values.
     """
-    pass
+    # Create the tier default user on the DBMS and assign "can login" privilege
+    # and add role "rds_superuser".
+    params = process_connection_values(attributes)
+    params["username"] = MASTER_USER
+    params["password"] = MASTER_PASSWORD
+    params["database"] = MASTER_DB
+    engine = connect(params)
+    try:
+        engine.execute("create user zzp_user with password 'zzp_user';")
+    except Exception as e:
+        if "already exists" not in str(e):
+            raise
+    engine.execute("grant rds_superuser to zzp_user;")
 
 
 def register_deployable_on_tier(ts, deployable, attributes):
@@ -256,7 +268,7 @@ def connect(params, connect_timeout=None):
         isolation_level='AUTOCOMMIT',
         connect_args={
             'connect_timeout': connect_timeout or 10,
-            'application_name': params['application_name'],
+            'application_name': params.get('application_name', 'drift.core.resources.postgres'),
         }
     )
     return engine
