@@ -74,7 +74,12 @@ def register_resource_on_tier(ts, tier, attributes):
     except Exception as e:
         if "already exists" not in str(e):
             raise
-    engine.execute("grant rds_superuser to zzp_user;")
+    try:
+        engine.execute("grant rds_superuser to zzp_user;")
+    except Exception as e:
+        # This DBMS is not an AWS PostgreSQL instance so we just ignore this.
+        if "role \"rds_superuser\" does not exist" not in str(e):
+            raise
 
 
 def register_deployable_on_tier(ts, deployable, attributes):
