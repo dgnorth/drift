@@ -92,10 +92,18 @@ def run_command(args):
         print "app '{}' has {} test modules".format(app, n)
 
     suites = {}
-    for module_name in test_modules:
+    for module_name in test_modules[:]:
         # first import it to see if we get any errors
-        m = importlib.import_module(module_name)
-        suites[module_name] = unittest.defaultTestLoader.loadTestsFromName(module_name)
+        try:
+            m = importlib.import_module(module_name)
+        except ImportError as e:
+            # HACK: the 'runsystest' command will be deprecated in favour of pytest, but in
+            # order to get pytest to work, some rearrangement of modules was neccessary which
+            # blew up here. This work-around works well enough for the time being.
+            if 'No module named' not in str(e):
+                raise
+        else:
+            suites[module_name] = unittest.defaultTestLoader.loadTestsFromName(module_name)
 
     tests_to_run = []
     tests_to_skip = []
