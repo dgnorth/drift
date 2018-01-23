@@ -62,24 +62,7 @@ def register_resource_on_tier(ts, tier, attributes):
     'tier' is from table 'tiers'.
     'attributes' is a dict containing optional attributes for default values.
     """
-    # Create the tier default user on the DBMS and assign "can login" privilege
-    # and add role "rds_superuser".
-    params = process_connection_values(attributes)
-    params["username"] = MASTER_USER
-    params["password"] = MASTER_PASSWORD
-    params["database"] = MASTER_DB
-    engine = connect(params)
-    try:
-        engine.execute("create user zzp_user with password 'zzp_user';")
-    except Exception as e:
-        if "already exists" not in str(e):
-            raise
-    try:
-        engine.execute("grant rds_superuser to zzp_user;")
-    except Exception as e:
-        # This DBMS is not an AWS PostgreSQL instance so we just ignore this.
-        if "role \"rds_superuser\" does not exist" not in str(e):
-            raise
+    pass
 
 
 def register_deployable_on_tier(ts, deployable, attributes):
@@ -97,6 +80,22 @@ def provision_resource(ts, tenant_config, attributes):
     'tenant_config' is a row from 'tenants' table for the particular tenant, tier and deployable.
     LEGACY SUPPORT: 'attributes' points to the current resource attributes within 'tenant_config'.
     """
+
+    # Create the tier default user on the DBMS and assign "can login" privilege
+    # and add role "rds_superuser".
+    params = process_connection_values(attributes)
+    params["username"] = MASTER_USER
+    params["password"] = MASTER_PASSWORD
+    params["database"] = MASTER_DB
+    engine = connect(params)
+    params['role'] = 'rds_superuser'
+    sql = "CREATE ROLE zzp_user6 IN ROLE {role} PASSWORD '{password}';".format(**params)
+    try:
+        engine.execute(sql)
+    except Exception as e:
+        if "already exists" not in str(e):
+            raise
+
     report = []
 
     # LEGACY SUPPORT:
