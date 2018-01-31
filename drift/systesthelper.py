@@ -8,13 +8,10 @@ import unittest
 import responses
 import requests
 import re
-from datetime import datetime, timedelta
 import jwt
-import importlib
 from binascii import crc32
 
-from drift.utils import get_config
-from driftconfig.util import set_sticky_config
+from driftconfig.util import set_sticky_config, get_default_drift_config
 import driftconfig.testhelpers
 
 import logging
@@ -44,100 +41,69 @@ def flushwrite(text):
     sys.stdout.flush()
 
 
-def _get_test_target():
-    target = os.environ.get("DRIFT_TEST_TARGET")
-    return target
-
-
 _tenant_is_set_up = False
 
 
-def setup_tenant():
+def setup_tenant(config_size=None, use_app_config=True):
     """
     Called from individual test modules.
     create a tenant only if the test module was not called from
     the kitrun's systest command
     (in which case drift_test_database has been set in environ)
-    Also configure some basic parameters in the app
+    Also configure some basic parameters in the app.
 
-    Returns the config object from get_config()
+    TODO: Fix up app config. In the meantime:
+    If 'use_app_config' is True, the tenant will be set up using
+    app config from /config/config.json. If not, the tenant is set
+    up using empty app config.
+
+    Returns the table store object for the current config.
     """
     global _tenant_is_set_up
     if _tenant_is_set_up:
-        return
+        return get_default_drift_config()
 
     _tenant_is_set_up = True
 
-    # TODO: Refactor deployable name logic once it's out of flask config.
-    from drift.flaskfactory import load_flask_config
-    app_config = load_flask_config()
-    driftconfig.testhelpers.DEPL_NAME = str(app_config['name'])
+    # TODO: Fix this app config business
+    from drift.flaskfactory import load_flask_config, set_sticky_app_config
+    if use_app_config:
+        app_config = load_flask_config()
+    else:
+        app_config = {'resources': [], 'resource_attributes': {}}
+    set_sticky_app_config(app_config)
 
     # Create a test tenant, including the kitchen sink.
     ts = driftconfig.testhelpers.create_test_domain(
+        config_size=config_size,
         resources=app_config['resources'],
         resource_attributes=app_config['resource_attributes'],
     )
     set_sticky_config(ts)
 
+    # Pick any tier as the default tier then pick any tenant and deployable from that tier
+    # as the default for each respectively.
     tier = ts.get_table('tiers').find()[0]
     tier_name = tier['tier_name']
-    tenant = ts.get_table('tenant-names').find({'tier_name': tier_name})[0]
-    tenant_name = tenant['tenant_name']
+    tenant = ts.get_table('tenants').find({'tier_name': tier_name})[0]
+    deployable = ts.get_table('deployables').find({'tier_name': tier_name})[0]
+
     os.environ['DRIFT_TIER'] = tier_name
-    os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
+    os.environ['DRIFT_DEFAULT_TENANT'] = tenant['tenant_name']
+    app_config['name'] = deployable['deployable_name']
 
     # mixamix
-    from drift.appmodule import app
-    app.config['TESTING'] = True
+    app_config['TESTING'] = True
 
+    return ts
 
 
 def remove_tenant():
     """
     Called from individual test modules.
-    remove the tenant only if the test module
-    was not called from the kitrun's systest command
+    Does nothing at the momen
     """
-    test_target = _get_test_target()
-    if test_target:
-        flushwrite(
-            "Skipping tenant removal due to "
-            "manually specified test target: %s" % test_target
-        )
-        return
-    # TODO: Not implemented!
-
-
-def create_standard_claims_for_test():
-    """
-    Duplicate of the code from jwtsetup but does not use the
-    application context to get tenant, deployable and tier
-    (which should probably be refactored instead of duplicated)
-    """
-    from appmodule import app
-
-    expire = 86400
-    tier_name = get_tier_name()
-    iat = datetime.utcnow()
-    exp = iat + timedelta(seconds=expire)
-    nbf = iat + timedelta(seconds=0)
-    jti = str(uuid.uuid4()).replace("-", "")
-    iss = app.config["name"]
-    standard_claims = {
-        # JWT standard fields
-        'iat': iat,
-        'exp': exp,
-        'nbf': nbf,
-        'jti': jti,
-        'iss': iss,
-
-        # Drift fields
-        'tier': tier_name,
-        'tenant': _get_test_db(),
-        'deployable': iss,
-    }
-    return standard_claims
+    pass
 
 
 class DriftBaseTestCase(unittest.TestCase):
@@ -155,21 +121,14 @@ class DriftBaseTestCase(unittest.TestCase):
             self._setup_mocking()
             return func(self, *args, **kwargs)
 
-        def passthrough(self, *args, **kwargs):
-            return func(self, *args, **kwargs)
-
-        if _get_test_target():
-            return passthrough
-        else:
-            return wrapped
+        return wrapped
 
     def _do_request(self, method, endpoint, data=None,
                     params=None, *args, **kw):
 
         """
         Note that here we must use a inner function, otherwise mock
-        will be evaluated at the module import time, by which time
-        the 'DRIFT_TEST_TARGET' environ variable has not been setup yet
+        will be evaluated at the module import time.
         """
         @DriftBaseTestCase.mock
         def inner(self, method, endpoint, data, params, *args, **kw):
@@ -299,11 +258,9 @@ class DriftBaseTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         setup_tenant()
-        target = _get_test_target()
-        cls.host = target or "http://localhost"
-        if not target:
-            from appmodule import app
-            cls.app = app.test_client()
+        cls.host = "http://localhost"
+        from appmodule import app
+        cls.app = app.test_client()
 
         import drift.core.extensions.jwt as jwtauth
         if jwtauth.authenticate is None:
@@ -318,7 +275,7 @@ class DriftBaseTestCase(unittest.TestCase):
             jwtauth.authenticate = None
 
 
-def _authenticate_mock(username, password, automatic_account_creation = True):
+def _authenticate_mock(username, password, automatic_account_creation=True):
     ret = {
         'user_name': username,
         'identity_id': username,

@@ -1,20 +1,10 @@
 # -*- coding: utf-8 -*-
 import unittest
 
-from driftconfig.testhelpers import create_test_domain
 from driftconfig.util import get_drift_config
 from drift.core.extensions.apikeyrules import get_api_key_rule
 from drift.tests import DriftTestCase
-
-from drift.systesthelper import setup_tenant, remove_tenant
-
-
-def xsetUpModule():
-    setup_tenant()
-
-
-def xtearDownModule():
-    remove_tenant()
+from drift.systesthelper import setup_tenant
 
 
 class ApiKeyRulesTest(DriftTestCase):
@@ -30,7 +20,7 @@ class ApiKeyRulesTest(DriftTestCase):
             'num_tenants': 2,
         }
 
-        ts = create_test_domain(config_size)
+        ts = setup_tenant(config_size=config_size, use_app_config=False)
         cls.ts = ts
         cls.tier_name = ts.get_table('tiers').find()[0]['tier_name']
         cls.product_name = ts.get_table('products').find()[0]['product_name']

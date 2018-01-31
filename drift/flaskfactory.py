@@ -112,7 +112,19 @@ def _find_app_root(_use_cwd=False):
     return app_root
 
 
+_sticky_app_config = None
+
+
+def set_sticky_app_config(app_config):
+    """Assign permanently 'app_config' as the one and only app config. Useful for tests."""
+    global _sticky_app_config
+    _sticky_app_config = app_config
+
+
 def load_flask_config(app_root=None):
+    if _sticky_app_config is not None:
+        return _sticky_app_config
+
     app_root = app_root or _find_app_root()
     config_filename = os.path.join(app_root, 'config', 'config.json')
     log.info("Loading configuration from %s", config_filename)
