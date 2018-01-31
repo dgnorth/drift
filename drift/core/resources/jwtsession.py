@@ -37,7 +37,6 @@ def register_deployable_on_tier(ts, deployable, attributes):
     Deployable registration callback for tier.
     'deployable' is from table 'deployables'.
     """
-    # Add a route to this deployable.
     pk = {'tier_name': deployable['tier_name'], 'deployable_name': deployable['deployable_name']}
     row = ts.get_table('public-keys').get(pk)
     if row is None:
@@ -85,19 +84,20 @@ def register_deployable_on_tier(ts, deployable, attributes):
         row.setdefault('keys', []).append(keypair)
 
     # LEGACY SUPPORT! Register drift-base as trusted issuer. Always.
-    issuers = deployable.setdefault('jwt_trusted_issuers', [])
-    for issuer in issuers:
-        if issuer.get('iss') == 'drift-base':
-            log.warning("Legacy support: drift-base already configured as trusted issuer.")
-            break
-    else:
-        log.warning("Legacy support: Adding drift-base as trusted issuer.")
-        issuers.append({
-            'iss': 'drift-base',
-            'iat': current_keypair['issued'],
-            'exp': current_keypair['expires'],
-            'pub_rsa': current_keypair['public_key'],
-        })
+    if deployable['deployable_name'] == 'drift-base':
+        issuers = deployable.setdefault('jwt_trusted_issuers', [])
+        for issuer in issuers:
+            if issuer.get('iss') == 'drift-base':
+                log.warning("Legacy support: drift-base already configured as trusted issuer.")
+                break
+        else:
+            log.warning("Legacy support: Adding drift-base as trusted issuer.")
+            issuers.append({
+                'iss': 'drift-base',
+                'iat': current_keypair['issued'],
+                'exp': current_keypair['expires'],
+                'pub_rsa': current_keypair['public_key'],
+            })
 
 
 def register_resource_on_tier(ts, tier, attributes):

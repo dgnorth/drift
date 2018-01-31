@@ -33,6 +33,10 @@ JWT_LEEWAY = 10
 # Tis a hack:
 JWT_EXPIRATION_DELTA_FOR_SERVICES = 60 * 60 * 24 * 365
 
+# Implicitly trust following issuers:
+TRUSTED_ISSUERS = set(['drift-base'])
+
+
 log = logging.getLogger(__name__)
 bp = Blueprint("jwtapi", __name__)
 api = Api(bp)
@@ -170,6 +174,9 @@ def _fix_legacy_auth(auth_info):
 def jwtsetup(app):
 
     app.register_blueprint(bp)
+
+    # Always trust myself
+    TRUSTED_ISSUERS.add(app.config['name'])
 
     @app.before_request
     def before_request():
@@ -407,20 +414,35 @@ def verify_token(token, auth_type):
         if not issuer:
             abort_unauthorized("Invalid JWT. The 'iss' field is missing.")
 
-        trusted_issuers = g.conf.deployable['jwt_trusted_issuers']
-        for trusted_issuer in trusted_issuers:
-            if trusted_issuer["iss"] == issuer:
-                try:
-                    payload = jwt.decode(token, trusted_issuer["pub_rsa"],
-                                         options=options,
-                                         algorithms=[algorithm],
-                                         leeway=leeway)
-                except jwt.InvalidTokenError as e:
-                    abort_unauthorized("Invalid token: %s" % str(e))
-                break
-        else:
-            abort_unauthorized("Invalid JWT. Issuer '%s' not known "
-                               "or not trusted." % issuer)
+        public_key = None
+
+        if issuer in TRUSTED_ISSUERS:
+            ts = g.conf.table_store
+            public_keys = ts.get_table('public-keys')
+            drift_base_key = public_keys.get(
+                {'tier_name': g.conf.tier['tier_name'], 'deployable_name': issuer})
+            if drift_base_key:
+                public_key = drift_base_key['keys'][0]['public_key']
+
+        if public_key is None:
+            trusted_issuers = g.conf.deployable.get('jwt_trusted_issuers', [])
+            for trusted_issuer in trusted_issuers:
+                if trusted_issuer["iss"] == issuer:
+                    public_key = trusted_issuer["pub_rsa"]
+                    break
+
+        if public_key is None:
+            abort_unauthorized("Invalid JWT. Issuer '%s' not known or not trusted." % issuer)
+
+        try:
+            payload = jwt.decode(
+                token, public_key,
+                options=options,
+                algorithms=[algorithm],
+                leeway=leeway
+            )
+        except jwt.InvalidTokenError as e:
+            abort_unauthorized("Invalid token: %s" % str(e))
 
         # Verify tenant and tier
         tenant, tier = payload.get('tenant'), payload.get('tier')
