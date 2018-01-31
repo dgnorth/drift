@@ -89,11 +89,18 @@ def provision_resource(ts, tenant_config, attributes):
     params["database"] = MASTER_DB
     engine = connect(params)
     params['role'] = 'rds_superuser'
-    sql = "CREATE ROLE zzp_user6 IN ROLE {role} PASSWORD '{password}';".format(**params)
+    sql = "CREATE ROLE zzp_user PASSWORD '{password}';".format(**params)
     try:
         engine.execute(sql)
     except Exception as e:
         if "already exists" not in str(e):
+            raise
+
+    sql = "GRANT {role} TO zzp_user;".format(**params)
+    try:
+        engine.execute(sql)
+    except Exception as e:
+        if "role \"{role}\" does not exist".format(**params) not in str(e):
             raise
 
     report = []
