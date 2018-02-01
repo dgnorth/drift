@@ -17,11 +17,8 @@ from werkzeug.security import pbkdf2_hex, gen_salt
 
 from drift.utils import get_tier_name
 
-try:
-    import auth_mixin
-    authenticate = getattr(auth_mixin, "authenticate", None)
-except ImportError:
-    authenticate = None
+# LEGACY: Callback function for authentication
+authenticate = None
 
 
 JWT_VERIFY_CLAIMS = ['signature', 'exp', 'iat']
