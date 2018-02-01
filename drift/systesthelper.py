@@ -101,9 +101,13 @@ def setup_tenant(config_size=None, use_app_config=True):
 def remove_tenant():
     """
     Called from individual test modules.
-    Does nothing at the momen
     """
-    pass
+    global _tenant_is_set_up
+    if _tenant_is_set_up:
+        from drift.flaskfactory import set_sticky_app_config
+        set_sticky_app_config(None)
+        set_sticky_config(None)
+        _tenant_is_set_up = False
 
 
 class DriftBaseTestCase(unittest.TestCase):
@@ -262,17 +266,17 @@ class DriftBaseTestCase(unittest.TestCase):
         from appmodule import app
         cls.app = app.test_client()
 
-        import drift.core.extensions.jwt as jwtauth
-        if jwtauth.authenticate is None:
-            jwtauth.authenticate = _authenticate_mock
+        import driftbase.auth.authenticate
+        if driftbase.auth.authenticate.authenticate is None:
+            driftbase.auth.authenticate.authenticate = _authenticate_mock
 
     @classmethod
     def tearDownClass(cls):
         remove_tenant()
 
-        import drift.core.extensions.jwt as jwtauth
-        if jwtauth.authenticate is _authenticate_mock:
-            jwtauth.authenticate = None
+        import driftbase.auth.authenticate
+        if driftbase.auth.authenticate.authenticate is _authenticate_mock:
+            driftbase.auth.authenticate.authenticate = None
 
 
 def _authenticate_mock(username, password, automatic_account_creation=True):

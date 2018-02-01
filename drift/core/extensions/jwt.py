@@ -18,7 +18,7 @@ from werkzeug.security import pbkdf2_hex, gen_salt
 from drift.utils import get_tier_name
 
 # LEGACY: Callback function for authentication
-authenticate = None
+authenticate_with_provider = None
 
 
 JWT_VERIFY_CLAIMS = ['signature', 'exp', 'iat']
@@ -42,6 +42,7 @@ api = Api(bp)
 def abort_unauthorized(description):
     """Raise an Unauthorized exception.
     """
+    print "FUDGE!", description
     abort(httplib.UNAUTHORIZED, description=description)
 
 
@@ -195,13 +196,18 @@ def jwtsetup(app):
         if "provider" not in auth_info:
             auth_info = _fix_legacy_auth(auth_info)
 
-        automatic_account_creation = auth_info.get("automatic_account_creation", True)
-
-        identity = None
         provider_details = auth_info.get('provider_details')
 
         # TODO: Move specific auth logic outside this module.
         # Steam and Game Center. should not be in here.
+
+        # In fact only JWT is supported by all drift based deployables. Everything else
+        # is specific to drift-base.
+        if authenticate_with_provider is None and auth_info['provider'] not in ['jwt', 'jti']:
+            abort_unauthorized(
+                "Bad Request. Unknown provider '{}'. Only 'jwt' and 'jti' are "
+                "supported".format(auth_info['provider'])
+            )
 
         if auth_info['provider'] == "jwt":
             # Authenticate using a JWT. We validate the token,
@@ -216,71 +222,8 @@ def jwtsetup(app):
                 identity = get_cached_token(provider_details['jti'])
             if not identity:
                 abort_unauthorized("Bad Request. Invalid JTI.")
-        elif auth_info['provider'] in ['device_id', 'user+pass', 'uuid', 'unit_test']:
-            # Authenticate using access key, secret key pair
-            # (or username, password pair)
-            identity = authenticate(auth_info['username'],
-                                    auth_info['password'],
-                                    automatic_account_creation)
-        elif auth_info['provider'] == "gamecenter":
-            from drift.auth.gamecenter import validate_gamecenter_token
-            identity_id = validate_gamecenter_token(provider_details)
-            # The GameCenter user_id cannot be stored in plain text, so let's
-            # give it one cycle of hashing.
-            username = "gamecenter:" + pbkdf2_hex(identity_id, "staticsalt",
-                                                  iterations=1)
-            identity = authenticate(username, "", automatic_account_creation)
-        elif auth_info['provider'] == "steam":
-            from drift.auth.steam import validate_steam_ticket
-            identity_id = validate_steam_ticket()
-            username = "steam:" + identity_id
-            identity = authenticate(username, "", True or automatic_account_creation)
-        elif auth_info['provider'] == "oculus" and provider_details.get('provisional', False):
-            if len(provider_details['username']) < 1:
-                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
-            username = "oculus:" + provider_details['username']
-            password = provider_details['password']
-            identity = authenticate(username, password, True or automatic_account_creation)
-        elif auth_info['provider'] == "oculus":
-            from drift.auth.oculus import validate_oculus_ticket
-            identity_id = validate_oculus_ticket()
-            username = "oculus:" + identity_id
-            identity = authenticate(username, "", True or automatic_account_creation)
-        elif auth_info['provider'] == "viveport" and provider_details.get('provisional', False):
-            if len(provider_details['username']) < 1:
-                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
-            username = "viveport:" + provider_details['username']
-            password = provider_details['password']
-            identity = authenticate(username, password, True or automatic_account_creation)
-        elif auth_info['provider'] == "hypereal" and provider_details.get('provisional', False):
-            if len(provider_details['username']) < 1:
-                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
-            username = "hypereal:" + provider_details['username']
-            password = provider_details['password']
-            identity = authenticate(username, password, True or automatic_account_creation)
-        elif auth_info['provider'] == "googleplay" and provider_details.get('provisional', False):
-            if len(provider_details['username']) < 1:
-                abort_unauthorized("Bad Request. 'username' cannot be an empty string.")
-            username = "googleplay:" + provider_details['username']
-            password = provider_details['password']
-            identity = authenticate(username, password, automatic_account_creation)
-        elif auth_info['provider'] == "googleplay":
-            from drift.auth.googleplay import validate_googleplay_token
-            identity_id = validate_googleplay_token()
-            username = "googleplay:" + identity_id
-            identity = authenticate(username, "", automatic_account_creation)
-        elif auth_info['provider'] == "psn":
-            from drift.auth.psn import validate_psn_ticket
-            identity_id = validate_psn_ticket()
-            username = "psn:" + identity_id
-            identity = authenticate(username, "", automatic_account_creation)
-        elif auth_info['provider'] == "7663":
-            username = "7663:" + provider_details['username']
-            password = provider_details['password']
-            identity = authenticate(username, password, True or automatic_account_creation)
         else:
-            abort_unauthorized("Bad Request. Unknown provider '%s'." %
-                               auth_info['provider'])
+            identity = authenticate_with_provider(auth_info)
 
         if not identity or not identity.get("identity_id"):
             raise RuntimeError("authenticate must return a dict with at"
