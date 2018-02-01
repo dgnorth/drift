@@ -220,12 +220,10 @@ def get_sqlalchemy_session(conn_string=None):
     Return an SQLAlchemy session for the specified DB connection string
     """
     if not conn_string:
-        ci = None
-        if g.conf.tenant:
-            ci = g.conf.tenant.get('postgres')
-        if not ci:
-            return
+        if not g.conf.tenant:
+            abort(httplib.BAD_REQUEST, "No DB resource available because no tenant is specified.")
 
+        ci = g.conf.tenant.get('postgres')
         conn_string = format_connection_string(ci)
 
     log.debug("Creating sqlalchemy session with connection string '%s'", conn_string)
