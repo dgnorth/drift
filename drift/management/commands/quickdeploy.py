@@ -4,18 +4,16 @@ Note that this is currently just calling the old setup.py script
 and will be refactored soon.
 """
 import os
-import subprocess, sys
-from fabric.api import env, run, settings, hide
+import subprocess
+import sys
+from fabric.api import env, run, settings
 from fabric.operations import put
-from time import sleep
-import json
 import tempfile
 import shutil
 import pkg_resources
 
 from drift.management import get_ec2_instances
 from drift.utils import get_config
-from drift import slackbot
 
 EC2_USERNAME = 'ubuntu'
 UWSGI_LOGFILE = "/var/log/drift/server.log"
@@ -50,6 +48,11 @@ def get_options(parser):
 
 def run_command(args):
     conf = get_config()
+    if not conf.deployable:
+        print "Deployable '{}' not found in config '{}'.".format(
+            conf.drift_app['name'], conf.domain['domain_name'])
+        sys.exit(1)
+
     service_name = conf.deployable['deployable_name']
     tier = conf.tier['tier_name']
     region = conf.tier['aws']['region']

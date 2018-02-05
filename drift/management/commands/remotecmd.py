@@ -1,3 +1,5 @@
+import sys
+
 from fabric.api import env, run
 from drift.management import get_ec2_instances
 from drift.utils import get_config
@@ -21,6 +23,11 @@ def run_command(args):
         return
 
     conf = get_config()
+    if not conf.deployable:
+        print "Deployable '{}' not found in config '{}'.".format(
+            conf.drift_app['name'], conf.domain['domain_name'])
+        sys.exit(1)
+
     service_name = conf.deployable['deployable_name']
     tier = conf.tier['tier_name']
     region = conf.tier['aws']['region']

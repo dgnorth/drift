@@ -35,6 +35,11 @@ def get_options(parser):
 
 def run_command(args):
     conf = get_config()
+    if not conf.deployable:
+        print "Deployable '{}' not found in config '{}'.".format(
+            conf.drift_app['name'], conf.domain['domain_name'])
+        sys.exit(1)
+
     deployable_name = conf.deployable['deployable_name']
     tier = conf.tier['tier_name']
     region = conf.tier['aws']['region']
