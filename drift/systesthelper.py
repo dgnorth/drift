@@ -9,10 +9,12 @@ import responses
 import requests
 import re
 import jwt
-from binascii import crc32
 
 from driftconfig.util import set_sticky_config, get_default_drift_config
 import driftconfig.testhelpers
+
+import drift.core.extensions.jwt
+
 
 import logging
 log = logging.getLogger(__name__)
@@ -260,32 +262,38 @@ class DriftBaseTestCase(unittest.TestCase):
         self.endpoints = r.json()["endpoints"]
 
     @classmethod
+    def _authenticate_with_provider(cls, auth_info):
+        user_name = auth_info['username'] or 'systest'
+        user_id = abs(hash(user_name) & 0x7FFFFF)
+        identity = {
+            'user_name': user_name or 'systest_user_name',
+            'user_id': user_id,
+            'identity_id': user_id + 1,
+            'player_id': user_id + 2,
+            'player_name': 'systest_player_name',
+            'roles': ['service'] if user_name == service_username else [],
+        }
+        return identity
+
+    @classmethod
     def setUpClass(cls):
         setup_tenant()
         cls.host = "http://localhost"
         from appmodule import app
         cls.app = app.test_client()
 
-        import driftbase.auth.authenticate
-        if driftbase.auth.authenticate.authenticate is None:
-            driftbase.auth.authenticate.authenticate = _authenticate_mock
+        # Note: If driftbase.auth.authenticate module has been imported, it means that
+        # the current app is drift-base and it has its proper auth handlers hooked up.
+        # If the current app is not drift-base, we need to provide a callback function that
+        # returns an identity.has not been imported.
+        # This is generally a bad way of injecting dependencies and will hopefully be cleaned
+        # up in the near future.
+        if drift.core.extensions.jwt.authenticate_with_provider is None:
+            drift.core.extensions.jwt.authenticate_with_provider = cls._authenticate_with_provider
 
     @classmethod
     def tearDownClass(cls):
         remove_tenant()
 
-        import driftbase.auth.authenticate
-        if driftbase.auth.authenticate.authenticate is _authenticate_mock:
-            driftbase.auth.authenticate.authenticate = None
-
-
-def _authenticate_mock(username, password, automatic_account_creation=True):
-    ret = {
-        'user_name': username,
-        'identity_id': username,
-        'user_id': crc32(username),
-        'player_id': crc32(username),
-        'roles': ['service'] if username == service_username else [],
-    }
-
-    return ret
+        if drift.core.extensions.jwt.authenticate_with_provider is cls._authenticate_with_provider:
+            drift.core.extensions.jwt.authenticate_with_provider = None
