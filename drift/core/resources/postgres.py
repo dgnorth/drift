@@ -348,6 +348,8 @@ def create_db(params):
         log.info("Building models from %s", model_module_name)
         models = importlib.import_module(model_module_name)
         models.ModelBase.metadata.create_all(engine)
+        if hasattr(models, 'on_create_db'):
+            models.on_create_db(engine)
 
     # stamp the db with the latest alembic upgrade version
     alembic_not_supported = True
