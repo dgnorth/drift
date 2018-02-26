@@ -89,7 +89,7 @@ def provision_resource(ts, tenant_config, attributes):
     params["database"] = MASTER_DB
     engine = connect(params)
     params['role'] = 'rds_superuser'
-    sql = "CREATE ROLE zzp_user PASSWORD '{password}';".format(**params)
+    sql = "CREATE ROLE zzp_user LOGIN PASSWORD 'zzp_user' VALID UNTIL 'infinity';"
     try:
         engine.execute(sql)
     except Exception as e:
@@ -328,7 +328,7 @@ def create_db(params):
 
     # TODO: This will only run for the first time and fail in all other cases.
     # Maybe test before instead?
-    sql = 'CREATE ROLE {user} LOGIN PASSWORD "{user}" VALID UNTIL "infinity";'.format(user=username)
+    sql = "CREATE ROLE zzp_user LOGIN PASSWORD 'zzp_user' VALID UNTIL 'infinity';"
     try:
         engine.execute(sql)
     except Exception as e:
