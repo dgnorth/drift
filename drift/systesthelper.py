@@ -119,6 +119,7 @@ class DriftBaseTestCase(unittest.TestCase):
     endpoints = {}
     player_id = None
     user_id = None
+    player_name = None
 
     @staticmethod
     def mock(func):
@@ -216,7 +217,7 @@ class DriftBaseTestCase(unittest.TestCase):
     def setUp(self):
         pass
 
-    def auth(self, username=None):
+    def auth(self, username=None, player_name=None):
         """
         Do an auth call against the current app's /auth endpoint and fetch the
         root document which includes all user endpoints.
@@ -235,6 +236,7 @@ class DriftBaseTestCase(unittest.TestCase):
         self.player_id = self.current_user["player_id"]
         self.user_id = self.current_user["user_id"]
         self.headers = {"Authorization": "JWT " + self.token}
+        self.player_name = player_name or username
 
         r = self.get("/")
         self.endpoints = r.json()["endpoints"]
@@ -257,6 +259,7 @@ class DriftBaseTestCase(unittest.TestCase):
         self.player_id = self.current_user["player_id"]
         self.user_id = self.current_user["user_id"]
         self.headers = {"Authorization": "JWT " + token, }
+        self.player_name = service_username
 
         r = self.get("/")
         self.endpoints = r.json()["endpoints"]
