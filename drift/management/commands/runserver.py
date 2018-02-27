@@ -6,9 +6,12 @@ import sys
 import logging
 import os
 import socket
+import importlib
+
+from driftconfig.util import get_drift_config
 
 from drift import webservers
-from drift.utils import pretty
+from drift.utils import pretty, enumerate_plugins, get_config, get_tier_name
 
 log = logging.getLogger(__name__)
 
@@ -68,6 +71,25 @@ def run_command(args):
 
     print pretty("\n\n--------------------- Drift server starting up.... --------------------\n", )
 
+    # NOTE: Assumes there is at least one tier defined in the config.
+    if 'DRIFT_TIER' in os.environ:
+        tier_pick = "(Specified on command line or from environment variable DRIFT_TIER)"
+    else:
+        # Pick one automatically.
+        tiers_table = get_drift_config().table_store.get_table('tiers')
+        tiers = tiers_table.find({'default': True})
+        if tiers:
+            tier_pick = "(Marked as default in config)"
+        else:
+            tiers = tiers_table.find()
+            if len(tiers) > 1:
+                tier_pick = "(Randomly picked from config)"
+                print "No tier specified. Randomly picked", tiers[0]['tier_name']
+            else:
+                tier_pick = "(The only tier defined in the config)"
+        if tiers:
+            os.environ['DRIFT_TIER'] = tiers[0]['tier_name']
+
     # Importing the app as late as possible
     from drift.appmodule import app
 
@@ -85,36 +107,40 @@ def run_command(args):
         app.config["PROFILE"] = True
         app.wsgi_app = ProfilerMiddleware(app.wsgi_app, restrictions=[30])
 
-    if not args.localservers and not os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-        print pretty("Running Flask without 'localservers' option.\n"
-            "Either specify it on the command line using --localservers "
-            "or set the environment variable DRIFT_USE_LOCAL_SERVERS=1"
-        )
+    # Turn on local server mode
+    os.environ['DRIFT_USE_LOCAL_SERVERS'] = '1'
+    print pretty("Running Flask with 'localserver' option. The following modules will "
+        "run in local server mode:")
+    for module_name in enumerate_plugins(app.config)['all']:
+        m = importlib.import_module(module_name)
+        if getattr(m, 'HAS_LOCAL_SERVER_MODE', False):
+            print "    " + module_name
+
+    if 'DRIFT_DEFAULT_TENANT' in os.environ:
+        tenant_pick = "(Specified on command line or from environment variable DRIFT_DEFAULT_TENANT)"
     else:
-        print pretty(
-            "Running Flask with 'localserver' option. Host names of all servers "
-            "(Postgres, Redis, etc..) will be explicitly changed to 'localhost'."
-        )
-
-    if not args.tenant:
-        from drift.utils import get_config
-        tenant_names = [t['tenant_name'] for t in get_config().tenants]
-        for tenant_name in tenant_names:
-            if 'default' in tenant_name.lower():
-                print pretty("For now, this tenant here will be used as the default "
-                    "tenant: {}".format(tenant_name)
-                )
-                os.environ['DRIFT_DEFAULT_TENANT'] = tenant_name
-
-        if 'DRIFT_DEFAULT_TENANT' not in os.environ:
-            print pretty(
-                "WARNING: Running a server without specifying a tenant. That's madness.\n"
-                "Please pick a tenant on the command line using the -t option (See -h for help).\n"
-                "Available tenants: {}".format(", ".join(tenant_names))
-            )
+        tenants_table = get_config().table_store.get_table('tenant-names')
+        tenants = tenants_table.find({'tier_name': get_tier_name(), 'default': True})
+        if tenants:
+            tenant_pick = "(Marked as default in config)"
         else:
-            print pretty("Note, default tenant is '{}'.".format(os.environ['DRIFT_DEFAULT_TENANT']))
+            tenants = tenants_table.find({'tier_name': get_tier_name()})
+            if len(tenants) > 1:
+                tenant_pick = "(Randomly picked from config)"
+                print "No tenant specified. Randomly picked", tenants[0]['tenant_name']
+            else:
+                tenant_pick = "(The only tenant defined in the config)"
+        if tenants:
+            os.environ['DRIFT_DEFAULT_TENANT'] = tenants[0]['tenant_name']
+
+    if 'DRIFT_DEFAULT_TENANT' not in os.environ:
+        print pretty(
+            "WARNING: Running a server without specifying a tenant.\n"
+            "Pick a tenant on the command line using the -t option (See -h for help)."
+        )
 
     print pretty("Server ready: http://{}:{}".format(socket.gethostname(), app.config.get('PORT', 80)))
+    print pretty("  Tier:   {} {}".format(os.environ['DRIFT_TIER'], tier_pick))
+    print pretty("  Tenant: {} {}".format(os.environ['DRIFT_DEFAULT_TENANT'], tenant_pick))
 
     webservers.run_app(app, args.server)

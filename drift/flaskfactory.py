@@ -7,7 +7,6 @@ import json
 import httplib
 import sys
 import os.path
-import pkgutil
 import time
 
 from flask import jsonify
@@ -18,8 +17,7 @@ import flask_restful
 from werkzeug.contrib.fixers import ProxyFix
 
 from drift.fixers import ReverseProxied, CustomJSONEncoder
-import drift.core.extensions
-from drift.utils import get_config
+from drift.utils import enumerate_plugins, get_config
 
 
 log = logging.getLogger(__name__)
@@ -138,20 +136,9 @@ def load_flask_config(app_root=None):
 def install_modules(app):
     """Install built-in and product specific apps and extensions."""
 
-    # TODO: Use package manager to enumerate and load the modules.
+    plugins = enumerate_plugins(app.config)
+    resources, extensions, apps = plugins['resources'], plugins['extensions'], plugins['apps']
 
-    resources = app.config.get("resources", [])
-    resources.insert(0, 'drift.core.resources.driftconfig')
-    # Include all core extensions and those referenced in the config.
-    pkgpath = os.path.dirname(drift.core.extensions.__file__)
-    extensions = [
-        'drift.core.extensions.' + name
-        for _, name, _ in pkgutil.iter_modules([pkgpath])
-    ]
-    extensions += app.config.get("extensions", [])
-    extensions = sorted(list(set(extensions)))  # Remove duplicates
-
-    apps = app.config.get("apps", [])
     log.info(
         "Installing extras:\nResources:\n\t%s\nExtensions:\n\t%s\nApps:\n\t%s",
         "\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps)

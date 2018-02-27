@@ -36,6 +36,9 @@ TIER_DEFAULTS = {
 }
 
 
+HAS_LOCAL_SERVER_MODE = True  # Supports DRIFT_USE_LOCAL_SERVERS flag.
+
+
 def register_deployable(ts, deployablename, attributes):
     """
     Deployable registration callback.

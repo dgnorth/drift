@@ -22,6 +22,8 @@ log = logging.getLogger(__name__)
 
 CELERY_DB_NUMBER = 15
 
+HAS_LOCAL_SERVER_MODE = True  # Supports DRIFT_USE_LOCAL_SERVERS flag.
+
 
 # Global Celery instance
 celery = None

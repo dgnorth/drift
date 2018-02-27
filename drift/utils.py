@@ -6,6 +6,7 @@ from functools import wraps
 from socket import gethostname
 import uuid
 import json
+import pkgutil
 
 # pygments is optional for now
 try:
@@ -20,11 +21,40 @@ except ImportError:
 from flask import g, make_response, jsonify, request, url_for, current_app
 
 from driftconfig.util import get_drift_config
+
+import drift.core.extensions
 from drift.core.extensions.tenancy import tenant_from_hostname
 
 log = logging.getLogger(__name__)
 
 host_name = gethostname()
+
+
+def enumerate_plugins(config):
+    """Returns a list of resource, extension and app module names for current deployable."""
+
+    # Include explicitly referenced resource modules.
+    resources = config.get("resources", [])
+    resources.insert(0, 'drift.core.resources.driftconfig')  # Hard dependency
+
+    # Include all core extensions and those referenced in the config.
+    pkgpath = os.path.dirname(drift.core.extensions.__file__)
+    extensions = [
+        'drift.core.extensions.' + name
+        for _, name, _ in pkgutil.iter_modules([pkgpath])
+    ]
+    extensions += config.get("extensions", [])
+    extensions = sorted(list(set(extensions)))  # Remove duplicates
+
+    # Include explicitly referenced app modules
+    apps = config.get("apps", [])
+
+    return {
+        'resources': resources,
+        'extensions': extensions,
+        'apps': apps,
+        'all': resources + extensions + apps,
+    }
 
 
 def get_config(ts=None, tier_name=None, tenant_name=None):
@@ -211,7 +241,7 @@ def pretty(ob, lexer=None):
         lexerob = get_lexer_by_name(lexer)
         formatter = get_formatter_by_name(PRETTY_FORMATTER, style=PRETTY_STYLE)
         #from pygments.filters import *
-        #lexerob.add_filter(VisibleWhitespaceFilter())
+        #lexerob.add_filter(VisibleWhitespaceFilter(spaces=True, tabs=True, newlines=True))
         ret = highlight(ob, lexerob, formatter)
     else:
         ret = ob

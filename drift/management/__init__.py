@@ -46,10 +46,6 @@ def do_execute_cmd(argv):
     valid_commands = get_commands()
     parser = argparse.ArgumentParser(description="")
 
-    parser.add_argument("--localservers",
-        help="Use local Postgres and Redis server (override hostname as 'localhost').",
-        action='store_true'
-    )
     parser.add_argument('--tier',
         help="Specify which tenant to use. Will override any other settings."
     )
@@ -93,10 +89,6 @@ def do_execute_cmd(argv):
         print pretty("Drift configuration source: {}".format(source))
     except ConfigNotFound:
         pass
-
-    if args.localservers or os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-        os.environ['DRIFT_USE_LOCAL_SERVERS'] = '1'
-        print pretty("Using localhost for Redis and Postgres connections.")
 
     set_pretty_settings(formatter=args.formatter, style=args.style)
 

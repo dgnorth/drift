@@ -28,6 +28,8 @@ TIER_DEFAULTS = {
     "socket_connect_timeout": 5
 }
 
+HAS_LOCAL_SERVER_MODE = True  # Supports DRIFT_USE_LOCAL_SERVERS flag.
+
 
 def _get_redis_connection_info():
     """
