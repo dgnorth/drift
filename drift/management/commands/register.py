@@ -9,19 +9,6 @@ from drift.utils import pretty
 from driftconfig.util import register_this_deployable
 
 
-# Enable simple in-line color and styling of output
-try:
-    from colorama.ansi import Fore, Back, Style
-    styles = {'f': Fore, 'b': Back, 's': Style}
-    # Example: "{s.BRIGHT}Bold and {f.RED}red{f.RESET}{s.NORMAL}".format(**styles)
-except ImportError:
-    class EmptyString(object):
-        def __getattr__(self, name):
-            return ''
-
-    styles = {'f': EmptyString(), 'b': EmptyString(), 's': EmptyString()}
-
-
 def get_options(parser):
 
     parser.add_argument(
@@ -34,7 +21,7 @@ def run_command(args):
     info = get_package_info()
     name = info['name']
 
-    print "Registering/updating deployable {s.BRIGHT}{}{s.NORMAL}:".format(name, **styles)
+    print "Registering/updating deployable {}:".format(name)
     print "Package info:"
     print pretty(info)
     print ""

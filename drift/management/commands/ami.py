@@ -24,7 +24,6 @@ except ImportError:
 from drift.management import get_app_version, create_deployment_manifest
 from drift.management.gittools import get_branch, checkout
 from drift.utils import get_tier_name
-from drift import slackbot
 from driftconfig.util import get_drift_config
 from driftconfig.config import get_redis_cache_backend
 from drift.flaskfactory import load_flask_config
@@ -345,8 +344,6 @@ def _bake_command(args):
         _copy_image(ami.id)
 
     print "Done after %.0f seconds" % (duration)
-    slackbot.post_message("Successfully baked a new AMI for '{}' in %.0f seconds"
-                          .format(name, duration))
 
 
 class MyEncoder(json.JSONEncoder):
@@ -675,14 +672,6 @@ export AWS_REGION={aws_region}
             for k, v in tags.items():
                 instance.add_tag(k, v)
             print "{} running at {}".format(instance, instance.private_ip_address)
-            slackbot.post_message(
-                "Started up AMI '{}' for '{}' on tier '{}' with ip '{}'".format(
-                    ami.id, name,
-                    tier_name,
-                    instance.private_ip_address
-                )
-            )
-
         else:
             print "Instance was not created correctly"
             sys.exit(1)
