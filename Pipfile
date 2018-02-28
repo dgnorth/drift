@@ -1,0 +1,20 @@
+[[source]]
+
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+
+[packages]
+
+driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop', editable = true }
+"e1839a8" = {path = ".", extras = ["dev"], editable = true}
+
+
+[dev-packages]
+
+
+
+[requires]
+
+python_version = "2.7"
