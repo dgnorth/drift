@@ -2,7 +2,6 @@
 import sys
 import os
 import argparse
-import json
 import importlib
 import getpass
 from datetime import datetime
@@ -10,17 +9,12 @@ import logging
 import subprocess
 import socket
 
-import requests
 import boto
-from boto.s3 import connect_to_region
-from boto.s3.connection import OrdinaryCallingFormat
 
 from drift.management.gittools import get_branch, get_commit, get_repo_url, get_git_version
 from drift.utils import pretty, set_pretty_settings, PRETTY_FORMATTER, PRETTY_STYLE
 from driftconfig.util import get_default_drift_config_and_source, ConfigNotFound
 from drift.flaskfactory import AppRootNotFound
-
-TIERS_CONFIG_FILENAME = "tiers-config.json"
 
 
 def get_commands():
@@ -106,119 +100,6 @@ def do_execute_cmd(argv):
     args.func(args)
 
 
-def get_config_path(file_name=None, folder=None):
-    """Returns a full path to a configuration folder for the local user, or a
-    file in that folder.
-    If 'file_name' is set, the function returns a path to the file inside
-    the config folder specified by 'folder'.
-    If 'folder' is not specified, it defaults to ".drift".
-    If the folder doesn't exist, it's created automatically with no files in it.
-    """
-    folder = folder or ".drift"
-    config_path = os.path.join(os.path.expanduser("~"), folder)
-    if not os.path.exists(config_path):
-        os.makedirs(config_path)
-        # Special case for .ssh folder
-        if folder == ".ssh":
-            os.chmod(config_path, 0o700)
-
-    if file_name:
-        config_path = os.path.join(config_path, file_name)
-    return config_path
-
-
-def get_s3_bucket(tiers_config):
-    conn = connect_to_region(tiers_config["region"], calling_format=OrdinaryCallingFormat())
-    bucket_name = "{}.{}".format(tiers_config["bucket"], tiers_config["domain"])
-    bucket = conn.get_bucket(bucket_name)
-    return bucket
-
-
-def get_tiers_config(display_title=True):
-
-    config_file = get_config_path(TIERS_CONFIG_FILENAME)
-    if not os.path.exists(config_file):
-        print "No tiers configuration file found. Use the 'init' command to initialize."
-        sys.exit(1)
-
-    tiers_config = json.load(open(config_file))
-
-    tier_selection_file = get_config_path("TIER")
-    if not os.path.exists(tier_selection_file):
-        if display_title:
-            print "Note: No tier selected. Use the 'use' command to select a tier."
-    else:
-        tier_name = open(tier_selection_file).read().strip()
-        tier_filename = get_config_path("{}.json".format(tier_name))
-        if not os.path.exists(tier_filename):
-            os.remove(tier_selection_file)
-            return get_tiers_config(display_title)
-        tiers_config["active_tier"] = json.load(open(tier_filename))
-
-    if display_title:
-        print "Active domain: {} [{}]".format(tiers_config["title"], tiers_config["domain"])
-        if "active_tier" in tiers_config:
-            print "Active tier: {}".format(tiers_config["active_tier"]["tier"])
-
-    return tiers_config
-
-
-def fetch(path):
-    """Read the contents of the file or url pointed to by 'path'."""
-    try:
-        with open(path) as f:
-            return f.read()
-    except Exception as e1:
-        pass
-
-    try:
-        r = requests.get(path)
-        r.raise_for_status()
-        return r.text
-    except Exception as e2:
-        pass
-
-    try:
-        region, bucket_name, key_name = path.split("/", 2)
-        conn = connect_to_region(region, calling_format=OrdinaryCallingFormat())
-        bucket = conn.lookup(bucket_name)
-        data = bucket.get_key(key_name).get_contents_as_string()
-        return data
-    except Exception as e3:
-        pass
-
-    print "Can't fetch '{}'".format(path)
-    print "   Not a file:", e1
-    print "   Not an URL:", e2
-    print "   Not a bucket:", e3
-
-
-
-def get_app_name():
-    """
-    Return the name of the current app.
-    It's gotten by running: python setup.py --name
-    """
-
-    # HACK: Get app root:
-    from drift.flaskfactory import _find_app_root
-    app_root = _find_app_root()
-
-    p = subprocess.Popen(
-        ['python', 'setup.py', '--name'],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        cwd=app_root
-    )
-    out, err = p.communicate()
-    if p.returncode != 0:
-        raise RuntimeError(
-            "Can't get version of this deployable. Error: {}\n{}".format(p.returncode, err)
-        )
-
-    name = out.strip()
-    return name
-
-
 def get_app_version():
     """
     Return the version of the current app.
@@ -280,7 +161,7 @@ def get_ec2_instances(region, tier, service_name):
     return instances
 
 
-def create_deployment_manifest(method, comment=None):
+def create_deployment_manifest(method, comment=None, deployable_name=None):
     """Returns a dict describing the current deployable."""
 
     git_version = get_git_version()
@@ -288,7 +169,7 @@ def create_deployment_manifest(method, comment=None):
 
     info = {
         'method': method,
-        'deployable': get_app_name(),
+        'deployable': deployable_name,
         'version': get_app_version(),
         'username': getpass.getuser(),
         'comment': comment,
