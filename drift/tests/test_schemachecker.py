@@ -1,4 +1,5 @@
 import unittest
+import json
 
 from flask import Blueprint, request
 from flask_restful import Api, Resource
@@ -20,17 +21,16 @@ class MyTest(DriftTestCase):
         app.register_blueprint(bp)
         return app
 
-
     def test_some_json(self):
         # Test required property
         response = self.post(400, "/schematest", {})
-        bla = response.json.get('description')
+        bla = json.loads(response.data)['description']
         self.assertIn("'string_required' is a required property", bla)
 
         # Test extra unwanted property
         response = self.post(400, "/schematest", {"not_expected": 123})
-        self.assert400(response, response.json['description'])
-        self.assertIn("'additionalProperties': False", response.json.get('description'))
+        self.assertEquals(response.status_code, 400, json.loads(response.data)['description'])
+        self.assertIn("'additionalProperties': False", json.loads(response.data).get('description'))
 
         # Test successfull input data
         response = self.post(200, "/schematest", {"string_required": "x", "string_optional": "x"})
