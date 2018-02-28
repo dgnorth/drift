@@ -232,12 +232,12 @@
         "drift": {
             "editable": true,
             "git": "https://mattig@github.com/dgnorth/drift.git",
-            "ref": "549ae612421b6dd0010ad903aef70b9a35ff09d9"
+            "ref": "8ce220c118717bbab0470fb16d0fae03f15eb7e2"
         },
         "driftconfig": {
             "editable": true,
             "git": "https://github.com/dgnorth/drift-config.git",
-            "ref": "develop"
+            "ref": "06366158931f847894bb53e3440760ab5528c9d6"
         },
         "e1839a8": {
             "editable": true,
@@ -331,6 +331,13 @@
                 "sha256:99a8ca03e29851d96616ad0404b4aad7d9ee16f25c9f9708a11faf2810f7b226"
             ],
             "version": "==2.18"
+        },
+        "pyjwt": {
+            "hashes": [
+                "sha256:a4e5f1441e3ca7b382fd0c0b416777ced1f97c64ef0c33bfa39daf38505cfd2f",
+                "sha256:500be75b17a63f70072416843dc80c8821109030be824f4d14758f114978bae7"
+            ],
+            "version": "==1.5.3"
         },
         "pytest": {
             "hashes": [

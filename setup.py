@@ -30,6 +30,7 @@ setup(
         'redis',
         'redlock',
         'cryptography',
+        'PyJWT',
     ],
 
     extras_require={
