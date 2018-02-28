@@ -6,14 +6,14 @@ cache: pip
 install:
 - pip install travispy
 - pip install codecov
-- pip install cov-core
-- pip install nose2
-- pip install -r requirements.txt
-- pip install .
+- pip install pytest
+- pip install pytest-cov
+- pip install pipenv --upgrade
+- pipenv install --dev --skip-lock
 script:
-- nose2 --log-level=CRITICAL  --with-coverage
+- pytest --cov
 - python scripts/travis_build_dependent_projects.py
-after_success: 
+after_success:
  - codecov
 notifications:
   email:
