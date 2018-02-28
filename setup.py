@@ -1,44 +1,7 @@
-import sys
-from setuptools import find_packages, setup
+from setuptools import setup
 
-with open("VERSION") as f:
+with open('VERSION') as f:
     version = f.read().strip()
-
-EXCLUDE_FROM_PACKAGES = []
-
-
-install_requires=[
-        "Flask",
-        "Flask-Cache",
-        "Flask-JWT",
-        "Flask-RESTful",
-        "requests",
-        "python-dateutil",
-        "jsonschema",
-        "boto",
-        "boto3",
-        "oss2",
-        "redis",
-        "celery",
-        "responses",
-        "SQLAlchemy",
-        "paramiko==1.15.2",
-        "fabric",
-        "colorama",
-        "slacker",
-        "pycrypto",
-        "pyopenssl",
-        "cryptography",
-        "redlock",
-        "alembic",
-        ]
-
-tests_require = [
-    'mock',
-    'nose2',
-    'Flask-Testing',
-    "coverage",
-    ]
 
 
 setup(
@@ -46,21 +9,47 @@ setup(
     version=version,
     license='MIT',
     author='Directive Games North',
-    author_email="info@directivegames.com",
+    author_email='info@directivegames.com',
     description='Micro-framework for SOA based applications',
-    test_suite="nose2.collector.collector",
-    packages=find_packages(exclude=EXCLUDE_FROM_PACKAGES),
+    packages=['drift'],
     include_package_data=True,
     scripts=['scripts/drift-admin.py'],
     entry_points={'console_scripts': [
         'drift-admin = drift.management:execute_cmd',
     ]},
-    install_requires=install_requires + tests_require,
-    tests_require=tests_require,
-    extras_require={},
+
+    install_requires=[
+        'Flask',
+        'Flask-RESTful',
+        'jsonschema',
+        'celery',
+
+        # Resource module dependencies
+        'SQLAlchemy',
+        'alembic',
+        'redis',
+        'redlock',
+        'cryptography',
+    ],
+
+    extras_require={
+        'aws': [
+            'boto',
+            'boto3',
+            'paramiko',
+            'fabric',
+        ],
+        'dev': [
+            'pytest',
+            'coverage',
+            'requests',
+            'responses',
+        ],
+    },
+
     zip_safe=False,
     classifiers=[
-        'Development Status :: 2 - Pre-Alpha',
+        'Development Status :: 4 - Beta',
         'Environment :: Web Environment',
         'Framework :: Flask',
         'Intended Audience :: Developers',
