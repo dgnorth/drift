@@ -21,7 +21,7 @@ try:
 except ImportError:
     pass
 
-from drift.management import get_app_version, get_app_name, create_deployment_manifest
+from drift.management import get_app_version, create_deployment_manifest
 from drift.management.gittools import get_branch, checkout
 from drift.utils import get_tier_name
 from drift import slackbot
@@ -143,12 +143,11 @@ def filterize(d):
 
 
 def _bake_command(args):
+    conf = get_drift_config(drift_app=load_flask_config())
     if args.ubuntu:
         name = UBUNTU_BASE_IMAGE_NAME
     else:
-        name = get_app_name()
-
-    conf = get_drift_config(deployable_name=name, drift_app=load_flask_config())
+        name = conf.drift_app['name']
 
     domain = conf.domain.get()
     if 'aws' not in domain or 'ami_baking_region' not in domain['aws']:
@@ -235,7 +234,7 @@ def _bake_command(args):
             tf.write(setup_script)
             tf.close()
             setup_script_filename = tf.name
-            manifest = create_deployment_manifest('ami', comment=None)
+            manifest = create_deployment_manifest('ami', comment=None, deployable_name=name)
             packer_vars = {
                 'version': get_app_version(),
                 'setup_script': setup_script_filename,
@@ -361,15 +360,14 @@ def pretty(ob):
 
 
 def _find_latest_ami(service_name, release=None):
-    name = get_app_name()
     tier_name = get_tier_name()
-    conf = get_drift_config(tier_name=tier_name, deployable_name=name)
+    conf = get_drift_config(tier_name=tier_name, deployable_name=service_name)
     domain = conf.domain.get()
     aws_region = conf.tier['aws']['region']
 
     ec2 = boto3.resource('ec2', region_name=aws_region)
     filters = [
-        {'Name': 'tag:service-name', 'Values': [name]},
+        {'Name': 'tag:service-name', 'Values': [service_name]},
         {'Name': 'tag:domain-name', 'Values': [domain['domain_name']]},
     ]
     if release:
@@ -393,10 +391,9 @@ def _run_command(args):
         print "Error: Can't use --launch and --autoscale together."
         sys.exit(1)
 
-    name = get_app_name()
     tier_name = get_tier_name()
-    conf = get_drift_config(
-        tier_name=tier_name, deployable_name=name, drift_app=load_flask_config())
+    conf = get_drift_config(tier_name=tier_name, drift_app=load_flask_config())
+    name = conf.drift_app['name']
 
     if not conf.deployable:
         print "The deployable '{}' is not registered and/or assigned to tier {}.".format(name, tier_name)
