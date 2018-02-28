@@ -7,6 +7,7 @@
 from __future__ import absolute_import
 import logging
 import httplib
+from functools import wraps
 
 from flask import request, g, current_app
 from flask import _app_ctx_stack as stack
@@ -74,13 +75,6 @@ class DriftConfig(object):
         except TenantNotConfigured as e:
             abort(httplib.NOT_FOUND, description=str(e))
 
-        if 0:  # Disabling this as it needs to be refactored into a JIT like feature. This simply blocks everything.
-            if conf.tenant and conf.tenant['state'] != 'active' and request.endpoint != "admin.adminprovisionapi":
-                raise TenantNotFoundError(
-                    "Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
-                        conf.tenant['tenant_name'], get_tier_name(), current_app.config['name'], conf.tenant['state'])
-                )
-
         # Add applicable config tables to 'g'
         g.conf = conf
 
@@ -93,6 +87,19 @@ class DriftConfig(object):
             response.cache_control.max_age = 0
 
         return response
+
+
+def check_tenant(f):
+    """Make sure current tenant is provisioned and active."""
+    @wraps(f)
+    def _check(*args, **kwargs):
+        if g.conf.tenant['state'] != 'active':
+            raise TenantNotFoundError(
+                "Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
+                    g.conf.tenant['tenant_name'], get_tier_name(), current_app.config['name'], g.conf.tenant['state'])
+            )
+        return f(*args, **kwargs)
+    return _check
 
 
 def register_extension(app):
