@@ -269,11 +269,11 @@ class DriftBaseTestCase(unittest.TestCase):
         user_name = auth_info['username'] or 'systest'
         user_id = abs(hash(user_name) & 0x7FFFFF)
         identity = {
-            'user_name': user_name or 'systest_user_name',
+            'user_name': auth_info['username'] or 'systest_user_name',
             'user_id': user_id,
             'identity_id': user_id + 1,
             'player_id': user_id + 2,
-            'player_name': 'systest_player_name',
+            'player_name': auth_info['username'] or 'systest_player_name',
             'roles': ['service'] if user_name == service_username else [],
         }
         return identity
