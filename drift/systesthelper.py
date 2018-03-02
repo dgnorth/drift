@@ -106,6 +106,7 @@ def remove_tenant():
     """
     global _tenant_is_set_up
     if _tenant_is_set_up:
+        driftconfig.testhelpers.terminate_tenants(get_default_drift_config())
         from drift.flaskfactory import set_sticky_app_config
         set_sticky_app_config(None)
         set_sticky_config(None)

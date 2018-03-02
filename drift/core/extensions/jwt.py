@@ -13,7 +13,7 @@ from flask import current_app, request, Blueprint, _request_ctx_stack, jsonify, 
 from flask_restful import Api, abort
 
 from werkzeug.local import LocalProxy
-from werkzeug.security import pbkdf2_hex, gen_salt
+from werkzeug.security import gen_salt
 
 from drift.utils import get_tier_name
 
@@ -42,7 +42,6 @@ api = Api(bp)
 def abort_unauthorized(description):
     """Raise an Unauthorized exception.
     """
-    print "FUDGE!", description
     abort(httplib.UNAUTHORIZED, description=description)
 
 

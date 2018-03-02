@@ -7,6 +7,7 @@ from contextlib import contextmanager
 import socket
 import getpass
 import httplib
+import time
 
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
@@ -121,37 +122,37 @@ def provision_resource(ts, tenant_config, attributes):
     attributes['models'] = depl['resource_attributes']['drift.core.resources.postgres']['models']
 
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-            # Override 'server'
-            attributes['server'] = 'localhost'
+        # Override 'server'
+        attributes['server'] = 'localhost'
 
     # Initialize the DB name if applicable
     if not attributes.get('database'):
         attributes["database"] = "{}.{}".format(
             tenant_config['tenant_name'], tenant_config['deployable_name'])
 
+    attributes = attributes.copy()  # Do not give subroutines chance of modifying permanently.
+
     if tenant_config['state'] == 'initializing':
         # Create or recreate db
-        if db_exists(attributes.copy()):
-            drop_db(attributes.copy(), force=True)
+        if db_exists(attributes):
+            drop_db(attributes, force=True)
             report.append("Database for tenant already existed, dropped the old DB.")
-        create_db(attributes.copy())
-        report.append("Created a new DB: {}".format(format_connection_string(attributes.copy())))
+
+        create_db(attributes, report=report)
     elif tenant_config['state'] == 'active':
-        if not db_exists(attributes.copy()):
+        if not db_exists(attributes):
             log.warning(
                 "Database for tenant '%s' doesn't exist, which is unexpected. Creating one now.",
                 tenant_config['tenant_name']
             )
-            create_db(attributes.copy())
-            report.append("Database didn't exist, which was unexpected, so a new DB was created: {}".format(
-                format_connection_string(attributes.copy())))
-        report.append("Database check successfull for DB: {}".format(format_connection_string(attributes.copy())))
+            report.append("Database didn't exist, which was unexpected, so a new DB needs to be created")
+            create_db(attributes, report=report)
+        report.append("Database check successfull for DB: {}".format(format_connection_string(attributes)))
     elif tenant_config['state'] == 'uninitializing':
         # Archive or delete db
-        pass
+        drop_db(attributes, force=True)
 
     return report
-
 
 
 # we need a single master db on all db instances to perform db maintenance
@@ -313,7 +314,8 @@ def db_check(params):
         return str(e)
 
 
-def create_db(params):
+def create_db(params, report=None):
+    t = time.time()  # Simple timing of CB creation.
     params = process_connection_values(params)
     db_name = params["database"]
     username = params["username"]
@@ -383,11 +385,13 @@ def create_db(params):
         except Exception as e:
             print sql, e
 
+    if report:
+        report.append("Created a new DB: '{}' in {:.3f} seconds.".format(db_name, time.time() - t))
+
     return db_name
 
 
 def drop_db(_params, force=False):
-
     params = process_connection_values(_params)
     db_name = params["database"]
     if 'test' not in db_name.lower() and not force:
