@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import find_packages, setup
 
 with open('VERSION') as f:
     version = f.read().strip()
@@ -11,7 +11,7 @@ setup(
     author='Directive Games North',
     author_email='info@directivegames.com',
     description='Micro-framework for SOA based applications',
-    packages=['drift'],
+    packages=find_packages(),
     include_package_data=True,
     scripts=['scripts/drift-admin.py'],
     entry_points={'console_scripts': [
