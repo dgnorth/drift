@@ -22,6 +22,7 @@ setup(
         'Flask',
         'Flask-RESTful',
         'jsonschema',
+        'pyopenssl',
         'celery',
 
         # Resource module dependencies
