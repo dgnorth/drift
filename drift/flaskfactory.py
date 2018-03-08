@@ -125,6 +125,7 @@ def load_flask_config(app_root=None):
 
     app_root = app_root or _find_app_root()
     config_filename = os.path.join(app_root, 'config', 'config.json')
+    config_filename = os.path.expanduser(config_filename)
     log.info("Loading configuration from %s", config_filename)
     with open(config_filename) as f:
         config_values = json.load(f)
