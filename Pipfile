@@ -7,12 +7,14 @@ name = "pypi"
 
 [packages]
 
-driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop', editable = true }
-"e1839a8" = {path = ".", extras = ["dev"], editable = true}
+driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop'}
+"e1839a8" = {path = ".", editable = true}
 
 
 [dev-packages]
 
+driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop', editable = true }
+"e1839a8" = {path = ".", extras = ["dev", "aws"], editable = true}
 
 
 [requires]
