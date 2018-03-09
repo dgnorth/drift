@@ -81,6 +81,10 @@ def get_options(parser):
     p.add_argument(
         "--debug", help="Run Packer in debug mode", action="store_true"
     )
+    p.add_argument(
+        "--ami",
+        help="Specify ami id. This will be used instead of base Ubuntu image. Use 'default' to pick default Ubuntu image."
+    )
 
     # The 'run' command
     p = subparsers.add_parser(
@@ -168,7 +172,7 @@ def _bake_command(args):
     print "AWS REGION:", aws_region
 
     # Create a list of all regions that are active
-    if args.ubuntu:
+    if args.ubuntu or args.ami == 'default':
         # Get all Ubuntu images from the appropriate region and pick the most recent one.
         # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
         print "Finding the latest AMI on AWS that matches", UBUNTU_RELEASE
@@ -181,18 +185,23 @@ def _bake_command(args):
             sys.exit(1)
         ami = max(amis, key=operator.attrgetter("creation_date"))
     else:
-        filters = [
-            {'Name': 'tag:service-name', 'Values': [UBUNTU_BASE_IMAGE_NAME]},
-            {'Name': 'tag:domain-name', 'Values': [domain['domain_name']]},
-        ]
-        amis = list(ec2.images.filter(Owners=['self'], Filters=filters))
+        if args.ami is None:
+            filters = [
+                {'Name': 'tag:service-name', 'Values': [UBUNTU_BASE_IMAGE_NAME]},
+                {'Name': 'tag:domain-name', 'Values': [domain['domain_name']]},
+            ]
+            amis = list(ec2.images.filter(Owners=['self'], Filters=filters))
+            ami = max(amis, key=operator.attrgetter("creation_date"))
+        else:
+            amis = list(ec2.images.filter(ImageIds=[args.ami]))
+            ami = amis[0]
+
         if not amis:
             criteria = {d['Name']: d['Values'][0] for d in filters}
             print "No '{}' AMI found using the search criteria {}.".format(UBUNTU_BASE_IMAGE_NAME, criteria)
             print "Bake one using this command: {} ami bake --ubuntu".format(sys.argv[0])
 
             sys.exit(1)
-        ami = max(amis, key=operator.attrgetter("creation_date"))
 
     print "Using source AMI:"
     print "\tID:\t", ami.id
