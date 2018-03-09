@@ -39,9 +39,7 @@ export approot=/etc/opt/${service}
 echo "--> Unzip into ${approot} and change owner to ubuntu and fix up permissions"
 unzip ~/${servicefullname}.zip -d /etc/opt
 mv /etc/opt/${servicefullname} ${approot}
-chmod 775 -R ${approot}
 chown -R ubuntu:root ${approot}
-
 find ${approot} -type d -exec chmod 775 {} \;
 find ${approot} -type f -exec chmod 664 {} \;
 
