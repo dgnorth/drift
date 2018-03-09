@@ -1,5 +1,22 @@
 set -x
 
+
+echo "--------------- Increasing resource limits ------------------------"
+echo "fs.file-max = 70000" >> /etc/sysctl.conf
+echo "net.core.somaxconn=4096" >> /etc/sysctl.conf
+
+
+echo "----------------- Configuring environment -----------------"
+echo "PYTHONDONTWRITEBYTECODE=1" >> /etc/environment
+
+
+echo "----------------- Updating apt-get -----------------"
+apt-get update -y -q
+echo "cannot do sudo apt-get upgrade -y -q because of a grub prompt. Will use a workaround instead: http://askubuntu.com/questions/146921/how-do-i-apt-get-y-dist-upgrade-without-a-grub-config-prompt"
+DEBIAN_FRONTEND=noninteractive apt-get -y -o Dpkg::Options::='--force-confdef' -o Dpkg::Options::='--force-confold' dist-upgrade
+
+
+echo "--------------- Use Pip mirror if in China ------------------------"
 AWS_WHERE=`curl -s http://169.254.169.254/latest/meta-data/services/partition`
 if [ ${AWS_WHERE} = 'aws-cn' ]; then
     echo "----------------- Using China Pypi mirror: http://mirrors.aliyun.com/pypi/simple -----------------"
@@ -7,38 +24,43 @@ if [ ${AWS_WHERE} = 'aws-cn' ]; then
     export PIP_TRUSTED_HOST=mirrors.aliyun.com
 fi
 
-echo "----------------- pip installing ${service}-${version}.zip -----------------"
-pip install ~/${service}-${version}.zip
 
-echo "----------------- Run pip install on the requirements file. -----------------"
-unzip -p  ~/${service}-${version}.zip ${service}-${version}/requirements.txt | xargs -n 1 -L 1 pip install
+echo "----------------- Install Tools  -----------------"
+apt install unzip -y
+apt-get install -y -q python-dev python-pip
+pip install --upgrade pip
+pip install pipenv
+pip install uwsgi
 
-echo "----------------- Install application configuration files. -----------------"
-unzip ~/${service}-${version}.zip ${service}-${version}/config/*
-sudo mkdir /etc/opt/${service}
-sudo chown ubuntu /etc/opt/${service}
-mkdir /etc/opt/${service}/config
-mv ~/${service}-${version}/config/* -t /etc/opt/${service}/config
-rm -rf ${service}-${version}
 
-echo "----------------- Unzipping aws.zip to ~/aws -----------------"
-unzip ~/aws.zip -d ~
+export servicefullname=${service}-${version}
+echo "----------------- Extracting ${servicefullname}.zip -----------------"
+export approot=/etc/opt/${service}
+echo "--> Unzip into ${approot} and change owner to ubuntu and fix up permissions"
+unzip ~/${servicefullname}.zip -d /etc/opt
+mv /etc/opt/${servicefullname} ${approot}
+chmod 775 -R ${approot}
+chown -R ubuntu:root ${approot}
 
-echo "----------------- Installing deployment-manifest.json to ~/${service}/ -----------------"
-# mv ~/deployment-manifest.json ~/${service}/
+find ${approot} -type d -exec chmod 775 {} \;
+find ${approot} -type f -exec chmod 664 {} \;
+
+echo "----------------- Create virtualenv and install dependencies -----------------"
+cd ${approot}
+pipenv install --two --deploy "."
+
+
+echo "----------------- Add a reference to the virtualenv in uwsgi.ini  -----------------"
+echo "venv = `pipenv --venv`" >> ${approot}/config/uwsgi.ini
+
+
+
+echo "----------------- Install systemd files. -----------------"
 
 echo "----------------- Configuring Service -----------------"
-# Old style upstart scripts
-if [ -d ~/aws/upstart ]; then
-    if [ -n "$(ls ~/aws/upstart/*.conf)" ]; then
-        cp -v ~/aws/upstart/*.conf /etc/init/
-    fi
-fi
-
-# New style systemd scripts
-if [ -d ~/aws/systemd ]; then
-    if [ -n "$(ls ~/aws/systemd/*.service)" ]; then
-        cp -v ~/aws/systemd/*.service /lib/systemd/system/
+if [ -d ${approot}/aws/systemd ]; then
+    if [ -n "$(ls ${approot}/aws/systemd/*.service)" ]; then
+        cp -v ${approot}/aws/systemd/*.service /lib/systemd/system/
     fi
 fi
 
@@ -49,26 +71,26 @@ mkdir -p /var/log/celery
 chmod a+w /var/log/celery
 mkdir -p /var/log/${service}
 chown syslog:adm /var/log/${service}
-sh ~/aws/scripts/setup_instance.sh
+sh ${approot}/aws/scripts/setup_instance.sh
 
 echo "----------------- Setting up Logging Config -----------------"
-if [ -d ~/aws/rsyslog.d ]; then
-    if [ -n "$(ls ~/aws/rsyslog.d/*.conf)" ]; then
-        cp -v ~/aws/rsyslog.d/*.conf /etc/rsyslog.d/
+if [ -d ${approot}/aws/rsyslog.d ]; then
+    if [ -n "$(ls ${approot}/aws/rsyslog.d/*.conf)" ]; then
+        cp -v ${approot}/aws/rsyslog.d/*.conf /etc/rsyslog.d/
     fi
 fi
-if [ -d ~/aws/logrotate.d ]; then
-    if [ -n "$(ls ~/aws/logrotate.d)" ]; then
-        cp -v ~/aws/logrotate.d/* /etc/logrotate.d/
+if [ -d ${approot}/aws/logrotate.d ]; then
+    if [ -n "$(ls ${approot}/aws/logrotate.d)" ]; then
+        cp -v ${approot}/aws/logrotate.d/* /etc/logrotate.d/
     fi
     # Run logrotation logic hourly instead of daily
     mv /etc/cron.daily/logrotate /etc/cron.hourly/
 fi
-if [ -f ~/aws/splunk/inputs.conf ]; then
-    cp -v ~/aws/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/
+if [ -f ${approot}/aws/splunk/inputs.conf ]; then
+    cp -v ${approot}/aws/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/
 fi
-if [ -f ~/aws/splunk/outputs.conf ]; then
-    cp -v ~/aws/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/
+if [ -f ${approot}/aws/splunk/outputs.conf ]; then
+    cp -v ${approot}/aws/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/
 fi
 
 echo "----------------- All done -----------------"
