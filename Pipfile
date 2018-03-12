@@ -14,7 +14,7 @@ driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'deve
 [dev-packages]
 
 driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop', editable = true }
-"e1839a8" = {path = ".", extras = ["dev", "aws"], editable = true}
+"e1839a8" = {path = ".", extras = ["test"], editable = true}
 
 
 [requires]
