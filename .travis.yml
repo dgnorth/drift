@@ -5,11 +5,8 @@ python:
 cache: pip
 install:
 - pip install travispy
-- pip install codecov
-- pip install pytest
-- pip install pytest-cov
 - pip install pipenv --upgrade
-- pipenv install -d -e ".[test]"
+- pipenv install -d
 script:
 - pytest --cov
 - python scripts/travis_build_dependent_projects.py

@@ -44,6 +44,7 @@ setup(
         'test': [
             'pytest',
             'pytest-cov',
+            'codecov',
             'requests',
             'responses',
         ],
