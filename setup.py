@@ -41,13 +41,14 @@ setup(
             'paramiko',
             'fabric',
         ],
-        'dev': [
-            'pytest',
-            'coverage',
-            'requests',
-            'responses',
-        ],
     },
+
+    tests_require=[
+        'pytest',
+        'coverage',
+        'requests',
+        'responses',
+    ],
 
     zip_safe=False,
     classifiers=[
