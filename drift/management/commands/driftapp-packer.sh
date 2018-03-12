@@ -26,7 +26,7 @@ fi
 
 
 echo "----------------- Install Tools  -----------------"
-apt install unzip -y
+apt-get install unzip -y
 apt-get install -y -q python-dev python-pip
 pip install --upgrade pip
 pip install pipenv
@@ -48,7 +48,7 @@ cd ${approot}
 pipenv install --two --deploy "."
 
 
-echo "----------------- Add a reference to the virtualenv in uwsgi.ini  -----------------"
+echo "----------------- Add a reference to the virtualenv in uwsgi.ini (if any) -----------------"
 echo "venv = `pipenv --venv`" >> ${approot}/config/uwsgi.ini
 
 
