@@ -6,17 +6,17 @@ and will be refactored soon.
 import os
 import subprocess
 import sys
-from fabric.api import env, run, settings
+from fabric.api import env, run, settings, sudo
 from fabric.operations import put
 import tempfile
 import shutil
 import pkg_resources
 
-from drift.management import get_ec2_instances
+from drift.management import get_ec2_instances, get_app_version
 from drift.utils import get_config
 
 EC2_USERNAME = 'ubuntu'
-UWSGI_LOGFILE = "/var/log/drift/server.log"
+UWSGI_LOGFILE = "/var/log/uwsgi/uwsgi.log"
 
 
 def get_options(parser):
@@ -72,6 +72,14 @@ def run_command(args):
         print "the tier using the --deploy-to-this-tier argument and run again."
         return
 
+
+    # The idea:
+    # - Generate a source distribution of the current project and all other projects that are
+    #   referenced (drift and drift-config in particular).
+    # - Upload the zip files to ~/ at the remote host.
+    # - Unzip the files into app root.
+    # - Restart the uwsgi service.
+
     project_folders = ["."]
     if include_drift:
         import drift
@@ -101,9 +109,11 @@ def run_command(args):
             # Use custom quickdeploy script if found.
             # Prefix them with environment variables:
             header = "#!/bin/bash\n"
+            # Minor hacketyhack
+            header += "export service={}\n".format(service_name)
+            header += "export version={}\n".format(get_app_version())
+
             header += "export DRIFT_SERVICE_NAME={}\n".format(service_name)
-            if 'PORT' in conf.drift_app:
-                header += "export DRIFT_PORT={}\n".format(conf.drift_app['PORT'])
             header += "export UWSGI_LOGFILE={}\n\n".format(UWSGI_LOGFILE)
 
             quickdeploy_script_file = os.path.join(project_folder, "scripts/quickdeploy.sh")
@@ -134,29 +144,12 @@ def run_command(args):
                     # Remove the previous file forcefully, if needed
                     run("sudo rm -f {}".format(dist_file))
                     put(full_name)
-                    cmd = "sudo -H pip install {} --upgrade".format(dist_file)
-                    if args.skiprequirements:
-                        cmd += " --no-deps"
-                    if args.forcereinstall:
-                        cmd += " --force-reinstall"
-                    run(cmd)
 
-                    # Run pip install on the requirements file.
-                    if not args.skiprequirements:
-                        cmd = "unzip -p {} {}/requirements.txt | xargs -n 1 -L 1 sudo pip install".format(
-                            dist_file, os.path.splitext(dist_file)[0])
-                        run(cmd)
-
-                    # Minor hack:
-                    if service_name in dist_file:
-                        cmd = "sudo sh -c 'unzip -p {} {}/config/config.json > /etc/opt/{}/config/config.json'".format(
-                            dist_file, os.path.splitext(dist_file)[0], service_name)
-                        run(cmd)
 
             print "Running quickdeploy script on {}".format(ec2.private_ip_address)
             for shell_script in shell_scripts:
                 with settings(warn_only=True):
-                    run(shell_script)
+                    sudo(shell_script)
 
             # todo: see if this needs to be done as well:
             ## _set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
