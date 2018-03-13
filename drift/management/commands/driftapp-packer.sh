@@ -40,17 +40,14 @@ echo "--> Unzip into ${approot} and change owner to ubuntu and fix up permission
 unzip ~/${servicefullname}.zip -d /etc/opt
 mv /etc/opt/${servicefullname} ${approot}
 chown -R ubuntu:root ${approot}
-find ${approot} -type d -exec chmod 775 {} \;
-find ${approot} -type f -exec chmod 664 {} \;
 
 echo "----------------- Create virtualenv and install dependencies -----------------"
 cd ${approot}
-pipenv install --two --deploy "."
+pipenv install --deploy
 
 
 echo "----------------- Add a reference to the virtualenv in uwsgi.ini (if any) -----------------"
 echo "venv = `pipenv --venv`" >> ${approot}/config/uwsgi.ini
-
 
 
 echo "----------------- Install systemd files. -----------------"
