@@ -8,7 +8,7 @@ name = "pypi"
 [packages]
 
 driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop'}
-
+"e1839a8" = {path = ".", editable = true, extras=["test"]}
 
 [dev-packages]
 
