@@ -1,6 +1,6 @@
 import sys
 
-from fabric.api import env, run
+from fabric.api import env, run, put
 from drift.management import get_ec2_instances
 from drift.utils import get_config
 
@@ -14,11 +14,15 @@ def get_options(parser):
     parser.add_argument(
         "--ip",
         help="Deploy to a certain instance instead of across the cluster")
+    parser.add_argument(
+        "--upload",
+        help="Upload a file to an instance."
+    )
 
 
 def run_command(args):
     cmd = args.cmd
-    if not cmd:
+    if not cmd and args.upload is None:
         print "Please enter command to run. Example: kitrun.py remotecmd \"ls -l\""
         return
 
@@ -46,5 +50,8 @@ def run_command(args):
         env.host_string = ip_address
         env.user = EC2_USERNAME
         env.key_filename = ssh_key_file
-        run(cmd)
+        if args.upload:
+            put(args.upload, "~/")
+        else:
+            run(cmd)
         print
