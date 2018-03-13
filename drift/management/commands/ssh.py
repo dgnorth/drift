@@ -70,7 +70,7 @@ def run_command(args):
     ip_address = inst["PrivateIpAddress"]
     cd_cmd = ""
     if service in deployables:
-        cd_cmd = 'cd /usr/local/bin/{}; exec bash --login'.format(service)
+        cd_cmd = 'cd /etc/opt/{}; exec bash --login'.format(service)
     cmd = ["ssh", "ubuntu@{}".format(ip_address), "-i", ssh_key_file, "-t", cd_cmd]
     print "\nSSH command:", " ".join(cmd)
     p = subprocess.Popen(cmd)
