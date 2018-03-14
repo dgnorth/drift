@@ -44,10 +44,11 @@ chown -R ubuntu:root ${approot}
 echo "----------------- Create virtualenv and install dependencies -----------------"
 cd ${approot}
 pipenv install --deploy
-
+export VIRTUALENV=`pipenv --venv`
+echo ${VIRTUALENV} >> ${approot}/venv
 
 echo "----------------- Add a reference to the virtualenv in uwsgi.ini (if any) -----------------"
-echo "venv = `pipenv --venv`" >> ${approot}/config/uwsgi.ini
+echo "venv = ${VIRTUALENV}" >> ${approot}/config/uwsgi.ini
 
 
 echo "----------------- Install systemd files. -----------------"
