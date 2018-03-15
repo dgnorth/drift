@@ -1,6 +1,7 @@
 """
 Register or update a deploable.
 """
+import sys
 import subprocess
 
 from driftconfig.config import TSTransaction
@@ -29,6 +30,9 @@ def run_command(args):
     # TODO: This is perhaps not ideal, or what?
     from drift.flaskfactory import load_flask_config
     app_config = load_flask_config()
+
+    # Make current dir importable.
+    sys.path.insert(0, '.')
 
     with TSTransaction(commit_to_origin=not args.preview) as ts:
 
