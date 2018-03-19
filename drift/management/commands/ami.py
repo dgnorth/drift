@@ -330,6 +330,11 @@ def _bake_command(args):
                 print ""
                 print "AMI ID: %s" % ami.id
                 print ""
+
+            if "Your Pipfile.lock" in line and "is out of date" in line:
+                print "ERROR: ", line
+                print "Build failed! Consider running `pipenv lock` before baking."
+                return
     finally:
         pkg_resources.cleanup_resources()
 
