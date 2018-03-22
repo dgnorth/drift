@@ -28,12 +28,7 @@ from driftconfig.util import get_drift_config
 from driftconfig.config import get_redis_cache_backend
 from drift.flaskfactory import load_flask_config
 
-# regions:
-# eu-west-1 : ami-234ecc54
-#             ready-made: ami-71196e06
-# ap-southeast-1: ami-ca381398
 
-UBUNTU_BASE_IMAGE_NAME = 'ubuntu-base-image'
 UBUNTU_TRUSTY_IMAGE_NAME = 'ubuntu/images/hvm/ubuntu-trusty-14.04*'
 UBUNTU_XENIAL_IMAGE_NAME = 'ubuntu/images/hvm-ssd/ubuntu-xenial-16.04*'
 UBUNTU_RELEASE = UBUNTU_XENIAL_IMAGE_NAME
@@ -42,7 +37,7 @@ IAM_ROLE = "ec2"
 
 
 # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
-def _get_canonical_owner_id(region_id):
+def _get_owner_id_for_canonical(region_id):
     """Returns region specific owner id for Canonical which is the maintainer of Ubuntu images."""
     if region_id.startswith('cn-'):
         return '837727238323'
@@ -67,11 +62,6 @@ def get_options(parser):
     p.add_argument(
         'tag', action='store', help='Git release tag to bake. (Run "git tag" to get available tags).',
                                     nargs='?', default=None)
-
-    p.add_argument(
-        "--ubuntu", action="store_true",
-        help="Bake a base Ubuntu image. ",
-    )
     p.add_argument(
         "--preview", help="Show arguments only", action="store_true"
     )
@@ -83,7 +73,7 @@ def get_options(parser):
     )
     p.add_argument(
         "--ami",
-        help="Specify ami id. This will be used instead of base Ubuntu image. Use 'default' to pick default Ubuntu image."
+        help="Specify base image. Default is the latest Ubuntu image from Canonical."
     )
     p.add_argument(
         "--instance_type",
@@ -152,10 +142,7 @@ def filterize(d):
 
 def _bake_command(args):
     conf = get_drift_config(drift_app=load_flask_config())
-    if args.ubuntu:
-        name = UBUNTU_BASE_IMAGE_NAME
-    else:
-        name = conf.drift_app['name']
+    name = conf.drift_app['name']
 
     domain = conf.domain.get()
     if 'aws' not in domain or 'ami_baking_region' not in domain['aws']:
@@ -172,102 +159,78 @@ def _bake_command(args):
         print "More info: https://github.com/hashicorp/packer/issues/5447"
 
     print "DOMAIN:\n", json.dumps(domain, indent=4)
-    if not args.ubuntu:
-        print "DEPLOYABLE:", name
+    print "DEPLOYABLE:", name
     print "AWS REGION:", aws_region
 
-    # Create a list of all regions that are active
-    if args.ubuntu or args.ami == 'default':
+    if args.ami:
+        amis = list(ec2.images.filter(ImageIds=[args.ami]))
+        ami = amis[0]
+    else:
         # Get all Ubuntu images from the appropriate region and pick the most recent one.
         # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
         print "Finding the latest AMI on AWS that matches", UBUNTU_RELEASE
         filters = [
             {'Name': 'name', 'Values': [UBUNTU_RELEASE]},
         ]
-        amis = list(ec2.images.filter(Owners=[_get_canonical_owner_id(aws_region)], Filters=filters))
+        amis = list(ec2.images.filter(Owners=[_get_owner_id_for_canonical(aws_region)], Filters=filters))
         if not amis:
             print "No AMI found matching '{}'. Not sure what to do now.".format(UBUNTU_RELEASE)
             sys.exit(1)
         ami = max(amis, key=operator.attrgetter("creation_date"))
-    else:
-        if args.ami is None:
-            filters = [
-                {'Name': 'tag:service-name', 'Values': [UBUNTU_BASE_IMAGE_NAME]},
-                {'Name': 'tag:domain-name', 'Values': [domain['domain_name']]},
-            ]
-            amis = list(ec2.images.filter(Owners=['self'], Filters=filters))
-            ami = max(amis, key=operator.attrgetter("creation_date"))
-        else:
-            amis = list(ec2.images.filter(ImageIds=[args.ami]))
-            ami = amis[0]
-
-        if not amis:
-            criteria = {d['Name']: d['Values'][0] for d in filters}
-            print "No '{}' AMI found using the search criteria {}.".format(UBUNTU_BASE_IMAGE_NAME, criteria)
-            print "Bake one using this command: {} ami bake --ubuntu".format(sys.argv[0])
-
-            sys.exit(1)
 
     print "Using source AMI:"
     print "\tID:\t", ami.id
     print "\tName:\t", ami.name
     print "\tDate:\t", ami.creation_date
 
-    if args.ubuntu:
-        manifest = None
+    current_branch = get_branch()
+    if not args.tag:
+        args.tag = current_branch
+
+    print "Using branch/tag", args.tag
+
+    # Wrap git branch modification in RAII.
+    checkout(args.tag)
+    try:
+        setup_script = ""
+        setup_script_custom = ""
+        with open(pkg_resources.resource_filename(__name__, "driftapp-packer.sh"), 'r') as f:
+            setup_script = f.read()
+        custom_script_name = os.path.join(conf.drift_app['app_root'], 'scripts', 'ami-bake.sh')
+        if os.path.exists(custom_script_name):
+            print "Using custom bake shell script", custom_script_name
+            setup_script_custom = "echo Executing custom bake shell script from {}\n".format(custom_script_name)
+            setup_script_custom += open(custom_script_name, 'r').read()
+            setup_script_custom += "\necho Custom bake shell script completed\n"
+        else:
+            print "Note: No custom ami-bake.sh script found for this application."
+        # custom setup needs to happen first because we might be installing some requirements for the regular setup
+        setup_script = setup_script_custom + setup_script
+        tf = tempfile.NamedTemporaryFile(delete=False)
+        tf.write(setup_script)
+        tf.close()
+        setup_script_filename = tf.name
+        manifest = create_deployment_manifest('ami', comment=None, deployable_name=name)
         packer_vars = {
-            'setup_script': pkg_resources.resource_filename(__name__, "ubuntu-packer.sh"),
-            'ubuntu_release': UBUNTU_RELEASE,
+            'version': get_app_version(),
+            'setup_script': setup_script_filename,
         }
-    else:
-        current_branch = get_branch()
-        if not args.tag:
-            args.tag = current_branch
 
-        print "Using branch/tag", args.tag
+        if not args.preview:
+            cmd = ['python', 'setup.py', 'sdist', '--formats=zip']
+            ret = subprocess.call(cmd)
+            if ret != 0:
+                print "Failed to execute build command:", cmd
+                sys.exit(ret)
 
-        # Wrap git branch modification in RAII.
-        checkout(args.tag)
-        try:
-            setup_script = ""
-            setup_script_custom = ""
-            with open(pkg_resources.resource_filename(__name__, "driftapp-packer.sh"), 'r') as f:
-                setup_script = f.read()
-            custom_script_name = os.path.join(conf.drift_app['app_root'], 'scripts', 'ami-bake.sh')
-            if os.path.exists(custom_script_name):
-                print "Using custom bake shell script", custom_script_name
-                setup_script_custom = "echo Executing custom bake shell script from {}\n".format(custom_script_name)
-                setup_script_custom += open(custom_script_name, 'r').read()
-                setup_script_custom += "\necho Custom bake shell script completed\n"
-            else:
-                print "Note: No custom ami-bake.sh script found for this application."
-            # custom setup needs to happen first because we might be installing some requirements for the regular setup
-            setup_script = setup_script_custom + setup_script
-            tf = tempfile.NamedTemporaryFile(delete=False)
-            tf.write(setup_script)
-            tf.close()
-            setup_script_filename = tf.name
-            manifest = create_deployment_manifest('ami', comment=None, deployable_name=name)
-            packer_vars = {
-                'version': get_app_version(),
-                'setup_script': setup_script_filename,
-            }
-
-            if not args.preview:
-                cmd = ['python', 'setup.py', 'sdist', '--formats=zip']
-                ret = subprocess.call(cmd)
-                if ret != 0:
-                    print "Failed to execute build command:", cmd
-                    sys.exit(ret)
-
-                cmd = ["zip", "-r", "dist/aws.zip", "aws"]
-                ret = subprocess.call(cmd)
-                if ret != 0:
-                    print "Failed to execute build command:", cmd
-                    sys.exit(ret)
-        finally:
-            print "Reverting to ", current_branch
-            checkout(current_branch)
+            cmd = ["zip", "-r", "dist/aws.zip", "aws"]
+            ret = subprocess.call(cmd)
+            if ret != 0:
+                print "Failed to execute build command:", cmd
+                sys.exit(ret)
+    finally:
+        print "Reverting to ", current_branch
+        checkout(current_branch)
 
     user = boto.iam.connect_to_region(aws_region).get_user()  # The current IAM user running this command
 
@@ -301,10 +264,7 @@ def _bake_command(args):
 
     # Use generic packer script if project doesn't specify one
     pkg_resources.cleanup_resources()
-    if args.ubuntu:
-        scriptfile = pkg_resources.resource_filename(__name__, "ubuntu-packer.json")
-        cmd += scriptfile
-    elif os.path.exists("config/packer.json"):
+    if os.path.exists("config/packer.json"):
         cmd += "config/packer.json"
     else:
         scriptfile = pkg_resources.resource_filename(__name__, "driftapp-packer.json")
@@ -393,7 +353,7 @@ def _find_latest_ami(service_name, release=None):
     amis = list(ec2.images.filter(Owners=['self'], Filters=filters))
     if not amis:
         criteria = {d['Name']: d['Values'][0] for d in filters}
-        print "No '{}' AMI found using the search criteria {}.".format(UBUNTU_BASE_IMAGE_NAME, criteria)
+        print "No AMI found using the search criteria {}.".format(criteria)
         sys.exit(1)
 
     ami = max(amis, key=operator.attrgetter("creation_date"))
@@ -440,7 +400,7 @@ def _run_command(args):
     release = conf.deployable.get('release', '')
 
     if args.launch and autoscaling and not args.force:
-        print "--launch specified, but tier config specifies 'use_autoscaling'. Use --force to override."
+        print "--launch specified, but tier config specifies 'use_autoscaling'. Use --force to ovefrride."
         sys.exit(1)
     if args.autoscale and not autoscaling and not args.force:
         print "--autoscale specified, but tier config doesn't specify 'use_autoscaling'. Use --force to override."
