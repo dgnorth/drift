@@ -85,6 +85,11 @@ def get_options(parser):
         "--ami",
         help="Specify ami id. This will be used instead of base Ubuntu image. Use 'default' to pick default Ubuntu image."
     )
+    p.add_argument(
+        "--instance_type",
+        help="The EC2 instance type to use to build. Default is 'm4.xlarge'.",
+        default="m4.xlarge"
+    )
 
     # The 'run' command
     p = subparsers.add_parser(
@@ -267,6 +272,7 @@ def _bake_command(args):
     user = boto.iam.connect_to_region(aws_region).get_user()  # The current IAM user running this command
 
     packer_vars.update({
+        "instance_type": args.instance_type,
         "service": name,
         "region": aws_region,
         "source_ami": ami.id,

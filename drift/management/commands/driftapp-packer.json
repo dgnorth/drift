@@ -1,5 +1,6 @@
 {
   "variables": {
+    "instance_type": "m4.xlarge",
     "service": "unknown",
     "region": "eu-west-1",
     "source_ami": "unknown",
@@ -13,7 +14,7 @@
       "type": "amazon-ebs",
       "region": "{{user `region`}}",
       "source_ami": "{{user `source_ami`}}",
-      "instance_type": "m3.medium",
+      "instance_type": "{{user `instance_type`}}",
       "iam_instance_profile": "ec2",
       "ssh_username": "ubuntu",
       "ami_name": "{{user `service`}}-{{isotime `2006-01-02-15-04`}}",
