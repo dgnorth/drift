@@ -43,7 +43,7 @@ chown -R ubuntu:root ${approot}
 
 echo "----------------- Create virtualenv and install dependencies -----------------"
 cd ${approot}
-pipenv install --deploy
+pipenv install --deploy --verbose
 export VIRTUALENV=`pipenv --venv`
 echo ${VIRTUALENV} >> ${approot}/venv
 
