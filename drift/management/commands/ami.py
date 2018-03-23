@@ -273,7 +273,7 @@ def _bake_command(args):
     print "Baking AMI with: {}".format(cmd)
     if args.preview:
         print "Not building or packaging because --preview is on. Exiting now."
-        return
+        sys.exit(0)
 
     start_time = time.time()
     try:
@@ -300,7 +300,13 @@ def _bake_command(args):
             if "Your Pipfile.lock" in line and "is out of date" in line:
                 print "ERROR: ", line
                 print "Build failed! Consider running `pipenv lock` before baking."
-                return
+                sys.exit(1)
+            if "Creating a Pipfile for this project" in line:
+                print "ERROR: No Pipfile in distribution! Check MANIFEST.in."
+                sys.exit(1)
+            if "Pipfile.lock not found, creating" in line:
+                print "ERROR: No Pipfile.lock in distribution! Check MANIFEST.in."
+                sys.exit(1)
     finally:
         pkg_resources.cleanup_resources()
 
