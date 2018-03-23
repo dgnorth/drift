@@ -29,7 +29,6 @@ setup(
         'SQLAlchemy',
         'alembic',
         'psycopg2-binary>=2.7.4',
-        'psycopg2',
         'redis',
         'redlock',
         'cryptography',
