@@ -48,7 +48,7 @@ export VIRTUALENV=`pipenv --venv`
 echo ${VIRTUALENV} >> ${approot}/venv
 
 echo "----------------- Add a reference to the virtualenv in uwsgi.ini (if any) -----------------"
-echo "venv = ${VIRTUALENV}" >> ${approot}/config/uwsgi.ini
+echo "\nvenv = ${VIRTUALENV}" >> ${approot}/config/uwsgi.ini
 
 
 echo "----------------- Install systemd files. -----------------"
