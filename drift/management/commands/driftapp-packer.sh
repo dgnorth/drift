@@ -62,11 +62,8 @@ fi
 
 mkdir -p /var/log/uwsgi
 chown syslog:adm /var/log/uwsgi
-mkdir -p /var/log/nginx
 mkdir -p /var/log/celery
 chmod a+w /var/log/celery
-mkdir -p /var/log/${service}
-chown syslog:adm /var/log/${service}
 sh ${approot}/aws/scripts/setup_instance.sh
 
 echo "----------------- Setting up Logging Config -----------------"
