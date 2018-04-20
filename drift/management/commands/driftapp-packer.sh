@@ -28,9 +28,9 @@ fi
 echo "----------------- Install Tools  -----------------"
 apt-get install unzip -y
 apt-get install -y -q python-dev python-pip
-pip install --upgrade pip
-pip install pipenv
-pip install uwsgi
+python -m pip install --upgrade pip
+python -m pip install pipenv
+python -m pip install uwsgi
 
 
 export servicefullname=${service}-${version}
