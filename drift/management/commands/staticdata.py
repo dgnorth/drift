@@ -122,7 +122,6 @@ def publish_command(args):
 
     conn = connect_to_region(args.region, calling_format=OrdinaryCallingFormat())
     bucket = conn.get_bucket(args.bucket)
-    return bucket
 
     origin_url = "git@github.com:directivegames/the-machines-static-data.git"
     if not repository:
