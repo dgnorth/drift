@@ -59,6 +59,7 @@ def enumerate_plugins(config):
 def get_config(ts=None, tier_name=None, tenant_name=None):
     """Wraps get_drift_config() by providing default values for tier, tenant and drift_app."""
     # Hack: Must delay import this
+    # TODO: Stop using this function. Who is doing it anyways?
     from drift.flaskfactory import load_flask_config
     if current_app:
         app_ts = current_app.extensions['driftconfig'].table_store

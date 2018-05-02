@@ -63,18 +63,7 @@ class DriftConfig(object):
         return ts
 
     def before_request(self):
-        try:
-            conf = get_drift_config(
-                ts=current_app.extensions['driftconfig'].table_store,
-                tenant_name=tenant_from_hostname,
-                tier_name=get_tier_name(),
-                deployable_name=current_app.config['name']
-            )
-        except TenantNotConfigured as e:
-            abort(httplib.NOT_FOUND, description=str(e))
-
-        # Add applicable config tables to 'g'
-        g.conf = conf
+        _assign_drift_config(allow_missing_tenant=True)
 
     def after_request(self, response):
         # TODO: Move this logice elsewhere
@@ -87,17 +76,39 @@ class DriftConfig(object):
         return response
 
 
+def _assign_drift_config(allow_missing_tenant):
+    """Helper to fetch and assign drift config to g.conf."""
+    g.conf = get_drift_config(
+        ts=current_app.extensions['driftconfig'].table_store,
+        tenant_name=tenant_from_hostname,
+        tier_name=get_tier_name(),
+        deployable_name=current_app.config['name'],
+        allow_missing_tenant=allow_missing_tenant,
+    )
+
+
 def check_tenant(f):
     """Make sure current tenant is provisioned and active."""
     @wraps(f)
     def _check(*args, **kwargs):
+        if not tenant_from_hostname:
+            abort(
+                httplib.BAD_REQUEST,
+                description="No tenant specified. Please specify one using host name prefix or "
+                "the environment variable DRIFT_DEFAULT_TENANT."
+            )
+
         if g.conf.tenant is None:
-            abort(httplib.BAD_REQUEST, description='No tenant specified.')
+            # Note that this most surely bombs with relevant logging and error context.
+            try:
+                _assign_drift_config(allow_missing_tenant=False)
+            except TenantNotConfigured as e:
+                abort(httplib.BAD_REQUEST, description=str(e))
 
         if g.conf.tenant['state'] != 'active':
             abort(
                 httplib.BAD_REQUEST,
-                "Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
+                description="Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
                     g.conf.tenant['tenant_name'], get_tier_name(), current_app.config['name'], g.conf.tenant['state'])
             )
         return f(*args, **kwargs)

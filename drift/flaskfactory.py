@@ -4,12 +4,10 @@ import os
 import logging
 import importlib
 import json
-import httplib
 import sys
 import os.path
 import time
 
-from flask import jsonify
 from flask_restful import Api
 from flask import make_response
 from flask.json import dumps
@@ -17,7 +15,7 @@ import flask_restful
 from werkzeug.contrib.fixers import ProxyFix
 
 from drift.fixers import ReverseProxied, CustomJSONEncoder
-from drift.utils import enumerate_plugins, get_config
+from drift.utils import enumerate_plugins
 
 
 log = logging.getLogger(__name__)
@@ -38,9 +36,7 @@ def drift_app(app):
     app.static_folder = os.path.join(app_root, 'static')
 
     # Trigger loading of drift config
-    conf = get_config()
-    app.config.update(conf.drift_app)
-    log.info("Configuration source: %s", conf.source)
+    app.config.update(load_flask_config())
 
     _apply_patches(app)
 
@@ -202,6 +198,9 @@ def _apply_patches(app):
 
     # Datetime fix
     app.json_encoder = CustomJSONEncoder
+
+    # Make all json pretty
+    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
 
     # Euthanize Flask Restful exception handlers. This may get fixed
     # soon in "Error handling re-worked #544"
