@@ -400,10 +400,6 @@ def logsetup(app):
     l.propagate = False
     l.addHandler(handler)
 
-    # Quiet down copule of very chatty loggers. This can be overridden in config.json.
-    for logger_name in ['sqlalchemy', 'werkzeug', 'requests.packages.urllib3.connectionpool']:
-        logging.getLogger(logger_name).setLevel('WARNING')
-
     # Apply additional 'level' and 'propagate' settings for handlers and
     # loggers. See https://docs.python.org/2.7/library/logging.config.html#
     # Example format:
