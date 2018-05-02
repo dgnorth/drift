@@ -224,16 +224,3 @@ def _apply_patches(app):
     else:
         flask_restful.DEFAULT_REPRESENTATIONS = [('application/json', output_json)]
 
-    def tenant_not_found(message):
-        status_code = httplib.NOT_FOUND
-        response = jsonify({"error": message, "status_code": status_code})
-        response.status_code = status_code
-        return response
-
-    @app.errorhandler(TenantNotFoundError)
-    def bad_request_handler(error):
-        return tenant_not_found(error.message)
-
-
-class TenantNotFoundError(ValueError):
-    pass

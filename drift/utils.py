@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-import httplib
 import logging
 from functools import wraps
 from socket import gethostname
@@ -102,17 +101,6 @@ def uuid_string():
 def is_ec2():
     """Naive check if this is an ec2 instance"""
     return host_name and host_name.startswith("ip")
-
-
-class TenantNotFoundError(ValueError):
-    pass
-
-
-def tenant_not_found(message):
-    status_code = httplib.NOT_FOUND
-    response = jsonify({"error": message, "status_code": status_code})
-    response.status_code = status_code
-    return response
 
 
 def json_response(message, status=200, fields=None):

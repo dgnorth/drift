@@ -17,7 +17,6 @@ from driftconfig.relib import CHECK_INTEGRITY
 from driftconfig.util import get_drift_config, get_default_drift_config, TenantNotConfigured
 
 
-from drift.flaskfactory import TenantNotFoundError
 from drift.core.extensions.tenancy import tenant_from_hostname
 from drift.utils import get_tier_name
 
@@ -64,7 +63,6 @@ class DriftConfig(object):
         return ts
 
     def before_request(self):
-
         try:
             conf = get_drift_config(
                 ts=current_app.extensions['driftconfig'].table_store,
@@ -93,8 +91,12 @@ def check_tenant(f):
     """Make sure current tenant is provisioned and active."""
     @wraps(f)
     def _check(*args, **kwargs):
+        if g.conf.tenant is None:
+            abort(httplib.BAD_REQUEST, description='No tenant specified.')
+
         if g.conf.tenant['state'] != 'active':
-            raise TenantNotFoundError(
+            abort(
+                httplib.BAD_REQUEST,
                 "Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
                     g.conf.tenant['tenant_name'], get_tier_name(), current_app.config['name'], g.conf.tenant['state'])
             )
