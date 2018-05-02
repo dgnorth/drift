@@ -8,13 +8,11 @@
 from __future__ import absolute_import
 import logging
 import httplib
-from urlparse import urlparse, urlunparse
+from urlparse import urlparse
 import re
 
 from flask import request, g, jsonify, make_response
-from flask_restful import abort
 
-from drift.utils import get_config
 from driftconfig.relib import ConstraintError
 
 
