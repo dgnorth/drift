@@ -9,7 +9,7 @@ import os.path
 import time
 
 from flask_restful import Api
-from flask import make_response
+from flask import Flask, make_response
 from flask.json import dumps
 import flask_restful
 from werkzeug.contrib.fixers import ProxyFix
@@ -26,7 +26,9 @@ class AppRootNotFound(RuntimeError):
     pass
 
 
-def drift_app(app):
+def drift_app(app=None):
+
+    app = app or Flask('drift')
 
     # Find application root and initialize paths and search path
     # for module imports
