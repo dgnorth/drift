@@ -14,6 +14,7 @@ from driftconfig.util import set_sticky_config, get_default_drift_config
 import driftconfig.testhelpers
 
 import drift.core.extensions.jwt
+from flaskfactory import drift_app
 
 
 import logging
@@ -283,7 +284,7 @@ class DriftBaseTestCase(unittest.TestCase):
     def setUpClass(cls):
         setup_tenant()
         cls.host = "http://localhost"
-        from appmodule import app
+        app = drift_app()
         cls.app = app.test_client()
 
         # Note: If driftbase.auth.authenticate module has been imported, it means that

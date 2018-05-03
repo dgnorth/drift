@@ -367,8 +367,8 @@ def create_db(params, report=None):
     if alembic_not_supported:
         log.warning("NOTE! Alembic not supported at the moment. No db upgrades are run.")
     else:
-        from drift.flaskfactory import _find_app_root
-        approot = _find_app_root()
+        from drift.utils import get_app_root
+        approot = get_app_root()
         ini_path = os.path.join(approot, "alembic.ini")
         alembic_cfg = Config(ini_path)
         script_path = os.path.join(os.path.split(os.path.abspath(ini_path))[0], "alembic")

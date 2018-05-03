@@ -4,7 +4,6 @@ import os
 import logging
 import importlib
 import json
-import sys
 import os.path
 import time
 
@@ -15,7 +14,7 @@ import flask_restful
 from werkzeug.contrib.fixers import ProxyFix
 
 from drift.fixers import ReverseProxied, CustomJSONEncoder
-from drift.utils import enumerate_plugins
+from drift.utils import enumerate_plugins, get_app_root
 
 
 log = logging.getLogger(__name__)
@@ -27,85 +26,21 @@ class AppRootNotFound(RuntimeError):
 
 
 def drift_app(app=None):
+    """Flask factory for Drift based apps."""
 
-    app = app or Flask('drift')
+    app = app or Flask('drift', instance_path=get_app_root(), root_path=get_app_root())
 
-    # Find application root and initialize paths and search path
-    # for module imports
-    app_root = _find_app_root()
-    sys.path.append(app_root)
-    app.instance_path = app_root
-    app.static_folder = os.path.join(app_root, 'static')
+    log.info("Init app.instance_path: %s", app.instance_path)
+    log.info("Init app.static_folder: %s", app.static_folder)
+    log.info("Init app.template_folder: %s", app.template_folder)
 
-    # Trigger loading of drift config
     app.config.update(load_flask_config())
-
     _apply_patches(app)
 
     # Install apps, api's and extensions.
     install_modules(app)
 
-    # TODO: Remove this or find a better place for it
-    if not app.debug:
-        log.info("Flask server is running in RELEASE mode.")
-    else:
-        log.info("Flask server is running in DEBUG mode.")
-        try:
-            from flask_debugtoolbar import DebugToolbarExtension
-            DebugToolbarExtension(app)
-        except ImportError:
-            log.info("Flask DebugToolbar not available: Do 'pip install "
-                     "flask-debugtoolbar' to enable.")
-
     return app
-
-
-def _find_app_root(_use_cwd=False):
-    """
-    Find the root of this application by searching for 'setup.py' file.
-
-    The 'setup.py' file must be found relative from the location of the current
-    executable script or the current working directory.
-
-    The app root can be explicitly set using environment variable 'DRIFT_APP_ROOT'.
-    """
-    if 'DRIFT_APP_ROOT' in os.environ:
-        return os.environ['DRIFT_APP_ROOT']
-
-    exe_path, exe = os.path.split(sys.argv[0])
-    if _use_cwd:
-        search_path = '.'
-    else:
-        search_path = exe_path
-    search_path = os.path.abspath(search_path)
-    setupfile_pathname = 'setup.py'
-    start_path = search_path
-    setupscript = ''
-
-    while True:
-        parent = os.path.abspath(os.path.join(search_path, setupfile_pathname))
-        if parent == setupscript:  # No change after traversing up
-            if not _use_cwd:
-                log.info("Can't locate app root after starting from %s. Trying current dir now..",
-                    start_path
-                )
-                return _find_app_root(_use_cwd=True)
-            else:
-                raise AppRootNotFound(
-                    "Can't locate setup.py, neither from executable location '{}' and from "
-                    "current dir '{}'.".format(exe_path, start_path)
-                )
-
-        setupscript = parent
-        if os.path.exists(setupscript):
-            break
-
-        log.debug("setup.py not found at: %s", setupscript)
-
-        search_path = os.path.join(search_path, '..')
-
-    app_root = os.path.abspath(os.path.join(setupscript, ".."))
-    return app_root
 
 
 _sticky_app_config = None
@@ -121,9 +56,11 @@ def load_flask_config(app_root=None):
     if _sticky_app_config is not None:
         return _sticky_app_config
 
-    app_root = app_root or _find_app_root()
+    app_root = app_root or get_app_root()
     config_filename = os.path.join(app_root, 'config', 'config.json')
-    config_filename = os.path.expanduser(config_filename)
+    if not os.path.exists(config_filename):
+        raise AppRootNotFound("No config file found at: '{}'".format(config_filename))
+
     log.info("Loading configuration from %s", config_filename)
     with open(config_filename) as f:
         config_values = json.load(f)

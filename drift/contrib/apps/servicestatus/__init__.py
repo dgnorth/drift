@@ -94,6 +94,7 @@ class InfoPageAPI(Resource):
             d = collections.OrderedDict(sorted(d.items()))
             d['private_key'] = '...'  # Just to be safe(r)
             ret['config_dump'] = json.dumps(d, indent=4)
+            ret['default_tenant'] = os.environ.get('DRIFT_DEFAULT_TENANT')
 
         return ret
 

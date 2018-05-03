@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
+import os.path
 import logging
 from functools import wraps
 from socket import gethostname
@@ -27,6 +28,11 @@ from drift.core.extensions.tenancy import tenant_from_hostname
 log = logging.getLogger(__name__)
 
 host_name = gethostname()
+
+
+def get_app_root():
+    """Returns absolute path to the current application root directory."""
+    return os.path.expanduser(os.environ.get('DRIFT_APP_ROOT', os.path.abspath('.')))
 
 
 def enumerate_plugins(config):

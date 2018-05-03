@@ -107,8 +107,8 @@ def get_app_version():
     """
 
     # HACK: Get app root:
-    from drift.flaskfactory import _find_app_root
-    app_root = _find_app_root()
+    from drift.utils import get_app_root
+    app_root = get_app_root()
 
     p = subprocess.Popen(
         ['python', 'setup.py', '--version'],
@@ -154,7 +154,7 @@ def get_ec2_instances(region, tier, service_name):
     instances = [i for r in reservations for i in r.instances]
 
     if not instances:
-        raise RuntimeError("Found no running ec2 instances in region '%s', tier '%s' an service '%s'" % (region, tier, service_name))
+        raise RuntimeError("Found no running ec2 instances in region '%s', tier '%s' and service '%s'" % (region, tier, service_name))
 
     check_connectivity(instances)
 
