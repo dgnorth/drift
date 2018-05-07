@@ -20,3 +20,7 @@ This installs *drift* in editable mode with full CLI support.
 
 Note: Development on this library makes most sense within a context of a project that uses it (like *drift-base*).
 
+## Acknowledgement
+
+The project is generously supported by a grant from the Icelandic Technology Development Fund.
+![https://www.rannis.is/sjodir/rannsoknir/taeknithrounarsjodur](img/tsj_en_logo.jpg)
