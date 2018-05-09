@@ -19,7 +19,7 @@ setup(
     ]},
 
     install_requires=[
-        'Flask',
+        'Flask>=1.0.0',
         'Flask-RESTful',
         'jsonschema',
         'pyopenssl>=17',
