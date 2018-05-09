@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 import logging
 import importlib
 import json
@@ -28,7 +29,8 @@ class AppRootNotFound(RuntimeError):
 def drift_app(app=None):
     """Flask factory for Drift based apps."""
 
-    app = app or Flask('drift', instance_path=get_app_root(), root_path=get_app_root())
+    app_root = get_app_root()
+    app = app or Flask('drift', instance_path=app_root, root_path=app_root)
 
     log.info("Init app.instance_path: %s", app.instance_path)
     log.info("Init app.static_folder: %s", app.static_folder)
@@ -38,6 +40,7 @@ def drift_app(app=None):
     _apply_patches(app)
 
     # Install apps, api's and extensions.
+    sys.path.insert(0, app_root)  # Make current app available
     install_modules(app)
 
     return app
