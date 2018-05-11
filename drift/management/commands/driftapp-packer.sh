@@ -33,24 +33,33 @@ python -m pip install pipenv
 python -m pip install uwsgi
 
 
+
+
+# The following section is identical in driftapp-packer.sh and quickdeploy.sh
 export servicefullname=${service}-${version}
 echo "----------------- Extracting ${servicefullname}.zip -----------------"
 export approot=/etc/opt/${service}
 echo "--> Unzip into ${approot} and change owner to ubuntu and fix up permissions"
 unzip ~/${servicefullname}.zip -d /etc/opt
+rm -rf ${approot}
 mv /etc/opt/${servicefullname} ${approot}
 chown -R ubuntu:root ${approot}
 
 echo "----------------- Create virtualenv and install dependencies -----------------"
 cd ${approot}
-pipenv install --deploy --verbose
+if [[ -z "${SKIP_PIP}" ]]; then
+    pipenv install --deploy --verbose
+fi
 export VIRTUALENV=`pipenv --venv`
 echo ${VIRTUALENV} >> ${approot}/venv
 
 echo "----------------- Add a reference to the virtualenv in uwsgi.ini (if any) -----------------"
 if [ -f ${approot}/config/uwsgi.ini ]; then
-    echo "\nvenv = ${VIRTUALENV}" >> ${approot}/config/uwsgi.ini
+    echo "venv = ${VIRTUALENV}" >> ${approot}/config/uwsgi.ini
 fi
+
+
+
 
 echo "----------------- Install systemd files. -----------------"
 

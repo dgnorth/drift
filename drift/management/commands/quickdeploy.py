@@ -11,6 +11,9 @@ from fabric.operations import put
 import tempfile
 import shutil
 import pkg_resources
+import time
+
+import requests
 
 from drift.management import get_ec2_instances, get_app_version
 from drift.utils import get_config
@@ -37,16 +40,13 @@ def get_options(parser):
         help="Use to override tier protection. State the name of the expected tier.",
         default=None)
     parser.add_argument(
-        "--no-deps", dest='skiprequirements',
-        help="No not install requirements for the service (Run pip with --no-deps switch).",
-        action="store_true")
-    parser.add_argument(
         "--force-reinstall", dest='forcereinstall',
-        help="Run pip with --force-reinstall switch.",
+        help="Run pipenv install",
         action="store_true")
 
 
 def run_command(args):
+    t = time.time()
     conf = get_config()
     if not conf.deployable:
         print "Deployable '{}' not found in config '{}'.".format(
@@ -113,8 +113,9 @@ def run_command(args):
             header += "export service={}\n".format(service_name)
             header += "export version={}\n".format(get_app_version())
 
-            header += "export DRIFT_SERVICE_NAME={}\n".format(service_name)
             header += "export UWSGI_LOGFILE={}\n\n".format(UWSGI_LOGFILE)
+            if not args.forcereinstall:
+                header += "export SKIP_PIP=1\n"
 
             quickdeploy_script_file = os.path.join(project_folder, "scripts/quickdeploy.sh")
             if os.path.exists(quickdeploy_script_file):
@@ -145,11 +146,27 @@ def run_command(args):
                     run("sudo rm -f {}".format(dist_file))
                     put(full_name)
 
-
             print "Running quickdeploy script on {}".format(ec2.private_ip_address)
             for shell_script in shell_scripts:
                 with settings(warn_only=True):
                     sudo(shell_script)
+
+            # See if the server responds to an http request
+            timeout = 5.0
+            try:
+                ret = requests.get(
+                    'http://{}:8080'.format(ec2.private_ip_address),
+                    timeout=timeout
+                    )
+            except Exception as e:
+                if 'Read timed out' in str(e):
+                    print "WARNING! Web server didn't respond in {} seconds.".format(timeout)
+                else:
+                    print "ERROR! {}".format(e)
+            else:
+                ret.raise_for_status()
+                print "SUCCESS: Instance {}  is serving.".format(ec2.private_ip_address)
+
 
             # todo: see if this needs to be done as well:
             ## _set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
@@ -160,3 +177,5 @@ def run_command(args):
         deploy(distros)
     finally:
         shutil.rmtree(distros)
+
+    print "Quickdeploy ran for {:.1f} seconds.".format(time.time() - t)
