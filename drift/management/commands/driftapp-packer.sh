@@ -1,5 +1,4 @@
-set -x
-
+set -e
 
 echo "--------------- Increasing resource limits ------------------------"
 echo "fs.file-max = 70000" >> /etc/sysctl.conf
@@ -47,18 +46,20 @@ chown -R ubuntu:root ${approot}
 
 echo "----------------- Create virtualenv and install dependencies -----------------"
 cd ${approot}
-if [[ -z "${SKIP_PIP}" ]]; then
+if [ -z "${SKIP_PIP}" ]; then
+    echo "Running pipenv install"
     pipenv install --deploy --verbose
 fi
+
 export VIRTUALENV=`pipenv --venv`
 echo ${VIRTUALENV} >> ${approot}/venv
 
 echo "----------------- Add a reference to the virtualenv in uwsgi.ini (if any) -----------------"
 if [ -f ${approot}/config/uwsgi.ini ]; then
-    echo "venv = ${VIRTUALENV}" >> ${approot}/config/uwsgi.ini
+    echo -e "\n\nvenv = ${VIRTUALENV}" >> ${approot}/config/uwsgi.ini
+    echo "Virtualenv is at ${VIRTUALENV}"
 fi
-
-
+# Shared section ends
 
 
 echo "----------------- Install systemd files. -----------------"
@@ -74,7 +75,9 @@ mkdir -p /var/log/uwsgi
 chown syslog:adm /var/log/uwsgi
 mkdir -p /var/log/celery
 chmod a+w /var/log/celery
-sh ${approot}/aws/scripts/setup_instance.sh
+if [ -f ${approot}/aws/scripts/setup_instance.sh ]; then
+    sh ${approot}/aws/scripts/setup_instance.sh
+fi
 
 echo "----------------- Setting up Logging Config -----------------"
 if [ -d ${approot}/aws/rsyslog.d ]; then
@@ -88,12 +91,6 @@ if [ -d ${approot}/aws/logrotate.d ]; then
     fi
     # Run logrotation logic hourly instead of daily
     mv /etc/cron.daily/logrotate /etc/cron.hourly/
-fi
-if [ -f ${approot}/aws/splunk/inputs.conf ]; then
-    cp -v ${approot}/aws/splunk/inputs.conf /opt/splunkforwarder/etc/system/local/
-fi
-if [ -f ${approot}/aws/splunk/outputs.conf ]; then
-    cp -v ${approot}/aws/splunk/outputs.conf /opt/splunkforwarder/etc/system/local/
 fi
 
 echo "----------------- All done -----------------"

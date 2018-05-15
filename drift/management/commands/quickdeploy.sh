@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 # The environment variables must be set, obviously
 echo "---------------- Stopping service ${service} --------"
@@ -18,16 +19,20 @@ chown -R ubuntu:root ${approot}
 
 echo "----------------- Create virtualenv and install dependencies -----------------"
 cd ${approot}
-if [[ -z "${SKIP_PIP}" ]]; then
+if [ -z "${SKIP_PIP}" ]; then
+    echo "Running pipenv install"
     pipenv install --deploy --verbose
 fi
+
 export VIRTUALENV=`pipenv --venv`
 echo ${VIRTUALENV} >> ${approot}/venv
 
 echo "----------------- Add a reference to the virtualenv in uwsgi.ini (if any) -----------------"
 if [ -f ${approot}/config/uwsgi.ini ]; then
-    echo "venv = ${VIRTUALENV}" >> ${approot}/config/uwsgi.ini
+    echo -e "\n\nvenv = ${VIRTUALENV}" >> ${approot}/config/uwsgi.ini
+    echo "Virtualenv is at ${VIRTUALENV}"
 fi
+# Shared section ends
 
 
 
