@@ -24,13 +24,13 @@ class MyTest(DriftTestCase):
     def test_some_json(self):
         # Test required property
         response = self.post(400, "/schematest", {})
-        bla = json.loads(response.data)['description']
+        bla = json.loads(response.data.decode("ascii"))['description']
         self.assertIn("'string_required' is a required property", bla)
 
         # Test extra unwanted property
         response = self.post(400, "/schematest", {"not_expected": 123})
-        self.assertEquals(response.status_code, 400, json.loads(response.data)['description'])
-        self.assertIn("'additionalProperties': False", json.loads(response.data).get('description'))
+        self.assertEqual(response.status_code, 400, json.loads(response.data.decode('ascii'))['description'])
+        self.assertIn("'additionalProperties': False", json.loads(response.data.decode('ascii')).get('description'))
 
         # Test successfull input data
         response = self.post(200, "/schematest", {"string_required": "x", "string_optional": "x"})

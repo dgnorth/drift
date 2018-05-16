@@ -34,6 +34,7 @@ class HTTPMethodTestCase(unittest.TestCase):
             register_extension(self.app)
             resp = c.get('/some-endpoint', headers={'X-HTTP-Method-Override': 'PATCH'})
             self.assertEqual(resp.status_code, http_client.OK)
+            self.assertEqual(resp.data.decode("ascii"), 'success')
 
 
 if __name__ == '__main__':
