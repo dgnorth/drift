@@ -37,7 +37,7 @@ sudo apt-get install redis-server
 
 #### Windows:
 ```bash
-pip install --user pipenv
+pip install pipenv
 
 # Install and run Redis server
 choco install redis-64
