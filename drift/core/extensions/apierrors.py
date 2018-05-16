@@ -9,10 +9,10 @@ from __future__ import absolute_import
 import logging
 import json
 import uuid
-import cStringIO
 import traceback
 import sys
 
+from six.moves import cStringIO
 from flask import make_response, jsonify, request, current_app
 from werkzeug.exceptions import HTTPException
 
@@ -58,13 +58,13 @@ def register_extension(app):
     # Gurko endpoint. Always succeedes.
     @jwt_not_required
     @app.route('/gurko', methods=['GET'])
-    def gurko_handler():        
+    def gurko_handler():
         return jsonify({"all": "is well"})
-    
+
     # Borko endpoint. Always fails.
     @jwt_not_required
     @app.route('/borko', methods=['GET', 'POST'])
-    def borko_handler():        
+    def borko_handler():
         data = request.get_json()
         from flask_restful import abort
         if data:
@@ -82,7 +82,7 @@ def handle_all_exceptions(e):
     error = {}
     ret['error'] = error
 
-    if is_server_error or e.code >= 500:            
+    if is_server_error or e.code >= 500:
         # Use context_id from the client if it's available, or make one if not.
         log_context = request.headers.get("Drift-Log-Context")
         log_context = json.loads(log_context) if log_context else {}
@@ -108,7 +108,7 @@ def handle_all_exceptions(e):
             error['description'] = "Internal Server Error"
 
         # The exception is logged out and picked up by Splunk or comparable tool.
-        # The 'context_id' in the title enables quick cross referencing with the 
+        # The 'context_id' in the title enables quick cross referencing with the
         # response body below.
         log.exception(title)
 
@@ -123,7 +123,7 @@ def handle_all_exceptions(e):
 
         # Support for Flask Restful 'data' property in exceptions.
         if hasattr(e, 'data') and e.data:
-            error.update(e.data)        
+            error.update(e.data)
 
             # Legacy field 'message'. If it's in the 'data' payload, rename the field
             # to 'description'.

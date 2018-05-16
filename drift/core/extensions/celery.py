@@ -49,7 +49,8 @@ def make_celery(app):
         # HACK: Just use the tier default value instead of "celery_broker_url".
         # broker_url = tier_config["celery_broker_url"]
         broker_url = "redis://{host}:{port}/15".format(
-            **tier_config['resources']['drift.core.resources.redis'])
+            **tier_config['resources'].get('drift.core.resources.redis',
+                {'host':'none', 'port': '0'}))
 
     log.info("Celery broker from tier config: %s", broker_url)
 

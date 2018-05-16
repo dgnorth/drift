@@ -2,7 +2,7 @@
 import logging
 import os
 
-from flaskfactory import drift_app
+from .flaskfactory import drift_app
 
 logging.basicConfig(level='INFO')
 

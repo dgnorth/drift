@@ -81,18 +81,19 @@ https://github.com/ioam/param/blob/master/param/version.py
 __author__ = 'Jean-Luc Stevens'
 
 import os, subprocess
+from click import echo # simple py3 porting
 
 def run_cmd(args, cwd=None):
-    print "{}> {}".format(cwd, " ".join(args))
+    echo("{}> {}".format(cwd, " ".join(args)))
     proc = subprocess.Popen(args, stdout=subprocess.PIPE,
                             stderr=subprocess.PIPE,
                             cwd=cwd)
     output, error = (str(s.decode()).strip() for s in proc.communicate())
 
     if proc.returncode != 0:
-        print error, "\n"
+        echo(error + "\n")
         raise Exception(proc.returncode, error)
-    print output, "\n"
+    echo(output + "\n")
     return output
 
 class Version(object):
@@ -198,7 +199,7 @@ class Version(object):
                 output = run_cmd([cmd, 'remote', '-v'],
                                  cwd=os.path.dirname(self.fpath))
                 repo_matches = ['/' + self.reponame + '.git' ,
-                                # A remote 'server:reponame.git' can also be referred 
+                                # A remote 'server:reponame.git' can also be referred
                                 # to (i.e. cloned) as `server:reponame`.
                                 '/' + self.reponame + ' ']
                 if not any(m in output for m in repo_matches):
@@ -213,22 +214,22 @@ class Version(object):
                 raise Exception("Cannot find any git version tags of format v*.*")
             # If there is any other error, return (release value still useful)
             else:
-                print "Git describe failed:", e
+                echo("Git describe failed: " + e)
             return self
 
-        print "output is", output
+        echo("output is " + output)
         split = output[1:].rsplit('-', 3)
-        print "split is", split
+        echo("split is " + split)
         #self._release = tuple(int(el) for el in split[0].split('.'))
         self._release = tuple(el for el in split[0].split('.'))
         self._commit_count = int(split[1])
         self._commit = str(split[2][1:]) # Strip out 'g' prefix ('g'=>'git')
         self._dirty = (split[-1]=='dirty')
-        print "self is", str(self)
-        print "self._release", self._release
-        print "self._commit_count", self._commit_count
-        print "self._commit", self._commit
-        print "self._dirty", self._dirty
+        echo("self is ", str(self))
+        echo("self._release " + self._release)
+        echo("self._commit_count " + self._commit_count)
+        echo("self._commit " + self._commit)
+        echo("self._dirty " + self._dirty)
         return self
 
 

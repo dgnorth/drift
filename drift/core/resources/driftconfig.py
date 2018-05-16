@@ -6,8 +6,9 @@
 """
 from __future__ import absolute_import
 import logging
-import httplib
 from functools import wraps
+
+from six.moves import http_client
 
 from flask import request, g, current_app
 from flask import _app_ctx_stack as stack
@@ -93,7 +94,7 @@ def check_tenant(f):
     def _check(*args, **kwargs):
         if not tenant_from_hostname:
             abort(
-                httplib.BAD_REQUEST,
+                http_client.BAD_REQUEST,
                 description="No tenant specified. Please specify one using host name prefix or "
                 "the environment variable DRIFT_DEFAULT_TENANT."
             )
@@ -103,11 +104,11 @@ def check_tenant(f):
             try:
                 _assign_drift_config(allow_missing_tenant=False)
             except TenantNotConfigured as e:
-                abort(httplib.BAD_REQUEST, description=str(e))
+                abort(http_client.BAD_REQUEST, description=str(e))
 
         if g.conf.tenant['state'] != 'active':
             abort(
-                httplib.BAD_REQUEST,
+                http_client.BAD_REQUEST,
                 description="Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
                     g.conf.tenant['tenant_name'], get_tier_name(), current_app.config['name'], g.conf.tenant['state'])
             )
