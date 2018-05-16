@@ -3,6 +3,7 @@ import subprocess
 import sys
 import os
 from urlparse import urlparse
+from click import echo
 
 
 def get_branch():
@@ -54,7 +55,7 @@ def get_git_version():
         return  # No tag found, probably
 
     if p.returncode != 0:
-        print "git command failed:", p.returncode
+        echo("git command failed: " + p.returncode)
         sys.exit(1)
 
     is_dirty = False
@@ -86,5 +87,5 @@ def checkout(branch_or_tag):
     )
     stdout, _ = p.communicate()
     if p.returncode != 0:
-        print "git command failed:", p.returncode
+        echo("git command failed: " + p.returncode)
         sys.exit(1)

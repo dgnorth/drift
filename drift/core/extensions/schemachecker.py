@@ -20,6 +20,7 @@ from flask import after_this_request
 from flask.json import dumps, loads
 from flask.wrappers import Response
 from flask_restful import abort
+from click import echo
 
 from jsonschema import validate as _validate
 from jsonschema import RefResolver, FormatChecker, ValidationError
@@ -169,8 +170,9 @@ def generate_validation_error_report(e, json_object):
         o = o[entry]
     try:
         orig, o[e.path[0]] = o[e.path[0]], marker
-    except:
-        print "Error setting marker in schemachecker!"
+    except Exception:
+        # TODO: report this error
+        echo("Error setting marker in schemachecker!")
 
     # Pretty print the object and search for the marker
     json_error = dumps(json_object, indent=4)

@@ -10,6 +10,7 @@ import subprocess
 import socket
 
 import boto
+from click import echo
 
 from drift.management.gittools import get_branch, get_commit, get_repo_url, get_git_version
 from drift.utils import pretty, set_pretty_settings, PRETTY_FORMATTER, PRETTY_STYLE
@@ -31,9 +32,9 @@ def execute_cmd():
         return do_execute_cmd(sys.argv[1:])
     except AppRootNotFound as e:
         # A very common case that needs pretty printing
-        print str(e)
+        echo(str(e))
     except KeyboardInterrupt:
-        print " Aborting because you said so."
+        echo(" Aborting because you said so.")
 
 
 def do_execute_cmd(argv):
@@ -80,7 +81,7 @@ def do_execute_cmd(argv):
 
     try:
         conf, source = get_default_drift_config_and_source()
-        print pretty("Drift configuration source: {}".format(source))
+        echo(pretty("Drift configuration source: {}".format(source)))
     except ConfigNotFound:
         pass
 
@@ -88,14 +89,14 @@ def do_execute_cmd(argv):
 
     if args.tier:
         os.environ['DRIFT_TIER'] = args.tier
-        print "Tier set to '%s'." % args.tier
+        echo("Tier set to '%s'." % args.tier)
 
     if args.tenant:
         os.environ['DRIFT_DEFAULT_TENANT'] = args.tenant
-        print "Default tenant set to '%s'." % args.tenant
+        echo("Default tenant set to '%s'." % args.tenant)
 
     if 'DRIFT_APP_ROOT' in os.environ:
-        print "App root set: DRIFT_APP_ROOT=", os.environ['DRIFT_APP_ROOT']
+        echo("App root set: DRIFT_APP_ROOT=" + os.environ['DRIFT_APP_ROOT'])
 
     args.func(args)
 
@@ -142,11 +143,11 @@ def get_ec2_instances(region, tier, service_name):
     Raises an error if any of the instances are not reachable in SSH
     """
     filters = {
-            'tag:service-name': service_name,
-            "instance-state-name": "running",
-            "tag:tier": tier,
-        }
-    print "Finding ec2 instances in region %s from filters: %s" % (region, filters)
+        'tag:service-name': service_name,
+        "instance-state-name": "running",
+        "tag:tier": tier,
+    }
+    echo("Finding ec2 instances in region %s from filters: %s" % (region, filters))
 
     conn = boto.ec2.connect_to_region(region)
 

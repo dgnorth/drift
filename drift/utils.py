@@ -19,6 +19,7 @@ except ImportError:
     got_pygments = False
 
 from flask import g, make_response, jsonify, request, url_for, current_app
+from click import echo
 
 from driftconfig.util import get_drift_config
 
@@ -261,8 +262,8 @@ def set_pretty_settings(formatter=None, style=None):
             PRETTY_STYLE = style
 
     except util.ClassNotFound as e:
-        print "Note: ", e
-        print get_avaible_pretty_settings()
+        echo("Note: " + e)
+        echo(get_avaible_pretty_settings())
 
 
 def get_avaible_pretty_settings():
