@@ -7,9 +7,10 @@
 """
 from __future__ import absolute_import
 import logging
-import httplib
-from urlparse import urlparse
 import re
+
+from six.moves import http_client
+from six.moves.urllib.parse import urlparse
 
 from flask import request, g, jsonify, make_response
 
@@ -78,7 +79,7 @@ def get_api_key_rule(request_headers, request_url, conf):
         version = None
 
     def retval(status_code=None, message=None, description=None, rule=None):
-        status_code = status_code or httplib.FORBIDDEN
+        status_code = status_code or http_client.FORBIDDEN
         message = message or 'Forbidden'
         description = description or message
         response_body = {
@@ -170,7 +171,7 @@ def get_api_key_rule(request_headers, request_url, conf):
                 ret['status_code'] = rule['reject']['status_code']
             else:
                 ret['response_body'] = {'message': 'Forbidden'}
-                ret['status_code'] = httplib.FORBIDDEN
+                ret['status_code'] = http_client.FORBIDDEN
             return ret
 
         elif rule['rule_type'] == 'redirect':

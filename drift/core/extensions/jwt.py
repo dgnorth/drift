@@ -5,9 +5,10 @@ from __future__ import absolute_import
 import logging
 from datetime import datetime, timedelta
 import json
-import httplib
 from functools import wraps
+
 import jwt
+from six.moves.http_client import UNAUTHORIZED
 
 from flask import current_app, request, Blueprint, _request_ctx_stack, jsonify, g
 from flask_restful import Api, abort
@@ -42,7 +43,7 @@ api = Api(bp)
 def abort_unauthorized(description):
     """Raise an Unauthorized exception.
     """
-    abort(httplib.UNAUTHORIZED, description=description)
+    abort(UNAUTHORIZED, description=description)
 
 
 def query_current_user():

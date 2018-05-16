@@ -4,7 +4,8 @@ Schames listing APIs
 """
 import logging
 import importlib
-import httplib
+
+from six.moves import http_client
 
 from flask import Blueprint, current_app, url_for, abort, request, g
 from flask_restful import Api, Resource, reqparse
@@ -34,7 +35,7 @@ class AdminProvisionAPI(Resource):
 
         # quick check for tenant state before downloading config
         if g.conf.tenant["state"] != "initializing":
-            abort(httplib.BAD_REQUEST, message="You can only provision tenants which are in state 'initializing'. Tenant '%s' is in state '%s'" % (tenant_name, g.conf.tenant["state"]))
+            abort(http_client.BAD_REQUEST, message="You can only provision tenants which are in state 'initializing'. Tenant '%s' is in state '%s'" % (tenant_name, g.conf.tenant["state"]))
 
         args_per_provisioner = {}
         if request.json:

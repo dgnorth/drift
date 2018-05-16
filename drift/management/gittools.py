@@ -2,7 +2,8 @@
 import subprocess
 import sys
 import os
-from urlparse import urlparse
+
+from six.moves.urllib.parse import urlparse
 from click import echo
 
 

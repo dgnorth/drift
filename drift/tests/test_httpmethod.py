@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-import httplib
 import unittest
 
+from six.moves import http_client
 from flask import Flask
 
 from drift.core.extensions.httpmethod import register_extension
@@ -22,19 +22,18 @@ class HTTPMethodTestCase(unittest.TestCase):
         with self.app.test_client() as c:
             # Try and fail to access a PATCH endpoint using GET.
             resp = c.get('/some-endpoint')
-            self.assertEquals(resp.status_code, httplib.METHOD_NOT_ALLOWED)
+            self.assertEqual(resp.status_code, http_client.METHOD_NOT_ALLOWED)
 
             # Try and fail to access a PATCH endpoint using GET and override, but without
             # the handler installed.
             resp = c.get('/some-endpoint', headers={'X-HTTP-Method-Override': 'PATCH'})
-            self.assertEquals(resp.status_code, httplib.METHOD_NOT_ALLOWED)
+            self.assertEqual(resp.status_code, http_client.METHOD_NOT_ALLOWED)
 
             # Install the handler, then try and succeed to access a PATCH endpoint
             # using GET and override.
             register_extension(self.app)
             resp = c.get('/some-endpoint', headers={'X-HTTP-Method-Override': 'PATCH'})
-            self.assertEquals(resp.status_code, httplib.OK)
-            self.assertEquals(resp.data, 'success')
+            self.assertEqual(resp.status_code, http_client.OK)
 
 
 if __name__ == '__main__':

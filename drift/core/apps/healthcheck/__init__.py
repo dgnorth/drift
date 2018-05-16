@@ -4,7 +4,7 @@ Schames listing APIs
 """
 import logging
 import importlib
-import httplib
+from six.moves.http_client import SERVICE_UNAVAILABLE
 
 from flask import Blueprint, current_app, g
 from flask_restful import Api, Resource, abort
@@ -27,11 +27,11 @@ class HealthCheckAPI(Resource):
             return {'result': "ok, but no tenant specified."}
 
         if g.conf.tenant["state"] != "active":
-            abort(httplib.SERVICE_UNAVAILABLE, ("Tenant is in state '%s' but needs to be 'active'." % g.conf.tenant["state"]))
+            abort(SERVICE_UNAVAILABLE, ("Tenant is in state '%s' but needs to be 'active'." % g.conf.tenant["state"]))
 
         resources = current_app.config.get("resources")
         if not resources:
-            abort(httplib.SERVICE_UNAVAILABLE, "Deployable is missing 'resources' section in drift config.")
+            abort(SERVICE_UNAVAILABLE, "Deployable is missing 'resources' section in drift config.")
 
         for module_name in resources:
             m = importlib.import_module(module_name)
