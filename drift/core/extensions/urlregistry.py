@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
+from click import echo
 
 
 # BUG: Sytems test fails unless this is a global object.
@@ -20,7 +21,7 @@ class EndpointRegistry(object):
         self.app.extensions['urlregistry'] = self
         global needs_to_be_global
         self.app.endpoint_registry_funcs = needs_to_be_global  # used to be []
-        print "doing this for the first time or what"
+        echo("doing this for the first time or what")
 
     def register_endpoints(self, f):
         self.app.endpoint_registry_funcs.append(f)

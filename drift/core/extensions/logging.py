@@ -18,7 +18,7 @@ import time
 from uuid import uuid4
 from socket import gethostname
 from collections import OrderedDict
-from urlparse import urlsplit
+from six.moves.urllib.parse import urlsplit
 from functools import wraps
 
 from flask import g, request

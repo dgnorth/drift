@@ -101,7 +101,7 @@ To see what's going on:
 ```bash
 export PRODUCT_NAME=dg-kaleo
 export DEPLOYABLE=kaleo-web
-curl -s https://devnorth.dg-api.com/api-router/ | python -c "import sys, json, pprint; d = json.load(sys.stdin); print json.dumps([p for p in d['products'] if p['product_name'] == '${PRODUCT_NAME}'], indent=4); print json.dumps([p for p in d['deployables'] if p['name'] == '${DEPLOYABLE}'], indent=4)"
+curl -s https://devnorth.dg-api.com/api-router/ | python -c "import sys, json, pprint; d = json.load(sys.stdin); print(json.dumps([p for p in d['products'] if p['product_name'] == '${PRODUCT_NAME}'], indent=4)); print(json.dumps([p for p in d['deployables'] if p['name'] == '${DEPLOYABLE}'], indent=4))"
 ```
 
 This should yield the following result:
