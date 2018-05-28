@@ -433,10 +433,10 @@ def drop_db(_params, force=False):
 
 def healthcheck():
     if "postgres" not in g.conf.tenant:
-        abort(httplib.SERVICE_UNAVAILABLE, "Tenant config does not have 'postgres' section.")
+        abort(http_client.SERVICE_UNAVAILABLE, "Tenant config does not have 'postgres' section.")
     for k in TIER_DEFAULTS.keys():
         if not g.conf.tenant["postgres"].get(k):
-            abort(httplib.SERVICE_UNAVAILABLE, "'postgres' config missing key '%s'" % k)
+            abort(http_client.SERVICE_UNAVAILABLE, "'postgres' config missing key '%s'" % k)
 
     rows = g.db.execute("SELECT 1+1")
     rows.fetchall()[0]

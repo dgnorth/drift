@@ -92,7 +92,7 @@ def check_tenant_state(tenant):
     """Make sure tenant is provisioned and active."""
     if tenant['state'] != 'active':
         abort(
-            httplib.BAD_REQUEST,
+            http_client.BAD_REQUEST,
             description="Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
                 tenant['tenant_name'], tenant['tier_name'], tenant['deployable_name'], tenant['state'])
         )
