@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
+import sys
 import unittest
+import os.path
 
 
 """
@@ -38,3 +40,22 @@ class ImportTestCase(unittest.TestCase):
 
     def test_webservers(self):
         import drift.webservers
+
+
+class ScriptImportTestCase(unittest.TestCase):
+    script_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "scripts"))
+
+    def setUp(self):
+        sys.path.append(self.script_dir)
+    def tearDown(self):
+        sys.path.pop()
+
+    def test_drift_admin(self):
+        # must use this because drift-admin.py contains a dash!
+        __import__('drift-admin', globals(), locals(), [], 0)
+
+    def test_parse_uwsgi_profiler(self):
+        import parse_uwsgi_profiler
+
+    def test_travis_build_dependent_projects(self):
+        import travis_build_dependent_projects
