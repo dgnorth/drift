@@ -361,6 +361,8 @@ def create_db(params, report=None):
     for model_module_name in models:
         log.info("Building models from %s", model_module_name)
         models = importlib.import_module(model_module_name)
+        if hasattr(models, 'pre_create_db_tables'):
+            models.pre_create_db_tables(engine)
         models.ModelBase.metadata.create_all(engine)
         if hasattr(models, 'on_create_db'):
             models.on_create_db(engine)

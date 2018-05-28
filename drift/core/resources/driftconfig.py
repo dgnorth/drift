@@ -88,8 +88,18 @@ def _assign_drift_config(allow_missing_tenant):
     )
 
 
+def check_tenant_state(tenant):
+    """Make sure tenant is provisioned and active."""
+    if tenant['state'] != 'active':
+        abort(
+            httplib.BAD_REQUEST,
+            description="Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
+                tenant['tenant_name'], tenant['tier_name'], tenant['deployable_name'], tenant['state'])
+        )
+
+
 def check_tenant(f):
-    """Make sure current tenant is provisioned and active."""
+    """Make sure current tenant is provided, provisioned and active."""
     @wraps(f)
     def _check(*args, **kwargs):
         if not tenant_from_hostname:
@@ -106,12 +116,7 @@ def check_tenant(f):
             except TenantNotConfigured as e:
                 abort(http_client.BAD_REQUEST, description=str(e))
 
-        if g.conf.tenant['state'] != 'active':
-            abort(
-                http_client.BAD_REQUEST,
-                description="Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
-                    g.conf.tenant['tenant_name'], get_tier_name(), current_app.config['name'], g.conf.tenant['state'])
-            )
+        check_tenant_state(g.conf.tenant)
         return f(*args, **kwargs)
     return _check
 
