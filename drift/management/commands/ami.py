@@ -276,6 +276,8 @@ def _bake_command(args):
         sys.exit(0)
 
     start_time = time.time()
+    failure_line = None
+
     try:
         # Execute Packer command and parse the output to find the ami id.
         p = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -297,6 +299,8 @@ def _bake_command(args):
                 print "AMI ID: %s" % ami.id
                 print ""
 
+            if "failed with error code" in line:
+                failure_line = line
             if "Your Pipfile.lock" in line and "is out of date" in line:
                 print "ERROR: ", line
                 print "Build failed! Consider running `pipenv lock` before baking."
@@ -312,6 +316,8 @@ def _bake_command(args):
 
     if p.returncode != 0:
         print "Failed to execute packer command:", cmd
+        if failure_line:
+            print "Check this out: ", failure_line
         sys.exit(p.returncode)
 
     duration = time.time() - start_time
