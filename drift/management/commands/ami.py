@@ -8,7 +8,8 @@ import subprocess
 import operator
 import pkg_resources
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+import pytz
 import random
 import shlex
 import tempfile
@@ -161,6 +162,26 @@ def _bake_command(args):
     print "DOMAIN:\n", json.dumps(domain, indent=4)
     print "DEPLOYABLE:", name
     print "AWS REGION:", aws_region
+
+    # Clean up lingering Packer instances
+    tag_name = 'Packer Builder'
+    ec2_client = boto3.client('ec2', region_name=aws_region)
+    packers = ec2_client.describe_instances(
+        Filters=[
+            {'Name': 'tag:Name', 'Values': ['Packer Builder']},
+            {'Name': 'instance-state-name', 'Values': ['running']}
+        ]
+    )
+    terminate_ids = []
+    if packers['Reservations']:
+        for pc2 in packers['Reservations'][0]['Instances']:
+            age = datetime.utcnow().replace(tzinfo=pytz.utc) - pc2['LaunchTime']
+            if age > timedelta(minutes=20):
+                print "Cleaning up Packer instance {} as it has been active for {}.".format(
+                    pc2['InstanceId'], age)
+                terminate_ids.append(pc2['InstanceId'])
+        if terminate_ids:
+            ec2.instances.filter(InstanceIds=terminate_ids).terminate()
 
     if args.ami:
         amis = list(ec2.images.filter(ImageIds=[args.ami]))
