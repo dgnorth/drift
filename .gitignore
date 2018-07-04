@@ -41,6 +41,10 @@ htmlcov/
 nosetests.xml
 coverage.xml
 
+# don't check in the Pipfile and Pipfile.lock files.  They are for deploying apps, this is a library.
+Pipfile
+Pipfile.lock
+
 # Translations
 *.mo
 *.pot
@@ -56,3 +60,4 @@ target/
 
 # PyCharm
 .idea/
+

@@ -47,6 +47,26 @@ redis-server
 choco install postgresql  # When prompted for pwd, specify 'postgres'.
 ```
 
+### Prepare for local unittesting of the drift module
+This module can be tested on its own, but it requires the [drift-config](https://github.com/dgnorth/drift-config) project as a dependency.
+
+Assuming that *drift-config* has been cloned to the same level as this one, do the following to create
+a virtualenv:
+```bash
+pipenv --two # or --three
+pipenv install -e "../drift-config[s3-backend,redis-backend]"
+pipenv install -e ".[aws,test]"
+```
+This creates a Pipfile and a Pipfile.lock for local development.
+
+You can now run unittests, e.g. by running `pipenv run python -m unittest discover`
+
+If you want to switch to a different version of Python remove the `Pipfile` entirely and re-do the above steps with the appropriate switch for python version.
+You may also need to remove `.pyc` files, e.g. with a command such as:
+```bash
+find . -name "*.pyc" --exec rm "{}" ";"
+```
+
 ### Prepare a project for local development
 
 Drift comes with some base services in a project called [drift-base](https://github.com/dgnorth/drift-base). Here is an example of how to set up that project for local development. The same method applies for all other Drift based projects.
