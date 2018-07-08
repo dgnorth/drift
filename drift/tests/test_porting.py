@@ -2,6 +2,7 @@
 import sys
 import unittest
 import os.path
+import importlib
 
 
 """
@@ -40,6 +41,13 @@ class ImportTestCase(unittest.TestCase):
 
     def test_webservers(self):
         import drift.webservers
+
+    def test_drift_commands(self):
+        import drift.management
+        valid_commands = drift.management.get_commands()
+        for cmd in valid_commands:
+            module = importlib.import_module("drift.management.commands." + cmd)
+
 
 
 class ScriptImportTestCase(unittest.TestCase):
