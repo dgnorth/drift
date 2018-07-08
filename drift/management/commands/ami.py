@@ -8,7 +8,8 @@ import subprocess
 import operator
 import pkg_resources
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+import pytz
 import random
 import shlex
 import tempfile
@@ -162,6 +163,26 @@ def _bake_command(args):
     print "DEPLOYABLE:", name
     print "AWS REGION:", aws_region
 
+    # Clean up lingering Packer instances
+    tag_name = 'Packer Builder'
+    ec2_client = boto3.client('ec2', region_name=aws_region)
+    packers = ec2_client.describe_instances(
+        Filters=[
+            {'Name': 'tag:Name', 'Values': ['Packer Builder']},
+            {'Name': 'instance-state-name', 'Values': ['running']}
+        ]
+    )
+    terminate_ids = []
+    if packers['Reservations']:
+        for pc2 in packers['Reservations'][0]['Instances']:
+            age = datetime.utcnow().replace(tzinfo=pytz.utc) - pc2['LaunchTime']
+            if age > timedelta(minutes=20):
+                print "Cleaning up Packer instance {} as it has been active for {}.".format(
+                    pc2['InstanceId'], age)
+                terminate_ids.append(pc2['InstanceId'])
+        if terminate_ids:
+            ec2.instances.filter(InstanceIds=terminate_ids).terminate()
+
     if args.ami:
         amis = list(ec2.images.filter(ImageIds=[args.ami]))
         ami = amis[0]
@@ -276,6 +297,8 @@ def _bake_command(args):
         sys.exit(0)
 
     start_time = time.time()
+    failure_line = None
+
     try:
         # Execute Packer command and parse the output to find the ami id.
         p = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -297,6 +320,8 @@ def _bake_command(args):
                 print "AMI ID: %s" % ami.id
                 print ""
 
+            if "failed with error code" in line:
+                failure_line = line
             if "Your Pipfile.lock" in line and "is out of date" in line:
                 print "ERROR: ", line
                 print "Build failed! Consider running `pipenv lock` before baking."
@@ -312,6 +337,8 @@ def _bake_command(args):
 
     if p.returncode != 0:
         print "Failed to execute packer command:", cmd
+        if failure_line:
+            print "Check this out: ", failure_line
         sys.exit(p.returncode)
 
     duration = time.time() - start_time
