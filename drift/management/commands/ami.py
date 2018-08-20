@@ -244,11 +244,15 @@ def _bake_command(args):
                 print "Failed to execute build command:", cmd
                 sys.exit(ret)
 
-            cmd = ["zip", "-r", "dist/aws.zip", "aws"]
-            ret = subprocess.call(cmd)
-            if ret != 0:
-                print "Failed to execute build command:", cmd
-                sys.exit(ret)
+            if sys.platform != 'win32':
+                cmd = ["zip", "-r", "dist/aws.zip", "aws"]
+                ret = subprocess.call(cmd)
+                if ret != 0:
+                    print "Failed to execute build command:", cmd
+                    sys.exit(ret)
+            else:
+                import shutil
+                shutil.make_archive("dist/aws", 'zip', "aws")
     finally:
         print "Reverting to ", current_branch
         checkout(current_branch)
@@ -272,7 +276,9 @@ def _bake_command(args):
         subprocess.call(['packer', 'version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except Exception as e:
         print "Error:", e
-        print "'packer version' command failed. Please install it if it's missing."
+        print "'packer version' command failed. Make sure it's installed."
+        if sys.platform == 'win32':
+            print "To install packer for windows: choco install packer"
         sys.exit(127)
 
     cmd = "packer build "
@@ -283,15 +289,17 @@ def _bake_command(args):
     for k, v in packer_vars.iteritems():
         cmd += "-var {}=\"{}\" ".format(k, v)
 
+    cmd = shlex.split(cmd)
+
     # Use generic packer script if project doesn't specify one
     pkg_resources.cleanup_resources()
     if os.path.exists("config/packer.json"):
-        cmd += "config/packer.json"
+        cmd.append("config/packer.json")
     else:
         scriptfile = pkg_resources.resource_filename(__name__, "driftapp-packer.json")
-        cmd += scriptfile
+        cmd.append(scriptfile)
 
-    print "Baking AMI with: {}".format(cmd)
+    print "Baking AMI with: {}".format(' '.join(cmd))
     if args.preview:
         print "Not building or packaging because --preview is on. Exiting now."
         sys.exit(0)
@@ -301,7 +309,7 @@ def _bake_command(args):
 
     try:
         # Execute Packer command and parse the output to find the ami id.
-        p = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while True:
             line = p.stdout.readline()
             print line,
