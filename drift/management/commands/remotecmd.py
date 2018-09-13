@@ -24,13 +24,13 @@ def get_options(parser):
 def run_command(args):
     cmd = args.cmd
     if not cmd and args.upload is None:
-        print "Please enter command to run. Example: kitrun.py remotecmd \"ls -l\""
+        echo("Please enter command to run. Example: kitrun.py remotecmd \"ls -l\"")
         return
 
     conf = get_config()
     if not conf.deployable:
-        print "Deployable '{}' not found in config '{}'.".format(
-            conf.drift_app['name'], conf.domain['domain_name'])
+        echo("Deployable '{}' not found in config '{}'.".format(
+            conf.drift_app['name'], conf.domain['domain_name']))
         sys.exit(1)
 
     service_name = conf.deployable['deployable_name']
@@ -39,14 +39,14 @@ def run_command(args):
     ssh_key_name = conf.tier['aws']['ssh_key']
     ssh_key_file = '~/.ssh/{}.pem'.format(ssh_key_name)
 
-    print "\n*** EXECUTING REMOTE COMMAND '{}' ON SERVICE '{}' / TIER '{}' IN REGION '{}'\n".format(cmd, service_name, tier, region)
+    echo("\n*** EXECUTING REMOTE COMMAND '{}' ON SERVICE '{}' / TIER '{}' IN REGION '{}'\n".format(cmd, service_name, tier, region))
 
     instances = get_ec2_instances(region, tier, service_name)
 
     for ec2 in instances:
         ip_address = ec2.private_ip_address
 
-        print "*** Running '{}' on {}...".format(cmd, ip_address)
+        echo("*** Running '{}' on {}...".format(cmd, ip_address))
 
         conf = Config()
         conf.connect_kwargs.key_filename = ssh_key_file
@@ -55,4 +55,4 @@ def run_command(args):
             conn.put(args.upload, "~/")
         else:
             conn.run(cmd)
-        print
+        echo()

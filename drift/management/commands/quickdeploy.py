@@ -13,6 +13,8 @@ import pkg_resources
 import time
 
 import requests
+from click import echo, secho
+from six import print_
 
 from drift.management import get_ec2_instances, get_app_version
 from drift.utils import get_config
@@ -48,8 +50,8 @@ def run_command(args):
     t = time.time()
     conf = get_config()
     if not conf.deployable:
-        print "Deployable '{}' not found in config '{}'.".format(
-            conf.drift_app['name'], conf.domain['domain_name'])
+        echo("Deployable '{}' not found in config '{}'.".format(
+            conf.drift_app['name'], conf.domain['domain_name']))
         sys.exit(1)
 
     service_name = conf.deployable['deployable_name']
@@ -61,14 +63,14 @@ def run_command(args):
     include_drift = args.drift
 
     if args.tiername and args.tiername != tier:
-        print "Default tier is '{}' but you expected '{}'. Quitting now.".format(tier, args.tiername)
+        echo("Default tier is '{}' but you expected '{}'. Quitting now.".format(tier, args.tiername))
         return
 
     if conf.tier['is_live'] and tier != args.tiername:
-        print "You are quickdeploying to '{}' which is a protected tier.".format(tier)
-        print "This is not recommended!"
-        print "If you must do this, and you know what you are doing, state the name of"
-        print "the tier using the --deploy-to-this-tier argument and run again."
+        echo("You are quickdeploying to '{}' which is a protected tier.".format(tier))
+        echo("This is not recommended!")
+        echo("If you must do this, and you know what you are doing, state the name of")
+        echo("the tier using the --deploy-to-this-tier argument and run again.")
         return
 
 
@@ -89,7 +91,7 @@ def run_command(args):
         shell_scripts = []
 
         for project_folder in project_folders:
-            print "Creating source distribution from ", project_folder
+            echo("Creating source distribution from ", project_folder)
             cmd = [
                 "python",
                 os.path.join(project_folder, "setup.py"),
@@ -102,7 +104,7 @@ def run_command(args):
                 cmd, cwd=project_folder, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             stdout, _ = p.communicate()
             if p.returncode != 0:
-                print stdout
+                print_(stdout)
                 sys.exit(p.returncode)
 
             # Use custom quickdeploy script if found.
@@ -118,9 +120,9 @@ def run_command(args):
 
             quickdeploy_script_file = os.path.join(project_folder, "scripts/quickdeploy.sh")
             if os.path.exists(quickdeploy_script_file):
-                print "Using quickdeploy.sh from this project."
+                echo("Using quickdeploy.sh from this project.")
             else:
-                print "Using standard quickdeploy.sh from Drift library"
+                echo("Using standard quickdeploy.sh from Drift library")
                 # Use standard quickdeploy script. Only works for web stacks.
                 quickdeploy_script_file = pkg_resources.resource_filename(__name__, "quickdeploy.sh")
             with open(quickdeploy_script_file, 'r') as f:
@@ -129,7 +131,7 @@ def run_command(args):
 
         for ec2 in get_ec2_instances(region, tier, service_name):
             if args.ip and ec2.private_ip_address != args.ip:
-                print "Skipping ", ec2.private_ip_address
+                echo("Skipping " + ec2.private_ip_address)
                 continue
 
             conf = Config()
@@ -138,14 +140,14 @@ def run_command(args):
             conn = Connection(host=ec2.private_ip_address, user=EC2_USERNAME, config=conf)
 
             for dist_file in os.listdir(distros):
-                print "Installing {} on {}".format(dist_file, ec2.private_ip_address)
+                echo("Installing {} on {}".format(dist_file, ec2.private_ip_address))
                 full_name = os.path.join(distros, dist_file)
 
                 # Remove the previous file forcefully, if needed
                 conn.run("sudo rm -f {}".format(dist_file))
                 conn.put(full_name)
 
-            print "Running quickdeploy script on {}".format(ec2.private_ip_address)
+            echo("Running quickdeploy script on {}".format(ec2.private_ip_address))
             for shell_script in shell_scripts:
                 conn.sudo(shell_script)
 
@@ -158,12 +160,12 @@ def run_command(args):
                     )
             except Exception as e:
                 if 'Read timed out' in str(e):
-                    print "WARNING! Web server didn't respond in {} seconds.".format(timeout)
+                    secho("WARNING! Web server didn't respond in {} seconds.".format(timeout), fg="yellow")
                 else:
-                    print "ERROR! {}".format(e)
+                    secho("ERROR! {}".format(e), fg="red")
             else:
                 ret.raise_for_status()
-                print "SUCCESS: Instance {}  is serving.".format(ec2.private_ip_address)
+                secho("SUCCESS: Instance {}  is serving.".format(ec2.private_ip_address), fg="green")
 
 
             # todo: see if this needs to be done as well:
@@ -176,4 +178,4 @@ def run_command(args):
     finally:
         shutil.rmtree(distros)
 
-    print "Quickdeploy ran for {:.1f} seconds.".format(time.time() - t)
+    echo("Quickdeploy ran for {:.1f} seconds.".format(time.time() - t))

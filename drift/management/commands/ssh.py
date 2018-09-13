@@ -5,6 +5,8 @@ import os
 import subprocess
 
 import boto3
+from click import echo
+from six import print_
 
 from drift.utils import get_config
 
@@ -22,13 +24,13 @@ def run_command(args):
     deployables = conf.table_store.get_table('deployables').find({"tier_name": tier_name})
     deployables = {depl["deployable_name"]: depl for depl in deployables}
     if service is None:
-        print "Select an instance to connect to:"
+        echo("Select an instance to connect to:")
         for k in sorted(deployables.keys()):
-            print "   ", k
+            echo("    " + k)
         return
 
     elif service not in deployables:
-        print "Warning! Service or deployable '{}' not one of {}.".format(service, ", ".join(deployables.keys()))
+        echo("Warning! Service or deployable '{}' not one of {}.".format(service, ", ".join(deployables.keys())))
 
     ssh_key_file = '~/.ssh/{}.pem'.format(ssh_key_name)
     ssh_key_file = ssh_key_file.replace('~', os.path.expanduser('~'))
@@ -40,9 +42,9 @@ def run_command(args):
                {"Name": "tag:tier", "Values": [tier_name]},
                {"Name": "tag:service-name", "Values": [service]},
                ]
-    print "Getting a list of EC2's from AWS matching the following criteria:"
+    echo("Getting a list of EC2's from AWS matching the following criteria:")
     for criteria in filters:
-        print "   {} = {}".format(criteria["Name"], criteria["Values"][0])
+        echo("   {} = {}".format(criteria["Name"], criteria["Values"][0]))
 
     ret = ec2.describe_instances(Filters=filters)
     instances = []
@@ -50,31 +52,31 @@ def run_command(args):
         instances += res["Instances"]
 
     if not instances:
-        print "No instance found which matches the criteria."
+        echo("No instance found which matches the criteria.")
         return
 
-    print "Instances:"
+    echo("Instances:")
     inst = instances[0]
     for i, ins in enumerate(instances):
         lb = [tag["Value"] for tag in ins["Tags"] if tag["Key"] == "launched-by"] or ["n/a"]
-        print "  {}: {} at {} launched by {} on {}".format(
-            i + 1, ins["InstanceId"], ins["PrivateIpAddress"], lb[0], ins["LaunchTime"])
+        echo("  {}: {} at {} launched by {} on {}".format(
+            i + 1, ins["InstanceId"], ins["PrivateIpAddress"], lb[0], ins["LaunchTime"]))
 
     if len(instances) > 1:
         which = raw_input("Select an instance to connect to (or press enter for first one): ")
         if which:
             inst = instances[int(which) - 1]
     else:
-        print "Only one instance available. Connecting to it immediately.."
+        echo("Only one instance available. Connecting to it immediately..")
 
     ip_address = inst["PrivateIpAddress"]
     cd_cmd = ""
     if service in deployables:
         cd_cmd = 'cd /etc/opt/{}; exec bash --login'.format(service)
     cmd = ["ssh", "ubuntu@{}".format(ip_address), "-i", ssh_key_file, "-t", cd_cmd]
-    print "\nSSH command:", " ".join(cmd)
+    echo("\nSSH command:", " ".join(cmd))
     p = subprocess.Popen(cmd)
     stdout, _ = p.communicate()
     if p.returncode != 0:
-        print stdout
+        print_(stdout)
         sys.exit(p.returncode)

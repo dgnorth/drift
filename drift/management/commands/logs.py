@@ -1,14 +1,15 @@
 import os
 import sys
-from drift.utils import get_config
-
-from fabric import Connection, Config
-
-import boto
-import boto.ec2
 from time import sleep
 import json
+
+from fabric import Connection, Config
+import boto
+import boto.ec2
+from click import echo, secho
+
 from drift.management import get_ec2_instances
+from drift.utils import get_config
 
 EC2_USERNAME = 'ubuntu'
 UWSGI_LOGFILE = "/var/log/uwsgi/uwsgi.log"
@@ -35,8 +36,8 @@ def get_options(parser):
 def run_command(args):
     conf = get_config()
     if not conf.deployable:
-        print "Deployable '{}' not found in config '{}'.".format(
-            conf.drift_app['name'], conf.domain['domain_name'])
+        secho("Deployable '{}' not found in config '{}'.".format(
+            conf.drift_app['name'], conf.domain['domain_name']), fg="red")
         sys.exit(1)
 
     deployable_name = conf.deployable['deployable_name']
@@ -45,23 +46,24 @@ def run_command(args):
     ssh_key_name = conf.tier['aws']['ssh_key']
     ssh_key_file = '~/.ssh/{}.pem'.format(ssh_key_name)
 
-    print "\n*** VIEWING LOGS FOR SERVICE '{}' / TIER '{}' IN REGION '{}'\n".format(deployable_name, tier, region)
+    echo()
+    echo("*** VIEWING LOGS FOR SERVICE '{}' / TIER '{}' IN REGION '{}'\n".format(deployable_name, tier, region))
 
     instances = get_ec2_instances(region, tier, deployable_name)
 
     if args.host:
         instances = [i for i in instances if i.private_ip_address == args.host]
-    print "Gathering logs from '%s' on the following instances:" % UWSGI_LOGFILE
+    echo("Gathering logs from '%s' on the following instances:" % UWSGI_LOGFILE)
     for inst in instances:
-        print "   %s" % inst.private_ip_address
+        echo("   %s" % inst.private_ip_address)
 
     if args.stream and len(instances) > 1:
-        print "The --stream argument can only be used on a single host. Please use --host to pick one"
+        secho("The --stream argument can only be used on a single host. Please use --host to pick one", fg="red")
         return
 
     for ec2 in instances:
         ip_address = ec2.private_ip_address
-        print "*** Logs in {} on {}...".format(UWSGI_LOGFILE, ip_address)
+        echo("*** Logs in {} on {}...".format(UWSGI_LOGFILE, ip_address))
         if not args.stream:
             conf = Config()
             conf.connect_kwargs.key_filename = ssh_key_file
@@ -70,7 +72,7 @@ def run_command(args):
             if args.grep:
                 cmd += " | grep {}".format(args.grep)
             conn.run(cmd)
-            print
+            echo()
         else:
             import paramiko
             import select
