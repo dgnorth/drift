@@ -1,6 +1,7 @@
 import sys
 
-from fabric.api import env, run, put
+from click import echo
+from fabric import Connection, Config
 from drift.management import get_ec2_instances
 from drift.utils import get_config
 
@@ -47,11 +48,11 @@ def run_command(args):
 
         print "*** Running '{}' on {}...".format(cmd, ip_address)
 
-        env.host_string = ip_address
-        env.user = EC2_USERNAME
-        env.key_filename = ssh_key_file
+        conf = Config()
+        conf.connect_kwargs.key_filename = ssh_key_file
+        conn = Connection(host=ip_address, user=EC2_USERNAME, config=conf)
         if args.upload:
-            put(args.upload, "~/")
+            conn.put(args.upload, "~/")
         else:
-            run(cmd)
+            conn.run(cmd)
         print

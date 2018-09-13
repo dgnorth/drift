@@ -44,7 +44,7 @@ setup(
             'boto',
             'boto3',
             'paramiko',
-            'fabric>=1.14.0,<2.0',
+            'fabric>=2.0',
         ],
         'test': [
             'pytest',

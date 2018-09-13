@@ -6,8 +6,7 @@ and will be refactored soon.
 import os
 import subprocess
 import sys
-from fabric.api import env, run, settings, sudo
-from fabric.operations import put
+from fabric import Connection, Config
 import tempfile
 import shutil
 import pkg_resources
@@ -133,23 +132,22 @@ def run_command(args):
                 print "Skipping ", ec2.private_ip_address
                 continue
 
-            env.host_string = ec2.private_ip_address
-            env.user = EC2_USERNAME
-            env.key_filename = ssh_key_file
+            conf = Config()
+            conf.run.warn = True
+            conf.connect_kwargs.key_filename = ssh_key_file
+            conn = Connection(host=ec2.private_ip_address, user=EC2_USERNAME, config=conf)
 
             for dist_file in os.listdir(distros):
                 print "Installing {} on {}".format(dist_file, ec2.private_ip_address)
                 full_name = os.path.join(distros, dist_file)
 
-                with settings(warn_only=True):
-                    # Remove the previous file forcefully, if needed
-                    run("sudo rm -f {}".format(dist_file))
-                    put(full_name)
+                # Remove the previous file forcefully, if needed
+                conn.run("sudo rm -f {}".format(dist_file))
+                conn.put(full_name)
 
             print "Running quickdeploy script on {}".format(ec2.private_ip_address)
             for shell_script in shell_scripts:
-                with settings(warn_only=True):
-                    sudo(shell_script)
+                conn.sudo(shell_script)
 
             # See if the server responds to an http request
             timeout = 5.0

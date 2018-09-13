@@ -2,8 +2,7 @@ import os
 import sys
 from drift.utils import get_config
 
-from fabric.api import env, run
-from fabric.operations import put
+from fabric import Connection, Config
 
 import boto
 import boto.ec2
@@ -64,13 +63,13 @@ def run_command(args):
         ip_address = ec2.private_ip_address
         print "*** Logs in {} on {}...".format(UWSGI_LOGFILE, ip_address)
         if not args.stream:
-            env.host_string = ip_address
-            env.user = EC2_USERNAME
-            env.key_filename = ssh_key_file
+            conf = Config()
+            conf.connect_kwargs.key_filename = ssh_key_file
+            conn = Connection(host=ip_address, user=EC2_USERNAME, config=conf)
             cmd = "sudo tail {} -n 100".format(UWSGI_LOGFILE)
             if args.grep:
                 cmd += " | grep {}".format(args.grep)
-            run(cmd)
+            conn.run(cmd)
             print
         else:
             import paramiko
