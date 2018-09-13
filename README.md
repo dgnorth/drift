@@ -64,7 +64,7 @@ You can now run unittests, e.g. by running `pipenv run python -m unittest discov
 If you want to switch to a different version of Python remove the `Pipfile` entirely and re-do the above steps with the appropriate switch for python version.
 You may also need to remove `.pyc` files, e.g. with a command such as:
 ```bash
-find . -name "*.pyc" --exec rm "{}" ";"
+find . -name "*.pyc" -exec rm "{}" ";"
 ```
 
 ### Prepare a project for local development
