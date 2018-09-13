@@ -3,6 +3,7 @@ import json
 
 from flask import Flask
 from unittest import TestCase
+from drift.flaskfactory import _apply_patches
 
 
 class DriftTestCase(TestCase):
@@ -47,6 +48,8 @@ class DriftTestCase(TestCase):
 
     def create_app(self):
         app = Flask(__name__)
+        # apply the same kind of patching as regular factory apps get
+        _apply_patches(app)
         app.config['TESTING'] = True
         self.test_client = app.test_client()
         app.config["name"] = '{} unit test'.format(self.__class__.__name__)

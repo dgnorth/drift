@@ -1,24 +1,30 @@
 import unittest
 import json
+from functools import partial
 
 from flask import Blueprint, request
 from flask_restful import Api, Resource
 
 from drift.tests import DriftTestCase
 from drift.core.extensions.schemachecker import simple_schema_request, schema_response, register_extension
+from drift.flaskfactory import _apply_api_error
 
 
 bp = Blueprint("schema", __name__)
 api = Api(bp)
 
 
-class MyTest(DriftTestCase):
+class SchemaCheckTest(DriftTestCase):
 
     def create_app(self):
-        app = super(MyTest, self).create_app()
+        app = super(SchemaCheckTest, self).create_app()
         app.config['json_response_schema_validation'] = 'raise_exception'
         register_extension(app)
         app.register_blueprint(bp)
+        # these tests depend on the origlan API error handling feature, which
+        # has been disabled in flask.flaskfactory._patch_api
+        # restore them here.
+        _apply_api_error(app, api)
         return app
 
     def test_required_property(self):

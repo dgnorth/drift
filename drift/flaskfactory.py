@@ -7,6 +7,7 @@ import importlib
 import json
 import os.path
 import time
+from functools import partial
 
 from flask_restful import Api
 from flask import Flask, make_response
@@ -152,7 +153,7 @@ def _apply_patches(app):
             for resource, urls, kwargs in self.resources:
                 self._register_view(app, resource, *urls, **kwargs)
     Api._init_app = patched_init_app
-
+    
     # Install proper json dumper for Flask Restful library.
     # This is needed because we need to use Flask's JSON converter which can
     # handle more variety of Python types than the standard converter.
@@ -165,3 +166,10 @@ def _apply_patches(app):
     else:
         flask_restful.DEFAULT_REPRESENTATIONS = [('application/json', output_json)]
 
+
+def _apply_api_error(app, api):
+    """
+    Add default api error handling to an object, after the above euthanizing
+    """
+    app.handle_exception = partial(api.error_router, app.handle_exception)
+    app.handle_user_exception = partial(api.error_router, app.handle_user_exception)
