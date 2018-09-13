@@ -21,20 +21,23 @@ class MyTest(DriftTestCase):
         app.register_blueprint(bp)
         return app
 
-    def test_some_json(self):
+    def test_required_property(self):
         # Test required property
         response = self.post(400, "/schematest", {})
         bla = json.loads(response.data.decode("ascii"))['description']
         self.assertIn("'string_required' is a required property", bla)
 
+    def test_extra_unwanted(self):
         # Test extra unwanted property
         response = self.post(400, "/schematest", {"not_expected": 123})
         self.assertEqual(response.status_code, 400, json.loads(response.data.decode('ascii'))['description'])
         self.assertIn("'additionalProperties': False", json.loads(response.data.decode('ascii')).get('description'))
 
+    def test_successful_input(self):
         # Test successfull input data
         response = self.post(200, "/schematest", {"string_required": "x", "string_optional": "x"})
 
+    def test_incorrect_response(self):
         # Test incorrect response
         with self.assertRaises(Exception) as context:
             response = self.post(400, "/schematest", {"string_required": "x", "fail_response": True})
