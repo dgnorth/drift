@@ -91,7 +91,7 @@ def run_command(args):
         shell_scripts = []
 
         for project_folder in project_folders:
-            echo("Creating source distribution from ", project_folder)
+            echo("Creating source distribution from " + project_folder)
             cmd = [
                 "python",
                 os.path.join(project_folder, "setup.py"),

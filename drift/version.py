@@ -225,7 +225,7 @@ class Version(object):
         self._commit_count = int(split[1])
         self._commit = str(split[2][1:]) # Strip out 'g' prefix ('g'=>'git')
         self._dirty = (split[-1]=='dirty')
-        echo("self is ", str(self))
+        echo("self is " + str(self))
         echo("self._release " + self._release)
         echo("self._commit_count " + self._commit_count)
         echo("self._commit " + self._commit)

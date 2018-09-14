@@ -212,7 +212,7 @@ def _bake_command(args):
     if not args.tag:
         args.tag = current_branch
 
-    echo("Using branch/tag", args.tag)
+    echo("Using branch/tag " + args.tag)
 
     # Wrap git branch modification in RAII.
     checkout(args.tag)

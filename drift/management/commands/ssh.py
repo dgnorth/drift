@@ -74,7 +74,7 @@ def run_command(args):
     if service in deployables:
         cd_cmd = 'cd /etc/opt/{}; exec bash --login'.format(service)
     cmd = ["ssh", "ubuntu@{}".format(ip_address), "-i", ssh_key_file, "-t", cd_cmd]
-    echo("\nSSH command:", " ".join(cmd))
+    echo("\nSSH command:" + " ".join(cmd))
     p = subprocess.Popen(cmd)
     stdout, _ = p.communicate()
     if p.returncode != 0:
