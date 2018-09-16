@@ -13,7 +13,7 @@ def main():
     building = []
 
     for domain in [travispy.PUBLIC, travispy.PRIVATE]:
-        echo("Enumerate repos on " + domain)
+        echo("Enumerate repos on {!r}".format(domain))
         conn = TravisPy.github_auth(os.environ['GITHUB_KEY'], domain)
         user = conn.user()
         repos = conn.repos(member=user.login)
@@ -24,7 +24,7 @@ def main():
             try:
                 build = conn.build(repo.last_build_id)
                 if "kitrun.py" in build.config.get("script", [""])[0]:
-                    echo("Found drift project: " + repo.slug)
+                    echo("Found drift project: {!r}".format(repo.slug))
                     if not build.running:
                         echo("Restarting...")
                         build.restart()
@@ -35,23 +35,21 @@ def main():
                 else:
                     echo("Not a drift based project.")
             except Exception as e:
-                echo("Can't build repo: " + e)
+                echo("Can't build repo: {!r}".format(e))
 
             echo()
 
         if restarted:
             echo("Repos restarted:")
             for reponame in restarted:
-                echo("\t" + reponame)
+                echo("\t{}".format(reponame))
         else:
             echo("No builds restarted.")
 
         if building:
             echo("Repos already building:")
             for reponame in building:
-                echo("\t" + reponame)
-
-
+                echo("\t{}".format(reponame))
 
 
 if __name__ == "__main__":

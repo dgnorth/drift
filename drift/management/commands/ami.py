@@ -164,8 +164,8 @@ def _bake_command(args):
 
     echo("DOMAIN:")
     echo(json.dumps(domain, indent=4))
-    echo("DEPLOYABLE: " + name)
-    echo("AWS REGION: " + aws_region)
+    echo("DEPLOYABLE: {!r}".format(name))
+    echo("AWS REGION: {!r}".format(aws_region))
 
     # Clean up lingering Packer instances
     tag_name = 'Packer Builder'
@@ -193,26 +193,26 @@ def _bake_command(args):
     else:
         # Get all Ubuntu images from the appropriate region and pick the most recent one.
         # The 'Canonical' owner. This organization maintains the Ubuntu AMI's on AWS.
-        echo("Finding the latest AMI on AWS that matches " + UBUNTU_RELEASE)
+        echo("Finding the latest AMI on AWS that matches {!r}".format(UBUNTU_RELEASE))
         filters = [
             {'Name': 'name', 'Values': [UBUNTU_RELEASE]},
         ]
         amis = list(ec2.images.filter(Owners=[_get_owner_id_for_canonical(aws_region)], Filters=filters))
         if not amis:
-            echo("No AMI found matching '{}'. Not sure what to do now.".format(UBUNTU_RELEASE))
+            echo("No AMI found matching {!r}. Not sure what to do now.".format(UBUNTU_RELEASE))
             sys.exit(1)
         ami = max(amis, key=operator.attrgetter("creation_date"))
 
     echo("Using source AMI:")
-    echo("\tID:\t" + ami.id)
-    echo("\tName:\t" + ami.name)
-    echo("\tDate:\t" + ami.creation_date)
+    echo("\tID:\t{!r}".format(ami.id))
+    echo("\tName:\t{!r}".format(ami.name))
+    echo("\tDate:\t{!r}".format(ami.creation_date))
 
     current_branch = get_branch()
     if not args.tag:
         args.tag = current_branch
 
-    echo("Using branch/tag " + args.tag)
+    echo("Using branch/tag {!r}".format(args.tag))
 
     # Wrap git branch modification in RAII.
     checkout(args.tag)
@@ -223,7 +223,7 @@ def _bake_command(args):
             setup_script = f.read()
         custom_script_name = os.path.join(conf.drift_app['app_root'], 'scripts', 'ami-bake.sh')
         if os.path.exists(custom_script_name):
-            echo("Using custom bake shell script " + custom_script_name)
+            echo("Using custom bake shell script {!r}".format(custom_script_name))
             setup_script_custom = "echo Executing custom bake shell script from {}\n".format(custom_script_name)
             setup_script_custom += open(custom_script_name, 'r').read()
             setup_script_custom += "\necho Custom bake shell script completed\n"
@@ -245,20 +245,20 @@ def _bake_command(args):
             cmd = ['python', 'setup.py', 'sdist', '--formats=zip']
             ret = subprocess.call(cmd)
             if ret != 0:
-                secho("Failed to execute build command: " + cmd, fg="red")
+                secho("Failed to execute build command: {!r}".format(cmd), fg="red")
                 sys.exit(ret)
 
             if sys.platform != 'win32':
                 cmd = ["zip", "-r", "dist/aws.zip", "aws"]
                 ret = subprocess.call(cmd)
                 if ret != 0:
-                    secho("Failed to execute build command: " + cmd, fg="red")
+                    secho("Failed to execute build command: {!r}".format(cmd), fg="red")
                     sys.exit(ret)
             else:
                 import shutil
                 shutil.make_archive("dist/aws", 'zip', "aws")
     finally:
-        echo("Reverting to " + current_branch)
+        echo("Reverting to {!r}".format(current_branch))
         checkout(current_branch)
 
     user = boto.iam.connect_to_region(aws_region).get_user()  # The current IAM user running this command
@@ -280,7 +280,7 @@ def _bake_command(args):
     try:
         subprocess.call(['packer', 'version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     except Exception as e:
-        echo("Error: " + e)
+        echo("Error: {}".format(e))
         echo("'packer version' command failed. Make sure it's installed.")
         if sys.platform == 'win32':
             echo("To install packer for windows: choco install packer")
@@ -336,14 +336,14 @@ def _bake_command(args):
             if "failed with error code" in line:
                 failure_line = line
             if "Your Pipfile.lock" in line and "is out of date" in line:
-                secho("ERROR: " + line, fg="red")
-                secho("Build failed! Consider running `pipenv lock` before baking.", fg="red")
+                secho("ERROR: {}".format(line), fg="red")
+                secho("Build failed! Consider running 'pipenv lock' before baking.", fg="red")
                 sys.exit(1)
             if "Creating a Pipfile for this project" in line:
-                secho("ERROR: No Pipfile in distribution! Check MANIFEST.in.", fg="red")
+                secho("ERROR: No Pipfile in distribution! Check 'MANIFEST.in'.", fg="red")
                 sys.exit(1)
             if "Pipfile.lock not found, creating" in line:
-                secho("ERROR: No Pipfile.lock in distribution! Check MANIFEST.in.", fg="red")
+                secho("ERROR: No Pipfile.lock in distribution! Check 'MANIFEST.in'.", fg="red")
                 sys.exit(1)
     finally:
         pkg_resources.cleanup_resources()
@@ -351,7 +351,7 @@ def _bake_command(args):
     if p.returncode != 0:
         secho("Failed to execute packer command: " + cmd, fg="red")
         if failure_line:
-            secho("Check this out: " + failure_line, fg="yellow")
+            secho("Check this out: {!r}".format(failure_line), fg="yellow")
         sys.exit(p.returncode)
 
     duration = time.time() - start_time
@@ -369,7 +369,7 @@ def _bake_command(args):
     if not args.skipcopy:
         _copy_image(ami.id)
 
-    secho("Done after %.0f seconds" % (duration), fg="green")
+    secho("Done after %.0f seconds" % (duration,), fg="green")
 
 
 class MyEncoder(json.JSONEncoder):
@@ -419,14 +419,14 @@ def _run_command(args):
     name = conf.drift_app['name']
 
     if not conf.deployable:
-        echo("The deployable '{}' is not registered and/or assigned to tier {}.".format(name, tier_name))
+        echo("The deployable '{}' is not registered and/or assigned to tier {!r}.".format(name, tier_name))
         echo("Run 'drift-admin register' to register this deployable.")
         echo("Run 'driftconfig assign-tier {}' to assign it to the tier.".format(name))
         sys.exit(1)
 
     aws_region = conf.tier['aws']['region']
 
-    echo("AWS REGION: " + aws_region)
+    echo("AWS REGION: {!r}".format(aws_region))
     echo("DOMAIN:")
     echo(json.dumps(conf.domain.get(), indent=4))
     echo("DEPLOYABLE:")
@@ -454,17 +454,17 @@ def _run_command(args):
         secho("--autoscale specified, but tier config doesn't specify 'use_autoscaling'. Use --force to override.", fg="red")
         sys.exit(1)
 
-    echo("Launch an instance of '{}' on tier '{}'".format(name, tier_name))
+    echo("Launch an instance of {!r} on tier {!r}".format(name, tier_name))
     if release:
-        echo("Using AMI with release tag: " + release)
+        echo("Using AMI with release tag: {!r}".format(release))
     else:
         echo("Using the newest AMI baked (which may not be what you expect).")
 
     ami = _find_latest_ami(name, release)
-    echo("Latest AMI: " + ami)
+    echo("Latest AMI: {!r}".format(ami))
 
     if args.ami:
-        echo("Using a specified AMI: " + args.ami)
+        echo("Using a specified AMI: {!r}".format(args.ami))
         ec2 = boto3.resource('ec2', region_name=aws_region)
         if ami.id != args.ami:
             secho("AMI found is different from AMI specified on command line.", fg="yellow")
@@ -501,7 +501,7 @@ def _run_command(args):
     filters = {'tag:tier': tier_name, 'tag:realm': 'private'}
     subnets = list(ec2.subnets.filter(Filters=filterize(filters)))
     if not subnets:
-        secho("Error: No subnet available matching filter " + filters, fg="red")
+        secho("Error: No subnet available matching filter {}".format(filters), fg="red")
         sys.exit(1)
 
     echo("Subnets:")
@@ -591,7 +591,7 @@ export AWS_REGION={aws_region}
     user_data += pkg_resources.resource_string(__name__, "ami-run.sh")
     custom_script_name = os.path.join(conf.drift_app['app_root'], 'scripts', 'ami-run.sh')
     if os.path.exists(custom_script_name):
-        echo("Using custom shell script " + custom_script_name)
+        echo("Using custom shell script {!r}".format(custom_script_name))
         user_data += "\n# Custom shell script from {}\n".format(custom_script_name)
         user_data += open(custom_script_name, 'r').read()
     else:
@@ -641,7 +641,7 @@ export AWS_REGION={aws_region}
             echo(pretty(kwargs))
             client.create_auto_scaling_group(**kwargs)
         else:
-            echo("Updating current autoscaling group " + target_name)
+            echo("Updating current autoscaling group {!r}".format(target_name))
             client.update_auto_scaling_group(**kwargs)
 
         # Prepare tags which get propagated to all new instances
@@ -666,7 +666,7 @@ export AWS_REGION={aws_region}
             HeartbeatTimeout=120,
             DefaultResult='CONTINUE'
         )
-        echo("Configuring lifecycle hook, response: " + response.get('ResponseMetadata'))
+        echo("Configuring lifecycle hook, response: {!r}".format(response.get('ResponseMetadata')))
 
 
         secho("Done!", fg="green")
@@ -674,7 +674,7 @@ export AWS_REGION={aws_region}
     else:
         # Pick a random subnet from list of available subnets
         subnet = random.choice(subnets)
-        echo("Randomly picked this subnet to use: " + subnet)
+        echo("Randomly picked this subnet to use: {!r}".format(subnet))
 
         echo("Launching EC2 instance...")
         reservation = ec2_conn.run_instances(

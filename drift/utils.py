@@ -262,7 +262,7 @@ def set_pretty_settings(formatter=None, style=None):
             PRETTY_STYLE = style
 
     except util.ClassNotFound as e:
-        echo("Note: " + e)
+        echo("Note: {}".format(e))
         echo(get_avaible_pretty_settings())
 
 

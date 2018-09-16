@@ -304,7 +304,7 @@ def db_exists(params):
         if "does not exist" in repr(e):
             return False
         else:
-            echo("OOPS: " + e)
+            echo("OOPS: {!r}".format(e))
             return False
     return True
 
@@ -338,7 +338,7 @@ def create_db(params, report=None):
     try:
         engine.execute(sql)
     except Exception as e:
-        echo("%s %s" % (sql, e))
+        echo("{!r} {!r}".format(sql, e))
 
     # TODO: This will only run for the first time and fail in all other cases.
     # Maybe test before instead?
@@ -392,7 +392,7 @@ def create_db(params, report=None):
         try:
             engine.execute(sql)
         except Exception as e:
-            echo("%s %s" % (sql, e))
+            echo("{!r} {!r}".format(sql, e))
 
     if report:
         report.append("Created a new DB: '{}' in {:.3f} seconds.".format(db_name, time.time() - t))
@@ -411,7 +411,7 @@ def drop_db(_params, force=False):
     params["password"] = MASTER_PASSWORD
 
     if not db_exists(params):
-        echo("Not dropping database '{}' as it doesn't seem to exist.".format(db_name))
+        echo("Not dropping database {!r} as it doesn't seem to exist.".format(db_name))
         return
 
     engine = connect(params)
@@ -426,7 +426,7 @@ def drop_db(_params, force=False):
     try:
         engine.execute(sql)
     except Exception as e:
-        echo("%s %s" % (sql, e))
+        echo("{!r} {!r}".format(sql, e))
 
     log.info("Database '%s' has been dropped on '%s'", db_name, params["server"])
 

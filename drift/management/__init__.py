@@ -81,7 +81,7 @@ def do_execute_cmd(argv):
 
     try:
         conf, source = get_default_drift_config_and_source()
-        echo(pretty("Drift configuration source: {}".format(source)))
+        echo(pretty("Drift configuration source: {!r}".format(source)))
     except ConfigNotFound:
         pass
 
@@ -89,14 +89,14 @@ def do_execute_cmd(argv):
 
     if args.tier:
         os.environ['DRIFT_TIER'] = args.tier
-        echo("Tier set to '%s'." % args.tier)
+        echo("Tier set to {!r}.".format(args.tier))
 
     if args.tenant:
         os.environ['DRIFT_DEFAULT_TENANT'] = args.tenant
-        echo("Default tenant set to '%s'." % args.tenant)
+        echo("Default tenant set to {!r}.".format(args.tenant))
 
     if 'DRIFT_APP_ROOT' in os.environ:
-        echo("App root set: DRIFT_APP_ROOT=" + os.environ['DRIFT_APP_ROOT'])
+        echo("App root set: DRIFT_APP_ROOT={!r}".format(os.environ['DRIFT_APP_ROOT']))
 
     args.func(args)
 
@@ -147,7 +147,7 @@ def get_ec2_instances(region, tier, service_name):
         "instance-state-name": "running",
         "tag:tier": tier,
     }
-    echo("Finding ec2 instances in region %s from filters: %s" % (region, filters))
+    echo("Finding ec2 instances in region {!r} from filters: {!r}".format(region, filters))
 
     conn = boto.ec2.connect_to_region(region)
 

@@ -91,7 +91,7 @@ def run_command(args):
         shell_scripts = []
 
         for project_folder in project_folders:
-            echo("Creating source distribution from " + project_folder)
+            echo("Creating source distribution from {!r}".format(project_folder))
             cmd = [
                 "python",
                 os.path.join(project_folder, "setup.py"),
@@ -131,7 +131,7 @@ def run_command(args):
 
         for ec2 in get_ec2_instances(region, tier, service_name):
             if args.ip and ec2.private_ip_address != args.ip:
-                echo("Skipping " + ec2.private_ip_address)
+                echo("Skipping {!r}".format(ec2.private_ip_address))
                 continue
 
             conf = Config()

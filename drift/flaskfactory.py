@@ -153,7 +153,7 @@ def _apply_patches(app):
             for resource, urls, kwargs in self.resources:
                 self._register_view(app, resource, *urls, **kwargs)
     Api._init_app = patched_init_app
-    
+
     # Install proper json dumper for Flask Restful library.
     # This is needed because we need to use Flask's JSON converter which can
     # handle more variety of Python types than the standard converter.

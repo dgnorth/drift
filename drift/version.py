@@ -214,22 +214,22 @@ class Version(object):
                 raise Exception("Cannot find any git version tags of format v*.*")
             # If there is any other error, return (release value still useful)
             else:
-                echo("Git describe failed: " + e)
+                echo("Git describe failed: {}".format(e))
             return self
 
-        echo("output is " + output)
+        echo("output is {!r}".format(output))
         split = output[1:].rsplit('-', 3)
-        echo("split is " + split)
+        echo("split is {}".format(split))
         #self._release = tuple(int(el) for el in split[0].split('.'))
         self._release = tuple(el for el in split[0].split('.'))
         self._commit_count = int(split[1])
         self._commit = str(split[2][1:]) # Strip out 'g' prefix ('g'=>'git')
         self._dirty = (split[-1]=='dirty')
-        echo("self is " + str(self))
-        echo("self._release " + self._release)
-        echo("self._commit_count " + self._commit_count)
-        echo("self._commit " + self._commit)
-        echo("self._dirty " + self._dirty)
+        echo("self is {!s}".format(self))
+        echo("self._release {}".format(self._release))
+        echo("self._commit_count {}".format(self._commit_count))
+        echo("self._commit {}".format(self._commit))
+        echo("self._dirty {}".format(self._dirty))
         return self
 
 

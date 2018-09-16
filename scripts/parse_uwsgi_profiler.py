@@ -50,7 +50,7 @@ def main():
             for t in top:
                 percent = int(round(100*t[1]/items_count))
                 if percent > 0:
-                    echo(t[0], "%s%%" % percent)
+                    echo("{} {}%".format(t[0], percent))
 
     echo('uWSGI python profiler %s results' % profiler_name)
     count(calls, 'calls')

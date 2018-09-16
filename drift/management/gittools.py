@@ -56,7 +56,7 @@ def get_git_version():
         return  # No tag found, probably
 
     if p.returncode != 0:
-        echo("git command failed: " + p.returncode)
+        echo("git command failed: {}".format(p.returncode))
         sys.exit(1)
 
     is_dirty = False
@@ -88,5 +88,5 @@ def checkout(branch_or_tag):
     )
     stdout, _ = p.communicate()
     if p.returncode != 0:
-        echo("git command failed: " + p.returncode)
+        echo("git command failed: {}".format(p.returncode))
         sys.exit(1)
