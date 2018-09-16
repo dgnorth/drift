@@ -177,7 +177,7 @@ def generate_validation_error_report(e, json_object):
 
     # Pretty print the object and search for the marker
     json_error = dumps(json_object, indent=4)
-    io = cStringIO.StringIO(json_error)
+    io = cStringIO(json_error)
 
     errline = None
     for lineno, text in enumerate(io):
@@ -190,7 +190,7 @@ def generate_validation_error_report(e, json_object):
         report = []
         json_object[e.path[0]] = orig
         json_error = dumps(json_object, indent=4)
-        io = cStringIO.StringIO(json_error)
+        io = cStringIO(json_error)
 
         for lineno, text in enumerate(io):
             if lineno == errline:
