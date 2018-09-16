@@ -10,5 +10,4 @@ driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'deve
 [packages]
 
 
-[requires]
-python_version = "2.7"
+
