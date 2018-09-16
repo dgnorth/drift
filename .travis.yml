@@ -6,7 +6,7 @@ cache: pip
 install:
 - pip install travispy
 - pip install pipenv --upgrade
-- pipenv install --dev --skip-lock
+- pipenv install --dev
 script:
 - pytest --cov
 - python scripts/travis_build_dependent_projects.py
