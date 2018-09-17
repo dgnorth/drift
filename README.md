@@ -5,7 +5,7 @@
 
 ![GitHub repo size in bytes](https://img.shields.io/github/repo-size/dgnorth/drift.svg)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/dgnorth/drift.svg)
-
+[![Beerpay](https://beerpay.io/dgnorth/drift/badge.svg)](https://beerpay.io/dgnorth/drift)
 
 # drift
 Micro framework for SOA based applications.
