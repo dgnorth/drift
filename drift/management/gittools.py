@@ -52,6 +52,8 @@ def get_git_version():
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     stdout, _ = p.communicate()
+    stdout = str(stdout.decode())
+
     if p.returncode == 128:
         return  # No tag found, probably
 
@@ -87,6 +89,7 @@ def checkout(branch_or_tag):
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     stdout, _ = p.communicate()
+    stdout = str(sdout.decode())
     if p.returncode != 0:
         echo("git command failed: {}".format(p.returncode))
         sys.exit(1)

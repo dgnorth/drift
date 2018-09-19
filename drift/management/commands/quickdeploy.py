@@ -103,6 +103,7 @@ def run_command(args):
             p = subprocess.Popen(
                 cmd, cwd=project_folder, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             stdout, _ = p.communicate()
+            stdout = str(stdout.decode())
             if p.returncode != 0:
                 print_(stdout)
                 sys.exit(p.returncode)

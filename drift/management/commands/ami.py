@@ -317,6 +317,7 @@ def _bake_command(args):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while True:
             line = p.stdout.readline()
+            line = str(line.decode())
             print_(line, end="")
             if line == '' and p.poll() is not None:
                 break

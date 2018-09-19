@@ -77,6 +77,7 @@ def run_command(args):
     echo("\nSSH command: " + " ".join(cmd))
     p = subprocess.Popen(cmd)
     stdout, _ = p.communicate()
+    stdout = str(stdout.decode())
     if p.returncode != 0:
         print_(stdout)
         sys.exit(p.returncode)
