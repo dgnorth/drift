@@ -83,6 +83,10 @@ def install_modules(app):
         "Installing extras:\nResources:\n\t%s\nExtensions:\n\t%s\nApps:\n\t%s",
         "\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps)
     )
+    print(
+        "Installing extras:\nResources:\n\t%s\nExtensions:\n\t%s\nApps:\n\t%s",
+        "\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps)
+    )
 
     for module_name in resources + extensions:
         t = time.time()
@@ -107,7 +111,7 @@ def install_modules(app):
         try:
             m = importlib.import_module(blueprint_name)
         except ImportError as e:
-            if 'No module named blueprints' not in str(e):
+            if 'No module named' not in str(e): #error message is different between py2/py3
                 raise
             log.warning("App module '%s' has no module '%s'", module_name, blueprint_name)
         else:
