@@ -4,7 +4,8 @@ from __future__ import absolute_import
 import os
 import datetime
 import logging
-import cPickle as pickle
+
+from  six.moves import cPickle as pickle
 
 from flask import g
 import redis

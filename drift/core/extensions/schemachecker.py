@@ -13,6 +13,7 @@ import os.path
 from functools import wraps
 import logging
 
+import six
 from six.moves import http_client as http_client
 from six.moves import cStringIO
 
@@ -241,7 +242,7 @@ def schema_request(media_type_name):
     def wrapper(fn):
         @wraps(fn)
         def decorated(*args, **kwargs):
-            if isinstance(media_type_name, basestring):
+            if isinstance(media_type_name, six.string_types):
                 schema = get_schema_for_media_type(media_type_name)
             else:
                 schema = media_type_name
