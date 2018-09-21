@@ -52,6 +52,15 @@ redis-server
 choco install postgresql  # When prompted for pwd, specify 'postgres'.
 ```
 
+#### Setup postgresql
+Drift assumes a default password of `postgres` for the database superuser.  The default install on Linux typically uses an empty one.  To set a password:
+```bash
+sudo -u postgres psql postgres
+postgres=# \\password postgres
+(set password to 'postgres')
+postres=# \\q
+```
+
 ### Prepare for local unittesting of the drift module
 This module can be tested on its own, but it requires the [drift-config](https://github.com/dgnorth/drift-config) project as a dependency.
 
