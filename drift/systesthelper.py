@@ -14,6 +14,8 @@ from six.moves import http_client
 from driftconfig.util import set_sticky_config, get_default_drift_config
 import driftconfig.testhelpers
 
+from drift.core.extensions.jwt import JWT_ALGORITHM
+
 import drift.core.extensions.jwt
 from .flaskfactory import drift_app
 
@@ -235,7 +237,7 @@ class DriftBaseTestCase(unittest.TestCase):
 
         self.token = resp.json()["token"]
         self.jti = resp.json()["jti"]
-        self.current_user = jwt.decode(self.token, verify=False)
+        self.current_user = jwt.decode(self.token, verify=False, algorithms=[JWT_ALGORITHM])
         self.player_id = self.current_user["player_id"]
         self.user_id = self.current_user["user_id"]
         self.headers = {"Authorization": "JWT " + self.token}
@@ -258,7 +260,7 @@ class DriftBaseTestCase(unittest.TestCase):
         jti = resp.json()["jti"]
         self.token = token
         self.jti = jti
-        self.current_user = jwt.decode(self.token, verify=False)
+        self.current_user = jwt.decode(self.token, verify=False, algorithms=[JWT_ALGORITHM])
         self.player_id = self.current_user["player_id"]
         self.user_id = self.current_user["user_id"]
         self.headers = {"Authorization": "JWT " + token, }

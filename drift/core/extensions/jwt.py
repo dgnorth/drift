@@ -346,7 +346,9 @@ def verify_token(token, auth_type):
             unverified_payload = jwt.decode(token,
                                             options={
                                                 "verify_signature": False
-                                            })
+                                            },
+                                            algorithms=[JWT_ALGORITHM],
+                                            )
         except jwt.InvalidTokenError as e:
             abort_unauthorized("Invalid token: %s" % str(e))
 
