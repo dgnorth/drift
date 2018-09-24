@@ -55,13 +55,13 @@ def get_clean_path_from_url(url):
         lst = urlsplit(url)
         path = lst.path
         lst = path.split("/")
-        for i in xrange(len(lst)):
-            l = lst[i]
+        for i, l in enumerate(lst):
             try:
                 num = int(l)
-                lst[i] = "<int>"
-            except:
+            except ValueError:
                 pass
+            else:
+                lst[i] = "<int>"
         # assume that the service name is the first part so we skip it
         clean_path = "/" + "/".join(lst[2:])
     except:
