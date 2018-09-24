@@ -225,7 +225,7 @@ def simple_schema_request(request_schema_properties, required=None, json_object=
 
             # Excuse the chattyness here. Can it be made shorter?
             if required is None:
-                required_fields = request_schema_properties.keys()
+                required_fields = list(request_schema_properties.keys())
             else:
                 required_fields = required
             if required_fields:
