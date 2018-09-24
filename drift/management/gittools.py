@@ -89,7 +89,7 @@ def checkout(branch_or_tag):
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT
     )
     stdout, _ = p.communicate()
-    stdout = str(sdout.decode())
+    stdout = str(stdout.decode())
     if p.returncode != 0:
         echo("git command failed: {}".format(p.returncode))
         sys.exit(1)
