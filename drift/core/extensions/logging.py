@@ -123,11 +123,12 @@ class DriftLogRecord(logging.LogRecord):
         else:
             super(DriftLogRecord, self).__init__(name, level, fn, lno, msg, args, exc_info, func)
         log_details = get_log_details()
-        log_details.update(extra or {})
-        for k in log_details.iterkeys():
-            setattr(self, k, log_details[k])
-        logger_fields = "levelname", "levelno", "process", "thread", "name", \
-                        "filename", "module", "funcName", "lineno"
+        if extra:
+            log_details.update(extra)
+        for k, v in log_details.items():
+            setattr(self, k, v)
+        logger_fields = ("levelname", "levelno", "process", "thread", "name",
+                        "filename", "module", "funcName", "lineno")
         for f in logger_fields:
             log_details["logger"][f] = getattr(self, f, None)
         try:
@@ -137,8 +138,8 @@ class DriftLogRecord(logging.LogRecord):
 
         log_details["logger"]["correlation_id"] = correlation_id
         log_details["logger"]["created"] = datetime.datetime.utcnow().isoformat() + "Z"
-        for k in log_details.iterkeys():
-            setattr(self, k, log_details[k])
+        for k, v in log_details.items():
+            setattr(self, k, v)
 
 class ContextAwareLogger(logging.Logger):
     """
