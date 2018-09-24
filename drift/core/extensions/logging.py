@@ -18,9 +18,10 @@ import time
 from uuid import uuid4
 from socket import gethostname
 from collections import OrderedDict
-from six.moves.urllib.parse import urlsplit
 from functools import wraps
 
+import six
+from six.moves.urllib.parse import urlsplit
 from flask import g, request
 
 from drift.core.extensions.jwt import current_user
@@ -116,8 +117,11 @@ def get_log_details():
 
 # Custom log record
 class DriftLogRecord(logging.LogRecord):
-    def __init__(self, name, level, fn, lno, msg, args, exc_info, func, extra):
-        logging.LogRecord.__init__(self, name, level, fn, lno, msg, args, exc_info, func)
+    def __init__(self, name, level, fn, lno, msg, args, exc_info, func=None, extra=None, sinfo=None):
+        if six.PY3:
+            super(DriftLogRecord, self).__init__(name, level, fn, lno, msg, args, exc_info, func, sinfo)
+        else:
+            super(DriftLogRecord, self).__init__(name, level, fn, lno, msg, args, exc_info, func)
         log_details = get_log_details()
         log_details.update(extra or {})
         for k in log_details.iterkeys():
@@ -153,8 +157,8 @@ class ContextAwareLogger(logging.Logger):
             extra = {"extra": extra}
         super(ContextAwareLogger, self)._log(level, msg, args, exc_info, extra)
 
-    def makeRecord(self, name, level, fn, lno, msg, args, exc_info, func, extra):
-        return DriftLogRecord(name, level, fn, lno, msg, args, exc_info, func, extra)
+    def makeRecord(self, name, level, fn, lno, msg, args, exc_info, func=None, extra=None, sinfo=None):
+        return DriftLogRecord(name, level, fn, lno, msg, args, exc_info, func, extra, sinfo)
 
 
 class JSONFormatter(logging.Formatter):
