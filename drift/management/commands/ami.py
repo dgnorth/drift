@@ -350,7 +350,7 @@ def _bake_command(args):
         pkg_resources.cleanup_resources()
 
     if p.returncode != 0:
-        secho("Failed to execute packer command: " + cmd, fg="red")
+        secho("Failed to execute packer command: {!r}".format(cmd), fg="red")
         if failure_line:
             secho("Check this out: {!r}".format(failure_line), fg="yellow")
         sys.exit(p.returncode)
