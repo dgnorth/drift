@@ -15,7 +15,7 @@ import time
 
 import requests
 from click import echo, secho
-from six import print_
+from six import print_, StringIO
 
 from drift.management import get_ec2_instances, get_app_version
 from drift.utils import get_config
@@ -151,14 +151,17 @@ def run_command(args):
 
             echo("Running quickdeploy script on {}".format(ec2.private_ip_address))
             for shell_script in shell_scripts:
-                conn.sudo(shell_script)
+                temp = '/tmp/quickdeploy.sh'  # could use tmpname on the remote...
+                conn.put(StringIO(shell_script), temp)
+                conn.sudo('bash "{}"'.format(temp))
+                conn.run('rm -f "{}"'.format(temp))
 
             # See if the server responds to an http request
             timeout = 5.0
             try:
                 ret = requests.get(
                     'http://{}:8080'.format(ec2.private_ip_address),
-                    timeout=timeout
+                    timeout=timeout,
                     )
             except Exception as e:
                 if 'Read timed out' in str(e):
@@ -168,7 +171,6 @@ def run_command(args):
             else:
                 ret.raise_for_status()
                 secho("SUCCESS: Instance {}  is serving.".format(ec2.private_ip_address), fg="green")
-
 
             # todo: see if this needs to be done as well:
             ## _set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
