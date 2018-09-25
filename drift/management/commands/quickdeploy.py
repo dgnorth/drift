@@ -4,6 +4,7 @@ Note that this is currently just calling the old setup.py script
 and will be refactored soon.
 """
 import os
+import os.path
 import subprocess
 import sys
 from fabric import Connection, Config
@@ -58,7 +59,7 @@ def run_command(args):
     tier = conf.tier['tier_name']
     region = conf.tier['aws']['region']
     ssh_key_name = conf.tier['aws']['ssh_key']
-    ssh_key_file = '~/.ssh/{}.pem'.format(ssh_key_name)
+    ssh_key_file = os.path.expanduser('~/.ssh/{}.pem'.format(ssh_key_name))
 
     include_drift = args.drift
 

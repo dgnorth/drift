@@ -1,4 +1,5 @@
 import os
+import os.path
 import sys
 from time import sleep
 import json
@@ -44,7 +45,7 @@ def run_command(args):
     tier = conf.tier['tier_name']
     region = conf.tier['aws']['region']
     ssh_key_name = conf.tier['aws']['ssh_key']
-    ssh_key_file = '~/.ssh/{}.pem'.format(ssh_key_name)
+    ssh_key_file = os.path.expanduser('~/.ssh/{}.pem'.format(ssh_key_name))
 
     echo()
     echo("*** VIEWING LOGS FOR SERVICE '{}' / TIER '{}' IN REGION '{}'\n".format(deployable_name, tier, region))

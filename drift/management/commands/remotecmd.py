@@ -1,4 +1,5 @@
 import sys
+import os.path
 
 from click import echo
 from fabric import Connection, Config
@@ -37,7 +38,7 @@ def run_command(args):
     tier = conf.tier['tier_name']
     region = conf.tier['aws']['region']
     ssh_key_name = conf.tier['aws']['ssh_key']
-    ssh_key_file = '~/.ssh/{}.pem'.format(ssh_key_name)
+    ssh_key_file = os.path.expanduser('~/.ssh/{}.pem'.format(ssh_key_name))
 
     echo("\n*** EXECUTING REMOTE COMMAND '{}' ON SERVICE '{}' / TIER '{}' IN REGION '{}'\n".format(cmd, service_name, tier, region))
 
