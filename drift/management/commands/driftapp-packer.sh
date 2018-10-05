@@ -25,9 +25,8 @@ fi
 
 
 echo "----------------- Install Tools  -----------------"
-apt-get install unzip -y
 apt-get install -y -q python-dev python-pip
-python -m pip install --upgrade pip
+python -m pip install --upgrade pip==18.0
 python -m pip install pipenv
 python -m pip install uwsgi
 
@@ -36,10 +35,10 @@ python -m pip install uwsgi
 
 # The following section is identical in driftapp-packer.sh and quickdeploy.sh
 export servicefullname=${service}-${version}
-echo "----------------- Extracting ${servicefullname}.zip -----------------"
+echo "----------------- Extracting ${servicefullname}.tar -----------------"
 export approot=/etc/opt/${service}
-echo "--> Unzip into ${approot} and change owner to ubuntu and fix up permissions"
-unzip ~/${servicefullname}.zip -d /etc/opt
+echo "--> Untar into ${approot} and change owner to ubuntu and fix up permissions"
+tar -C /etc/opt -xvf ~/${servicefullname}.tar
 rm -rf ${approot}
 mv /etc/opt/${servicefullname} ${approot}
 chown -R ubuntu:root ${approot}

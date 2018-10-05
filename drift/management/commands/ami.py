@@ -242,21 +242,14 @@ def _bake_command(args):
         }
 
         if not args.preview:
-            cmd = ['python', 'setup.py', 'sdist', '--formats=zip']
+            cmd = ['python', 'setup.py', 'sdist', '--formats=tar']
             ret = subprocess.call(cmd)
             if ret != 0:
                 secho("Failed to execute build command: {!r}".format(cmd), fg="red")
                 sys.exit(ret)
 
-            if sys.platform != 'win32':
-                cmd = ["zip", "-r", "dist/aws.zip", "aws"]
-                ret = subprocess.call(cmd)
-                if ret != 0:
-                    secho("Failed to execute build command: {!r}".format(cmd), fg="red")
-                    sys.exit(ret)
-            else:
-                import shutil
-                shutil.make_archive("dist/aws", 'zip', "aws")
+            import shutil
+            shutil.make_archive("dist/aws", 'tar', "aws")
     finally:
         echo("Reverting to {!r}".format(current_branch))
         checkout(current_branch)

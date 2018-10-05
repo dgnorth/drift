@@ -30,13 +30,13 @@
   "provisioners": [
     {
         "type": "file",
-        "source": "./dist/{{user `service`}}-{{user `version`}}.zip",
-        "destination": "~/{{user `service`}}-{{user `version`}}.zip"
+        "source": "./dist/{{user `service`}}-{{user `version`}}.tar",
+        "destination": "~/{{user `service`}}-{{user `version`}}.tar"
     },
     {
         "type": "file",
-        "source": "./dist/aws.zip",
-        "destination": "~/aws.zip"
+        "source": "./dist/aws.tar",
+        "destination": "~/aws.tar"
     },
     {
       "type": "shell",
