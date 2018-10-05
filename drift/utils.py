@@ -7,6 +7,7 @@ from socket import gethostname
 import uuid
 import json
 import pkgutil
+import six
 
 # pygments is optional for now
 try:
@@ -225,7 +226,7 @@ def pretty(ob, lexer=None):
     Command line switches can be used to control highlighting and style.
     """
     if lexer is None:
-        if isinstance(ob, basestring):
+        if isinstance(ob, six.string_types):
             lexer = 'text'
         else:
             lexer = 'json'
