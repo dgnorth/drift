@@ -248,7 +248,7 @@ class ClientLogFormatter(JSONFormatter):
 
 def trim_logger(data):
     # remove unnecessary logger fields
-    for k, v in data["logger"].items():
+    for k, v in data["logger"].copy().items():
         if k not in ["name", "tier", "tenant", "correlation_id"]:
             del data["logger"][k]
 
