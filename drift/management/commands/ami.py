@@ -57,6 +57,7 @@ def get_options(parser):
         "deploying AWS AMIs' for your tier.",
         dest="command",
     )
+    subparsers.required = True
 
     # The 'bake' command
     p = subparsers.add_parser(

@@ -63,7 +63,8 @@ def do_execute_cmd(argv):
     )
 
     parser.add_argument("-v", "--verbose", help="I am verbose!", action="store_true")
-    subparsers = parser.add_subparsers(help="sub-command help")
+    subparsers = parser.add_subparsers(help="sub-command help", dest="cmd")
+    subparsers.required = True
     for cmd in valid_commands:
         module = importlib.import_module("drift.management.commands." + cmd)
         subparser = subparsers.add_parser(cmd, help="Subcommands for {}".format(cmd))
