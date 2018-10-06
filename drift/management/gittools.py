@@ -12,7 +12,7 @@ def get_branch():
         output = subprocess.check_output(
             ["git", "rev-parse", "--abbrev-ref", "HEAD"]
         )
-        output = output.replace("\n", "")
+        output = output.decode().replace("\n", "")
         return output
     except subprocess.CalledProcessError:
         return "unknown"
@@ -23,7 +23,7 @@ def get_commit():
         output = subprocess.check_output(
             ["git", "rev-parse", "HEAD"]
         )
-        output = output.replace("\n", "")
+        output = output.decode().replace("\n", "")
         return output
     except subprocess.CalledProcessError:
         return "unknown"
@@ -31,7 +31,7 @@ def get_commit():
 
 def get_repo_url():
     cmd = 'git config --get remote.origin.url'
-    origin_url = subprocess.check_output(cmd.split(' '))
+    origin_url = subprocess.check_output(cmd.split(' ')).decode()
     repository = ""
     if origin_url.startswith("http"):
         repository, _ = os.path.splitext(urlparse(origin_url).path)
