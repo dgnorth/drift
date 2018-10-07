@@ -32,5 +32,5 @@ class MessageBus(object):
             consumer(queue_name, message)
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
     app.messagebus = MessageBus(app)

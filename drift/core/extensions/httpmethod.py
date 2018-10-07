@@ -41,5 +41,5 @@ class HTTPMethodOverrideMiddleware(object):
         return self.app(environ, start_response)
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
     app.wsgi_app = HTTPMethodOverrideMiddleware(app.wsgi_app)

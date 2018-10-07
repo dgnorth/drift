@@ -6,7 +6,7 @@ from flask import Blueprint, request
 from flask_restful import Api, Resource
 
 from drift.tests import DriftTestCase
-from drift.core.extensions.schemachecker import simple_schema_request, schema_response, register_extension
+from drift.core.extensions.schemachecker import simple_schema_request, schema_response, drift_init_extension
 from drift.flaskfactory import _apply_api_error
 
 
@@ -19,7 +19,7 @@ class SchemaCheckTest(DriftTestCase):
     def create_app(self):
         app = super(SchemaCheckTest, self).create_app()
         app.config['json_response_schema_validation'] = 'raise_exception'
-        register_extension(app)
+        drift_init_extension(app, api=None)
         app.register_blueprint(bp)
         # these tests depend on the origlan API error handling feature, which
         # has been disabled in flask.flaskfactory._patch_api

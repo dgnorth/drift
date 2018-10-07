@@ -19,7 +19,7 @@ def after_request(response):
     return response
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
     app.before_request(before_request)
     app.after_request(after_request)
 

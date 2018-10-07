@@ -92,7 +92,7 @@ class RedisExtension(object):
             g.redis = None
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
     RedisExtension(app)
 
 

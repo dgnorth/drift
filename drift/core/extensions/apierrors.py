@@ -21,7 +21,7 @@ from drift.core.extensions.jwt import query_current_user, jwt_not_required
 log = logging.getLogger(__name__)
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
 
     #app.handle_exception = partial(handle_all_exceptions, app.handle_exception)
     #app.handle_user_exception = partial(handle_all_exceptions, app.handle_user_exception)

@@ -224,7 +224,7 @@ class Postgres(object):
         return cls.application_name
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
     Postgres(app)
 
 

@@ -105,7 +105,7 @@ def drift_celery_loads(obj):
     return json.loads(obj, object_hook=drift_celery_decoder)
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
     app.celery = make_celery(app)
     global celery
     celery = app.celery

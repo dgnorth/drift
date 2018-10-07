@@ -426,7 +426,7 @@ def logsetup(app):
         logging.config.dictConfig(app.config['logging'])
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
     logsetup(app)
 
 

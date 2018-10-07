@@ -121,5 +121,5 @@ def check_tenant(f):
     return _check
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
     DriftConfig(app)

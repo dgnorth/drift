@@ -4,7 +4,7 @@ import unittest
 from six.moves import http_client
 from flask import Flask
 
-from drift.core.extensions.httpmethod import register_extension
+from drift.core.extensions.httpmethod import drift_init_extension
 
 
 class HTTPMethodTestCase(unittest.TestCase):
@@ -31,7 +31,7 @@ class HTTPMethodTestCase(unittest.TestCase):
 
             # Install the handler, then try and succeed to access a PATCH endpoint
             # using GET and override.
-            register_extension(self.app)
+            drift_init_extension(self.app, api=None)
             resp = c.get('/some-endpoint', headers={'X-HTTP-Method-Override': 'PATCH'})
             self.assertEqual(resp.status_code, http_client.OK)
             self.assertEqual(resp.data.decode("ascii"), 'success')

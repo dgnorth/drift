@@ -95,8 +95,8 @@ def install_modules(app):
         "\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps)
     )
     print(
-        "Installing extras:\nResources:\n\t%s\nExtensions:\n\t%s\nApps:\n\t%s",
-        "\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps)
+        "Installing extras:\nResources:\n\t%s\nExtensions:\n\t%s\nApps:\n\t%s" %
+        ("\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps))
     )
 
     # first, try new-style install of the plugins

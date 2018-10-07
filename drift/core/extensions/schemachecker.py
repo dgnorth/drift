@@ -270,5 +270,5 @@ def check_schema(json_object, schema, title=None):
         abort(400, description=report)
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
     app.jsonschema = SchemaChecker(app)

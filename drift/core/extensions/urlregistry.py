@@ -38,7 +38,7 @@ def register_endpoints(f):
     return f
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
     global the_app
     the_app = app
     registry = EndpointRegistry(app)

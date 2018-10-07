@@ -453,5 +453,5 @@ def get_cached_token(jti):
     return payload
 
 
-def register_extension(app):
+def drift_init_extension(app, **kwargs):
     jwtsetup(app)
