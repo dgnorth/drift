@@ -21,6 +21,11 @@ log = logging.getLogger(__name__)
 bp = Blueprint("admin", __name__)
 api = Api(bp)
 
+
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
+
+
 class AdminProvisionAPI(Resource):
 
     no_jwt_check = ["POST"]

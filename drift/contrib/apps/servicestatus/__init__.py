@@ -17,6 +17,8 @@ log = logging.getLogger(__name__)
 bp = Blueprint("servicestatus", __name__, template_folder="static/templates")
 api = Api(bp)
 
+def drift_init_extension(app, **kw):
+    app.register_blueprint(bp)
 
 class InfoPageAPI(Resource):
 

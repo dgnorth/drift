@@ -15,6 +15,10 @@ bp = Blueprint("healthcheck", __name__)
 api = Api(bp)
 
 
+def drift_init_extension(app, **kwargs):
+    app.register_blueprint(bp)
+
+
 class HealthCheckAPI(Resource):
 
     no_jwt_check = ["GET"]
