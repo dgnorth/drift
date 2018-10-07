@@ -20,7 +20,8 @@ setup(
 
     install_requires=[
         'Flask>=1.0.0',
-        'Flask-RESTful',
+        'Flask-RESTful',  # Will be removed
+        'flask-restplus',
         'jsonschema',
         'pyopenssl>=17',
         'celery',

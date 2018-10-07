@@ -10,6 +10,7 @@ import time
 from functools import partial
 
 from flask_restful import Api
+import flask_restplus
 from flask import Flask, make_response
 from flask.json import dumps
 import flask_restful
@@ -20,6 +21,12 @@ from drift.utils import enumerate_plugins, get_app_root
 
 
 log = logging.getLogger(__name__)
+flask_restplus_api = flask_restplus.Api(
+    title='My Title',
+    version='1.0',
+    description='A description',
+    # All API metadatas
+)
 
 
 class AppRootNotFound(RuntimeError):
@@ -42,8 +49,11 @@ def drift_app(app=None):
 
     # Install apps, api's and extensions.
     sys.path.insert(0, app_root)  # Make current app available
-    install_modules(app)
 
+    with app.app_context():
+        install_modules(app)
+
+    flask_restplus_api.init_app(app)
     return app
 
 
@@ -76,6 +86,7 @@ def load_flask_config(app_root=None):
 def install_modules(app):
     """Install built-in and product specific apps and extensions."""
 
+
     plugins = enumerate_plugins(app.config)
     resources, extensions, apps = plugins['resources'], plugins['extensions'], plugins['apps']
 
@@ -88,21 +99,14 @@ def install_modules(app):
         "\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps)
     )
 
-    for module_name in resources + extensions:
-        t = time.time()
-        m = importlib.import_module(module_name)
-        import_time = time.time() - t
-        if hasattr(m, "register_extension"):
-            m.register_extension(app)
-        else:
-            log.debug("Extension module '%s' has no register_extension() function.", module_name)
-        elapsed = time.time() - t
-        if elapsed > 0.1:
-            log.warning(
-                "Extension module '%s' took %.3f seconds to initialize (import time was %.3f).",
-                module_name, elapsed, import_time
-            )
+    # first, try new-style install of the plugins
+    # The order of initialization matters, so we try both new and old style here.
+    resources = init_plugin_list(app, resources)
+    extensions = init_plugin_list(app, extensions)
+    apps = init_plugin_list(app, apps)
 
+    # then, continue with old-style init of different kinds of apps
+    # backwards compatibility
     for module_name in apps:
         t = time.time()
         m = importlib.import_module(module_name)
@@ -126,6 +130,45 @@ def install_modules(app):
                     "App module '%s' took %.3f seconds to initialize. (import time was %.3f).",
                     module_name, elapsed, import_time
                 )
+
+
+def init_plugin_list(app, plugin_names):
+    """
+    Walk through a list of plugins and initialize them new-style,
+    returning a list of those plugins that weren't initialized
+    """
+    result = []
+    for plugin in plugin_names:
+        if not init_single_plugin(app, plugin):
+            result.append(plugin)
+    return result
+
+
+def init_single_plugin(app, plugin_name):
+    """
+    Import a single plugin and call its initialization function
+    """
+    init = False
+    t = time.time()
+    module_name = plugin_name
+    m = importlib.import_module(module_name)
+    import_time = time.time() - t
+    if hasattr(m, "drift_init_extension"):
+        # the following takes a single 'app' argument and then a kwargs dict
+        m.drift_init_extension(app, api=flask_restplus_api)
+        init = True
+    elif hasattr(m, "register_extension"):
+        m.register_extension(app)
+        init = True
+    else:
+        log.debug("Extension module '%s' has no drift_init_extension() function.", module_name)
+    elapsed = time.time() - t
+    if elapsed > 0.1:
+        log.warning(
+            "Extension module '%s' took %.3f seconds to initialize (import time was %.3f).",
+            module_name, elapsed, import_time
+        )
+    return init
 
 
 def _apply_patches(app):
