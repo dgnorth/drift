@@ -3,7 +3,7 @@ import json
 from functools import partial
 
 from flask import Blueprint, request
-from flask_restful import Api, Resource
+from flask_restplus import Api, Resource
 
 from drift.tests import DriftTestCase
 from drift.core.extensions.schemachecker import simple_schema_request, schema_response, drift_init_extension
@@ -12,6 +12,11 @@ from drift.flaskfactory import _apply_api_error
 
 bp = Blueprint("schema", __name__)
 api = Api(bp)
+
+# we want the RuntimeError generaded by the response validator to be raised right through
+@api.errorhandler
+def handle(error):
+    raise type(error)(error.message)
 
 
 class SchemaCheckTest(DriftTestCase):

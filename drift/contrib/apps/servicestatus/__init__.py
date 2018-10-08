@@ -5,7 +5,7 @@ import socket
 import collections
 from flask import Blueprint, request, jsonify, current_app, g
 from flask import url_for, render_template, make_response
-from flask_restful import Api, Resource
+from flask_restplus import Namespace, Resource
 from drift.utils import get_tier_name
 from drift.core.extensions.jwt import current_user
 import datetime
@@ -14,11 +14,13 @@ import json
 import logging
 log = logging.getLogger(__name__)
 
-bp = Blueprint("servicestatus", __name__, template_folder="static/templates")
-api = Api(bp)
+# The blueprint is only used to add a template folder
+blueprint = Blueprint("servicestatus_template", __name__, template_folder="static/templates")
+api = namespace = Namespace("servicestatus", path="/", description="Status of the service")
 
-def drift_init_extension(app, **kw):
-    app.register_blueprint(bp)
+def drift_init_extension(app, api, **kw):
+    app.register_blueprint(blueprint)
+    api.add_namespace(namespace)
 
 class InfoPageAPI(Resource):
 
@@ -41,7 +43,7 @@ class InfoPageAPI(Resource):
             """
             host_info["ip-address"] = "Unknown"
         endpoints = collections.OrderedDict()
-        endpoints["root"] = url_for("servicestatus.root", _external=True)
+        endpoints["root"] = url_for("root", _external=True)
         if endpoints["root"].endswith("/"):
             endpoints["root"] = endpoints["root"][:-1]
         endpoints["auth"] = request.url_root + "auth"  # !evil concatination

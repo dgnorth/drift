@@ -21,12 +21,21 @@ from drift.utils import enumerate_plugins, get_app_root
 
 
 log = logging.getLogger(__name__)
-flask_restplus_api = flask_restplus.Api(
-    title='My Title',
-    version='1.0',
-    description='A description',
-    # All API metadatas
-)
+
+# workaround to allow us to use the root in our api, and not conflict
+# with the documentation root.  see: https://github.com/noirbizarre/flask-restplus/issues/247
+class FRPApi(flask_restplus.Api):
+
+    def _register_doc(self, app_or_blueprint):
+        # HINT: This is just a copy of the original implementation with the last line commented out.
+        if self._add_specs and self._doc:
+            # Register documentation before root if enabled
+            app_or_blueprint.add_url_rule(self._doc, 'doc', self.render_doc)
+        #app_or_blueprint.add_url_rule(self._doc, 'root', self.render_root)
+
+    @property
+    def base_path(self):
+        return ''
 
 
 class AppRootNotFound(RuntimeError):
@@ -50,10 +59,19 @@ def drift_app(app=None):
     # Install apps, api's and extensions.
     sys.path.insert(0, app_root)  # Make current app available
 
+    api = FRPApi(
+        title='My Title',
+        version='1.0',
+        description='A description',
+        doc="/doc",  # to not clash with the root view in serviestatus
+        # All API metadatas
+    )
     with app.app_context():
-        install_modules(app)
+        install_modules(app, api)
 
-    flask_restplus_api.init_app(app)
+    if "root" in app.view_functions:
+        print( app.view_functions["root"])
+    api.init_app(app)
     return app
 
 
@@ -83,7 +101,7 @@ def load_flask_config(app_root=None):
     return config_values
 
 
-def install_modules(app):
+def install_modules(app, api):
     """Install built-in and product specific apps and extensions."""
 
 
@@ -101,9 +119,9 @@ def install_modules(app):
 
     # first, try new-style install of the plugins
     # The order of initialization matters, so we try both new and old style here.
-    resources = init_plugin_list(app, resources)
-    extensions = init_plugin_list(app, extensions)
-    apps = init_plugin_list(app, apps)
+    resources = init_plugin_list(app, api, resources)
+    extensions = init_plugin_list(app, api, extensions)
+    apps = init_plugin_list(app, api, apps)
 
     # then, continue with old-style init of different kinds of apps
     # backwards compatibility
@@ -132,19 +150,19 @@ def install_modules(app):
                 )
 
 
-def init_plugin_list(app, plugin_names):
+def init_plugin_list(app, api, plugin_names):
     """
     Walk through a list of plugins and initialize them new-style,
     returning a list of those plugins that weren't initialized
     """
     result = []
     for plugin in plugin_names:
-        if not init_single_plugin(app, plugin):
+        if not init_single_plugin(app, api, plugin):
             result.append(plugin)
     return result
 
 
-def init_single_plugin(app, plugin_name):
+def init_single_plugin(app, api, plugin_name):
     """
     Import a single plugin and call its initialization function
     """
@@ -155,7 +173,7 @@ def init_single_plugin(app, plugin_name):
     import_time = time.time() - t
     if hasattr(m, "drift_init_extension"):
         # the following takes a single 'app' argument and then a kwargs dict
-        m.drift_init_extension(app, api=flask_restplus_api)
+        m.drift_init_extension(app, api=api)
         init = True
     elif hasattr(m, "register_extension"):
         m.register_extension(app)

@@ -4,16 +4,15 @@ Schames listing APIs
 """
 import logging
 
-from flask import Blueprint, current_app, url_for, abort
-from flask_restful import Api, Resource
+from flask import current_app, url_for, abort
+from flask_restplus import Namespace, Resource
 
 log = logging.getLogger(__name__)
-bp = Blueprint("schema", __name__)
-api = Api(bp)
+api = namespace = Namespace("schemas")
 
 
-def drift_init_extension(app, **kwargs):
-    app.register_blueprint(bp)
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
 
 
 class SchemaListAPI(Resource):
@@ -33,7 +32,7 @@ class SchemaListAPI(Resource):
             {
                 "media_type_name": media_type_name,
                 "href": url_for(
-                    "schema.schema",
+                    "schema",
                     media_type_name=media_type_name,
                     _external=True
                 ),
@@ -59,8 +58,8 @@ class SchemaAPI(Resource):
             return abort(404)
 
 api.add_resource(
-    SchemaListAPI, "/schemas"
+    SchemaListAPI, "/"
 )
 api.add_resource(
-    SchemaAPI, "/schemas/<string:media_type_name>", endpoint="schema"
+    SchemaAPI, "/<string:media_type_name>", endpoint="schema"
 )

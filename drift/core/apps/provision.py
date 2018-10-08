@@ -7,8 +7,8 @@ import importlib
 
 from six.moves import http_client
 
-from flask import Blueprint, current_app, url_for, abort, request, g
-from flask_restful import Api, Resource, reqparse
+from flask import current_app, abort, request, g
+from flask_restplus import Namespace, Resource, reqparse
 
 from driftconfig.config import TSTransaction
 
@@ -18,12 +18,13 @@ from driftconfig.relib import create_backend, get_store_from_url
 from drift.core.extensions.schemachecker import simple_schema_request
 
 log = logging.getLogger(__name__)
-bp = Blueprint("admin", __name__)
-api = Api(bp)
+api1 = Namespace("provision", description="the provision api")
+api2 = Namespace("admin", description="the admin api")
 
 
-def drift_init_extension(app, **kwargs):
-    app.register_blueprint(bp)
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(api1)
+    api.add_namespace(api2)
 
 
 class AdminProvisionAPI(Resource):
@@ -92,7 +93,7 @@ class AdminProvisionAPI(Resource):
         return "OK"
 
 
-api.add_resource(AdminProvisionAPI, "/provision")
+api1.add_resource(AdminProvisionAPI, "/")
 
 
 class AdminProvisionAPI2(Resource):
@@ -148,4 +149,4 @@ class AdminProvisionAPI2(Resource):
         return result
 
 
-api.add_resource(AdminProvisionAPI2, "/admin/provision")
+api2.add_resource(AdminProvisionAPI2, "/provision")

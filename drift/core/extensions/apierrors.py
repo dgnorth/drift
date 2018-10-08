@@ -66,7 +66,7 @@ def drift_init_extension(app, **kwargs):
     @app.route('/borko', methods=['GET', 'POST'])
     def borko_handler():
         data = request.get_json()
-        from flask_restful import abort
+        from flask_restplus import abort
         if data:
             status_code = data.pop('status_code', 400)
             abort(int(status_code), **data)

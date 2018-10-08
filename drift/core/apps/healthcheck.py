@@ -6,17 +6,16 @@ import logging
 import importlib
 from six.moves.http_client import SERVICE_UNAVAILABLE
 
-from flask import Blueprint, current_app, g
-from flask_restful import Api, Resource, abort
+from flask import current_app, g
+from flask_restplus import Namespace, Resource, abort
 
 
 log = logging.getLogger(__name__)
-bp = Blueprint("healthcheck", __name__)
-api = Api(bp)
+api = namespace = Namespace("healtchcheck")
 
 
-def drift_init_extension(app, **kwargs):
-    app.register_blueprint(bp)
+def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
 
 
 class HealthCheckAPI(Resource):
@@ -44,4 +43,4 @@ class HealthCheckAPI(Resource):
 
         return {'result': "all is fine"}
 
-api.add_resource(HealthCheckAPI, "/healthcheck")
+api.add_resource(HealthCheckAPI, "/")

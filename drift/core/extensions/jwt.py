@@ -10,8 +10,8 @@ from functools import wraps
 import jwt
 from six.moves.http_client import UNAUTHORIZED
 
-from flask import current_app, request, Blueprint, _request_ctx_stack, jsonify, g
-from flask_restful import Api, abort
+from flask import current_app, request, _request_ctx_stack, jsonify, g
+from flask_restful import abort
 
 from werkzeug.local import LocalProxy
 from werkzeug.security import gen_salt
@@ -36,8 +36,6 @@ TRUSTED_ISSUERS = set(['drift-base'])
 
 
 log = logging.getLogger(__name__)
-bp = Blueprint("jwtapi", __name__)
-api = Api(bp)
 
 
 def abort_unauthorized(description):
@@ -169,9 +167,8 @@ def _fix_legacy_auth(auth_info):
     return auth_info
 
 
-def jwtsetup(app):
-
-    app.register_blueprint(bp)
+def jwtsetup(app, api):
+    # jwt currently doesnt use an API, handles it in a custom way
 
     # Always trust myself
     TRUSTED_ISSUERS.add(app.config['name'])
@@ -453,5 +450,5 @@ def get_cached_token(jti):
     return payload
 
 
-def drift_init_extension(app, **kwargs):
-    jwtsetup(app)
+def drift_init_extension(app, api, **kwargs):
+    jwtsetup(app, api)

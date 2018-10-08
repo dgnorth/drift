@@ -84,3 +84,8 @@ class DriftTestCase(TestCase):
                 description = response.data
             self.assertStatus(response, expected_code, description)
         return response
+
+    def assertStatus(self, response, expected_code, description):
+        msg = "response code:%s, expected:%s. message: %r" % (response.status_code, expected_code, description)
+        self.assertEqual(response.status_code, expected_code, msg)
+
