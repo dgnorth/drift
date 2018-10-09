@@ -113,12 +113,12 @@ def get_app_version():
     app_root = get_app_root()
 
     p = subprocess.Popen(
-        ['python', 'setup.py', '--version'],
+        [sys.executable, 'setup.py', '--version'],
         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         cwd=app_root
     )
     out, err = p.communicate()
-    out, err = (str(s.decode()) for s in (out, err))
+    out, err = (str(s.decode("utf-8")) for s in (out, err))
     if p.returncode != 0:
         raise RuntimeError(
             "Can't get version of this deployable. Error: {} - {}".format(p.returncode, err)

@@ -94,7 +94,7 @@ def run_command(args):
         for project_folder in project_folders:
             echo("Creating source distribution from {!r}".format(project_folder))
             cmd = [
-                "python",
+                sys.executable,  # "python",
                 os.path.join(project_folder, "setup.py"),
                 "sdist",
                 "--formats=zip",
@@ -104,7 +104,7 @@ def run_command(args):
             p = subprocess.Popen(
                 cmd, cwd=project_folder, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             stdout, _ = p.communicate()
-            stdout = str(stdout.decode())
+            stdout = str(stdout.decode("utf-8"))  # while still running py2
             if p.returncode != 0:
                 print_(stdout)
                 sys.exit(p.returncode)

@@ -243,7 +243,7 @@ def _bake_command(args):
         }
 
         if not args.preview:
-            cmd = ['python', 'setup.py', 'sdist', '--formats=tar']
+            cmd = [sys.executable, 'setup.py', 'sdist', '--formats=tar']
             ret = subprocess.call(cmd)
             if ret != 0:
                 secho("Failed to execute build command: {!r}".format(cmd), fg="red")
@@ -311,7 +311,9 @@ def _bake_command(args):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while True:
             line = p.stdout.readline()
-            line = str(line.decode())
+            # packer is streaming stuff from the remote which uses utf-8 encoding.
+            # force that encoding while still using py2.7 (py3 has it automatic)
+            line = str(line.decode("utf-8"))
             print_(line, end="")
             if line == '' and p.poll() is not None:
                 break
