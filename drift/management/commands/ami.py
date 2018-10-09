@@ -15,6 +15,7 @@ import shlex
 import tempfile
 
 from click import echo, secho
+import six
 from six import print_
 
 try:
@@ -312,8 +313,9 @@ def _bake_command(args):
         while True:
             line = p.stdout.readline()
             # packer is streaming stuff from the remote which uses utf-8 encoding.
-            # force that encoding while still using py2.7 (py3 has it automatic)
-            line = str(line.decode("utf-8"))
+            # in py2, we just leave the line as it is, gobble it and print it.
+            if six.PY3:
+                line = line.decode()
             print_(line, end="")
             if line == '' and p.poll() is not None:
                 break
