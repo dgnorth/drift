@@ -9,18 +9,18 @@ import os.path
 import time
 from functools import partial
 
-from flask_restful import Api
+from flask import Flask, make_response, current_app
+from flask.json import dumps as flask_json_dumps
 import flask_restplus
-from flask import Flask, make_response
-from flask.json import dumps
-import flask_restful
 from werkzeug.contrib.fixers import ProxyFix
 
 from drift.fixers import ReverseProxied, CustomJSONEncoder
 from drift.utils import enumerate_plugins, get_app_root
+from . import restful as _restful  # apply patching
 
 
 log = logging.getLogger(__name__)
+
 
 # workaround to allow us to use the root in our api, and not conflict
 # with the documentation root.  see: https://github.com/noirbizarre/flask-restplus/issues/247
@@ -54,10 +54,45 @@ def drift_app(app=None):
     log.info("Init app.template_folder: %s", app.template_folder)
 
     app.config.update(load_flask_config())
+    print("patching")
     _apply_patches(app)
 
     # Install apps, api's and extensions.
     sys.path.insert(0, app_root)  # Make current app available
+
+    api = create_api()
+    with app.app_context():
+        install_modules(app, api)
+
+    api.init_app(app)
+    print("i got the app")
+    return app
+
+
+def create_api():
+    """
+    We could subclass the api, but this is just as good
+    """
+    def output_json(data, code, headers=None):
+        """
+        Replacement json dumper which uses the flask.json dumper
+        """
+        settings = current_app.config.get('RESTPLUS_JSON', {})
+
+        # If we're in debug mode, and the indent is not set, we set it to a
+        # reasonable value here.  Note that this won't override any existing value
+        # that was set.
+        # DRIFT: Always set this
+        if True or current_app.debug:
+            settings.setdefault('indent', 4)
+
+        # always end the json dumps with a new line
+        # see https://github.com/mitsuhiko/flask/pull/1262
+        dumped = flask_json_dumps(data, **settings) + "\n"
+
+        resp = make_response(dumped, code)
+        resp.headers.extend(headers or {})
+        return resp
 
     api = FRPApi(
         title='My Title',
@@ -66,13 +101,8 @@ def drift_app(app=None):
         doc="/doc",  # to not clash with the root view in serviestatus
         # All API metadatas
     )
-    with app.app_context():
-        install_modules(app, api)
-
-    if "root" in app.view_functions:
-        print( app.view_functions["root"])
-    api.init_app(app)
-    return app
+    api.representations['application/json'] = output_json
+    return api
 
 
 _sticky_app_config = None
@@ -209,32 +239,3 @@ def _apply_patches(app):
 
     # Make all json pretty
     app.config['JSONIFY_PRETTYPRINT_REGULAR'] = True
-
-    # Euthanize Flask Restful exception handlers. This may get fixed
-    # soon in "Error handling re-worked #544"
-    # https://github.com/flask-restful/flask-restful/pull/544
-    def patched_init_app(self, app):
-        if len(self.resources) > 0:
-            for resource, urls, kwargs in self.resources:
-                self._register_view(app, resource, *urls, **kwargs)
-    Api._init_app = patched_init_app
-
-    # Install proper json dumper for Flask Restful library.
-    # This is needed because we need to use Flask's JSON converter which can
-    # handle more variety of Python types than the standard converter.
-    def output_json(obj, code, headers=None):
-        resp = make_response(dumps(obj, indent=4), code)
-        resp.headers.extend(headers or {})
-        return resp
-    if isinstance(flask_restful.DEFAULT_REPRESENTATIONS, dict):
-        flask_restful.DEFAULT_REPRESENTATIONS['application/json'] = output_json
-    else:
-        flask_restful.DEFAULT_REPRESENTATIONS = [('application/json', output_json)]
-
-
-def _apply_api_error(app, api):
-    """
-    Add default api error handling to an object, after the above euthanizing
-    """
-    app.handle_exception = partial(api.error_router, app.handle_exception)
-    app.handle_user_exception = partial(api.error_router, app.handle_user_exception)
