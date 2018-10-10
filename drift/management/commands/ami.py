@@ -15,6 +15,7 @@ import shlex
 import tempfile
 
 from click import echo, secho
+import six
 from six import print_
 
 try:
@@ -243,7 +244,7 @@ def _bake_command(args):
         }
 
         if not args.preview:
-            cmd = ['python', 'setup.py', 'sdist', '--formats=tar']
+            cmd = [sys.executable, 'setup.py', 'sdist', '--formats=tar']
             ret = subprocess.call(cmd)
             if ret != 0:
                 secho("Failed to execute build command: {!r}".format(cmd), fg="red")
@@ -311,7 +312,10 @@ def _bake_command(args):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         while True:
             line = p.stdout.readline()
-            line = str(line.decode())
+            # packer is streaming stuff from the remote which uses utf-8 encoding.
+            # in py2, we just leave the line as it is, gobble it and print it.
+            if six.PY3:
+                line = line.decode()
             print_(line, end="")
             if line == '' and p.poll() is not None:
                 break
