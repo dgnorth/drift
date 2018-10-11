@@ -65,7 +65,6 @@ def drift_app(app=None):
         install_modules(app, api)
 
     api.init_app(app)
-    print("i got the app")
     return app
 
 

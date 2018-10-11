@@ -6,6 +6,22 @@ from click import echo
 # BUG: Sytems test fails unless this is a global object.
 needs_to_be_global = []
 
+class Endpoints(object):
+    """
+    A class to register endpoint defitions functions
+    at import time
+    """
+    def __init__(self):
+        self.registry_funcs = []
+
+    def register(self, f):
+        self.registry_funcs.append(f)
+        return f
+
+    def init_app(self, app):
+        # for now, we just use the old static mechanism at this point
+        for f in self.registry_funcs:
+            register_endpoints(f)
 
 class EndpointRegistry(object):
 
