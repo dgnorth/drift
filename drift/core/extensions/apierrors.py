@@ -130,6 +130,11 @@ def handle_all_exceptions(e):
             if 'message' in e.data:
                 error['description'] = error.pop('message')
 
+            # Legacy field ´code´ has been renamed error_code. the "code" keyword is used
+            # in flask_restplus.abort to signify status code.
+            if 'error_code' in e.data:
+                error['code'] = error.pop('error_code')
+
         if e.code >= 500:
             # It's a "soft" server error. Let's log it out.
             log.warning(title + " " + error['description'])
