@@ -209,7 +209,7 @@ def url_player(player_id):
 
 
 def url_client(client_id):
-    return url_for("clients.client", client_id=client_id, _external=True)
+    return url_for("client", client_id=client_id, _external=True)
 
 
 PRETTY_FORMATTER = 'console256'
