@@ -71,7 +71,7 @@ def check_jwt_authorization():
             skip_check = True
 
     # the static folder is open to all without authentication
-    if request.endpoint == "static" or request.url.endswith("favicon.ico"):
+    if request.endpoint in ("static", "specs", "doc") or request.url.endswith("favicon.ico"):
         skip_check = True
 
     # In case the endpoint requires no authorization, and the request does not
