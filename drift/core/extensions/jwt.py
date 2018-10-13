@@ -56,7 +56,7 @@ def check_jwt_authorization():
 
     skip_check = False
 
-    if current_app.config.get("disable_jwt", False):
+    if current_app.config.get("DISABLE_JWT", False):
         skip_check = True
 
     if request.endpoint in current_app.view_functions:

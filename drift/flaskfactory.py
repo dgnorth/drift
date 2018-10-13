@@ -94,9 +94,9 @@ def create_api():
         return resp
 
     api = FRPApi(
-        title='My Title',
+        title='Drift App',
         version='1.0',
-        description='A description',
+        description='',
         doc="/doc",  # to not clash with the root view in serviestatus
         # All API metadatas
     )
