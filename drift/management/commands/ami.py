@@ -233,9 +233,9 @@ def _bake_command(args):
             echo("Note: No custom ami-bake.sh script found for this application.")
         # custom setup needs to happen first because we might be installing some requirements for the regular setup
         setup_script = setup_script_custom + setup_script
-        tf = tempfile.NamedTemporaryFile(delete=False)
-        tf.write(setup_script)
-        tf.close()
+        with tempfile.NamedTemporaryFile('w', delete=False) as tf:
+            tf.write(setup_script)
+
         setup_script_filename = tf.name
         manifest = create_deployment_manifest('ami', comment=None, deployable_name=name)
         packer_vars = {
