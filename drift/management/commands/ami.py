@@ -286,7 +286,7 @@ def _bake_command(args):
         cmd += "-debug "
 
     cmd += "-only=amazon-ebs "
-    for k, v in packer_vars.iteritems():
+    for k, v in packer_vars.items():
         cmd += "-var {}=\"{}\" ".format(k, v)
 
     cmd = shlex.split(cmd)
