@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
+from flask import current_app
 from click import echo
 
 
-# BUG: Sytems test fails unless this is a global object.
+# This goes away once we stop using the global @register_endpoints decorator
 needs_to_be_global = []
 
 class Endpoints(object):
@@ -14,48 +15,56 @@ class Endpoints(object):
     def __init__(self):
         self.registry_funcs = []
 
+    def init_app(self, app):
+        """
+        when app is initialized, the registered endpoints are handed to the registry
+        """
+        for f in self.registry_funcs:
+            registry.register_app_endpoinds(app, f)
+
     def register(self, f):
+        """
+        At import time, register endpoint functions here
+        """
         self.registry_funcs.append(f)
         return f
 
-    def init_app(self, app):
-        # for now, we just use the old static mechanism at this point
-        for f in self.registry_funcs:
-            register_endpoints(f)
 
 class EndpointRegistry(object):
 
     def __init__(self, app=None):
-        self.app = app
         if app is not None:
-            self.app = app
-            self._init_app()
+            self.init_app(app)
 
-    def _init_app(self):
+    def init_app(self, app):
         if not hasattr(self.app, 'extensions'):
-            self.app.extensions = {}
-        self.app.extensions['urlregistry'] = self
-        global needs_to_be_global
-        self.app.endpoint_registry_funcs = needs_to_be_global  # used to be []
-        echo("doing this for the first time or what")
+            app.extensions = {}
+        if not 'urlregistry' in app.extentions:
+            app.extensions['urlregistry'] = self
+        if not hasattr(app, "endpoint_registry_funcs"):
+            app.endpoint_registry_funcs = needs_to_be_global  # used while we still have static registration
+            app.endpoint_registry_funcs2 = []  # proper per-app registry
 
+    def register_app_endpoints(self, app, f):
+        self.init_app(app)
+        app.endpoint_registry_funcs2.append(f)
+
+    # legacy function, going away. used by static assignation and modifies the static method.
     def register_endpoints(self, f):
+        app = current_app
+        self.init_app(app)
         self.app.endpoint_registry_funcs.append(f)
         return f
 
 
-the_app = None  # HACK: Need to hold onto this :/
-
-
 def register_endpoints(f):
     # TODO: It is a bad pattern to import app here since it might cause the app to be created
-    _url_registry = the_app.extensions['urlregistry']
-    _url_registry.register_endpoints(f)
+    registry.register_endpoints(f)
     return f
 
 
 def drift_init_extension(app, **kwargs):
-    global the_app
-    the_app = app
-    registry = EndpointRegistry(app)
-    return registry
+    registry.init_app(app)
+
+# the static registry object.  Contains no data, just a plain flask extension
+registry = EndpoinRegistry()

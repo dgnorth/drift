@@ -71,7 +71,7 @@ class InfoPageAPI(Resource):
         if endpoints["root"].endswith("/"):
             endpoints["root"] = endpoints["root"][:-1]
         endpoints["auth"] = request.url_root + "auth"  # !evil concatination
-        for func in current_app.endpoint_registry_funcs:
+        for func in current_app.endpoint_registry_funcs + current_app.endpoint_registry_funcs2:
             try:
                 endpoints.update(func(current_user))
             except:
