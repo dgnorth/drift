@@ -8,6 +8,7 @@ import subprocess
 import boto3
 from click import echo
 from six import print_
+from six.moves import input
 
 from drift.utils import get_config
 
@@ -63,7 +64,7 @@ def run_command(args):
             i + 1, ins["InstanceId"], ins["PrivateIpAddress"], lb[0], ins["LaunchTime"]))
 
     if len(instances) > 1:
-        which = raw_input("Select an instance to connect to (or press enter for first one): ")
+        which = input("Select an instance to connect to (or press enter for first one): ")
         if which:
             inst = instances[int(which) - 1]
     else:
