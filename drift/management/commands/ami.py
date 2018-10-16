@@ -36,7 +36,8 @@ from drift.flaskfactory import load_flask_config
 
 UBUNTU_TRUSTY_IMAGE_NAME = 'ubuntu/images/hvm/ubuntu-trusty-14.04*'
 UBUNTU_XENIAL_IMAGE_NAME = 'ubuntu/images/hvm-ssd/ubuntu-xenial-16.04*'
-UBUNTU_RELEASE = UBUNTU_XENIAL_IMAGE_NAME
+UBUNTU_BIONIC_IMAGE_NAME = 'ubuntu/images/hvm-ssd/ubuntu-bionic-18.04*'
+UBUNTU_RELEASE = UBUNTU_BIONIC_IMAGE_NAME
 
 IAM_ROLE = "ec2"
 
@@ -360,7 +361,7 @@ def _bake_command(args):
         pretty(manifest)
         prefix = "drift:manifest:"
         tags = []
-        for k, v in manifest.iteritems():
+        for k, v in manifest.items():
             tag_name = "{}{}".format(prefix, k)
             tags.append({'Key': tag_name, 'Value': v or ''})
         ami.create_tags(DryRun=False, Tags=tags)
@@ -587,7 +588,7 @@ export AWS_REGION={aws_region}
 # Shell script from ami-run.sh:
 '''.format(drift_config_url=drift_config_url, tier_name=tier_name, app_root=app_root,service_name=name, aws_region=aws_region)
 
-    user_data += pkg_resources.resource_string(__name__, "ami-run.sh")
+    user_data += pkg_resources.resource_string(__name__, "ami-run.sh").decode()
     custom_script_name = os.path.join(conf.drift_app['app_root'], 'scripts', 'ami-run.sh')
     if os.path.exists(custom_script_name):
         echo("Using custom shell script {!r}".format(custom_script_name))
