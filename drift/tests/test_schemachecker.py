@@ -47,7 +47,7 @@ class SchemaCheckTest(DriftTestCase):
         # Test incorrect response
         with self.assertRaises(Exception) as context:
             response = self.post(400, "/schematest", {"string_required": "x", "fail_response": True})
-        self.assertIn("'This is not expected!' is not of type 'integer'", str(context.exception))
+            self.assertIn("'This is not expected!' is not of type 'integer'", str(context.exception))
 
 
 class SchemaTestAPI(Resource):
