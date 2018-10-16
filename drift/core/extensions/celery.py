@@ -42,14 +42,16 @@ def make_celery(app):
     ts = get_default_drift_config()
     tier_name = get_tier_name()
     tier_config = ts.get_table('tiers').get({'tier_name': tier_name})
-
+    if not tier_config:
+        raise RuntimeError("No tier config found for '%s'" % tier_name)
+    resources = tier_config['resources']
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         broker_url = "redis://localhost:6379/15"
     else:
         # HACK: Just use the tier default value instead of "celery_broker_url".
         # broker_url = tier_config["celery_broker_url"]
         broker_url = "redis://{host}:{port}/15".format(
-            **tier_config['resources'].get('drift.core.resources.redis',
+            **resources.get('drift.core.resources.redis',
                 {'host':'none', 'port': '0'}))
 
     log.info("Celery broker from tier config: %s", broker_url)

@@ -3,6 +3,7 @@
 import os
 import socket
 import collections
+import platform
 from flask import Blueprint, request, jsonify, current_app, g
 from flask import url_for, render_template, make_response
 from flask_restplus import Namespace, Resource
@@ -42,6 +43,29 @@ class InfoPageAPI(Resource):
             there might be a better way to get the address
             """
             host_info["ip-address"] = "Unknown"
+
+        # Platform info
+        keys = [
+            'architecture',
+            'machine',
+            'node',
+            'platform',
+            'processor',
+            'python_branch',
+            'python_build',
+            'python_compiler',
+            'python_implementation',
+            'python_revision',
+            'python_version',
+            'release',
+            'system',
+            'version',
+        ]
+        try:
+            platform_info = {key: getattr(platform, key)() for key in keys}
+        except Exception as e:
+            platform_info = str(e)
+
         endpoints = collections.OrderedDict()
         endpoints["root"] = url_for("root", _external=True)
         if endpoints["root"].endswith("/"):
@@ -73,6 +97,7 @@ class InfoPageAPI(Resource):
             "tenant_name": g.conf.tenant_name['tenant_name'] if g.conf.tenant_name else '(none)',
             "server_time": datetime.datetime.utcnow().isoformat("T") + "Z",
             "tenants": tenants,
+            "platform": platform_info,
         }
 
         path = os.path.join(current_app.instance_path, "..", "deployment-manifest.json")
