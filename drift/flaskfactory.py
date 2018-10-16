@@ -13,7 +13,7 @@ from flask import Flask, make_response, current_app
 from flask.json import dumps as flask_json_dumps
 import flask_restplus
 from werkzeug.contrib.fixers import ProxyFix
-
+from werkzeug.exceptions import HTTPException
 from drift.fixers import ReverseProxied, CustomJSONEncoder
 from drift.utils import enumerate_plugins, get_app_root
 from . import restful as _restful  # apply patching
@@ -54,7 +54,6 @@ def drift_app(app=None):
     log.info("Init app.template_folder: %s", app.template_folder)
 
     app.config.update(load_flask_config())
-    print("patching")
     _apply_patches(app)
 
     # Install apps, api's and extensions.
@@ -65,6 +64,12 @@ def drift_app(app=None):
         install_modules(app, api)
 
     api.init_app(app)
+
+    # quick fix to override exception handling by restplus
+    @api.errorhandler(HTTPException)
+    def deal_with_aborts(e):
+        from drift.core.extensions.apierrors import handle_all_exceptions
+        return handle_all_exceptions(e)
     return app
 
 
@@ -93,11 +98,20 @@ def create_api():
         resp.headers.extend(headers or {})
         return resp
 
+    authorizations = {
+        'jwt': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization'
+        }
+    }
     api = FRPApi(
         title='Drift App',
         version='1.0',
         description='',
         doc="/doc",  # to not clash with the root view in serviestatus
+        authorizations=authorizations,
+        security='jwt'
         # All API metadatas
     )
     api.representations['application/json'] = output_json
