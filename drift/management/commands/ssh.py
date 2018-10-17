@@ -79,6 +79,6 @@ def run_command(args):
     p = subprocess.Popen(cmd)
     stdout, _ = p.communicate()
     if p.returncode != 0:
-        stdout = str(stdout.decode())
-        print_(stdout)
+        if stdout:
+            print_(stdout.decode())
         sys.exit(p.returncode)
