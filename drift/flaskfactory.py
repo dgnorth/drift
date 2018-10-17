@@ -178,7 +178,7 @@ def install_modules(app, api):
         except ImportError as e:
             if 'No module named' not in str(e): #error message is different between py2/py3
                 raise
-            log.warning("App module '%s' has no module '%s'", module_name, blueprint_name)
+            log.exception("Import failed on app module '%s'.", blueprint_name)
         else:
             import_time = time.time() - t
             try:
