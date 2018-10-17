@@ -20,7 +20,7 @@ class Endpoints(object):
         when app is initialized, the registered endpoints are handed to the registry
         """
         for f in self.registry_funcs:
-            registry.register_app_endpoinds(app, f)
+            registry.register_app_endpoints(app, f)
 
     def register(self, f):
         """
@@ -37,9 +37,9 @@ class EndpointRegistry(object):
             self.init_app(app)
 
     def init_app(self, app):
-        if not hasattr(self.app, 'extensions'):
+        if not hasattr(app, 'extensions'):
             app.extensions = {}
-        if not 'urlregistry' in app.extentions:
+        if not 'urlregistry' in app.extensions:
             app.extensions['urlregistry'] = self
         if not hasattr(app, "endpoint_registry_funcs"):
             app.endpoint_registry_funcs = needs_to_be_global  # used while we still have static registration
@@ -53,7 +53,7 @@ class EndpointRegistry(object):
     def register_endpoints(self, f):
         app = current_app
         self.init_app(app)
-        self.app.endpoint_registry_funcs.append(f)
+        app.endpoint_registry_funcs.append(f)
         return f
 
 
@@ -67,4 +67,4 @@ def drift_init_extension(app, **kwargs):
     registry.init_app(app)
 
 # the static registry object.  Contains no data, just a plain flask extension
-registry = EndpoinRegistry()
+registry = EndpointRegistry()
