@@ -68,8 +68,8 @@ def register_deployable_on_tier(ts, deployable, attributes):
     keypair = {
         'issued': now.isoformat() + "Z",
         'expires': (now + datetime.timedelta(days=expiry_days)).isoformat() + "Z",
-        'public_key': public_pem,
-        'private_key': private_pem,
+        'public_key': public_pem.decode(),  # PEM is actually a text format
+        'private_key': private_pem.decode(),  # PEM is actually a text format
     }
 
     # LEGACY SUPPORT! Make sure there is only one keypair registered. If one exists already
