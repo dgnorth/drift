@@ -12,7 +12,7 @@ import uuid
 import traceback
 import sys
 
-from six.moves import cStringIO
+from six import StringIO
 from flask import make_response, jsonify, request, current_app
 from werkzeug.exceptions import HTTPException
 
@@ -97,7 +97,7 @@ def handle_all_exceptions(e):
         # Do a traceback if caller has dev role, or we are running in debug mode.
         current_user = query_current_user()
         if (current_user and "dev" in current_user['roles']) or current_app.debug:
-            sio = cStringIO.StringIO()
+            sio = StringIO()
             ei = sys.exc_info()
             sio.write("%s: %s\n" % (type(e).__name__, e))
             traceback.print_exception(ei[0], ei[1], ei[2], None, sio)
