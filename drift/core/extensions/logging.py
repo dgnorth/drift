@@ -322,6 +322,7 @@ class StreamFormatter(logging.Formatter):
 
 
 def logsetup(app):
+    return  # Temporarily disabling all this stuff
 
     global _setup_done
     if _setup_done:
