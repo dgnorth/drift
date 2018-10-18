@@ -37,6 +37,9 @@ def _figure_out_tenant():
     Figure out the current tenant name. It's either set through an environment variable
     'DRIFT_DEFAULT_TENANT', or it's the left-most part of the host name.
     """
+    if 'Drift-Tenant' in request.headers:
+        return request.headers['Drift-tenant']
+
     tenant_name = os.environ.get('DRIFT_DEFAULT_TENANT')
 
     # Figure out tenant. Normally the tenant name is embedded in the hostname.
