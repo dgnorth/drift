@@ -198,20 +198,6 @@ def request_wants_json():
         request.accept_mimetypes['text/html']
 
 
-# some simple helpers. This probably doesn't belong in drift
-
-def url_user(user_id):
-    return url_for("user", user_id=user_id, _external=True)
-
-
-def url_player(player_id):
-    return url_for("player", player_id=player_id, _external=True)
-
-
-def url_client(client_id):
-    return url_for("client", client_id=client_id, _external=True)
-
-
 PRETTY_FORMATTER = 'console256'
 PRETTY_STYLE = 'tango'
 
