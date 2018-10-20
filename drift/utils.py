@@ -201,11 +201,11 @@ def request_wants_json():
 # some simple helpers. This probably doesn't belong in drift
 
 def url_user(user_id):
-    return url_for("users.user", user_id=user_id, _external=True)
+    return url_for("user", user_id=user_id, _external=True)
 
 
 def url_player(player_id):
-    return url_for("players.player", player_id=player_id, _external=True)
+    return url_for("player", player_id=player_id, _external=True)
 
 
 def url_client(client_id):
