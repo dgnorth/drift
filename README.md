@@ -2,6 +2,7 @@
 [![codecov](https://img.shields.io/codecov/c/github/dgnorth/drift/develop.svg)](https://codecov.io/gh/dgnorth/drift)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/python-drift.svg)
 ![GitHub release](https://img.shields.io/github/release/dgnorth/drift.svg)
+[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/dgnorth/drift/badges/quality-score.png?b=develop)](https://scrutinizer-ci.com/g/dgnorth/drift/?branch=develop)
 
 ![GitHub repo size in bytes](https://img.shields.io/github/repo-size/dgnorth/drift.svg)
 ![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/dgnorth/drift.svg)
