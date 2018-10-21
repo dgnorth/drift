@@ -38,6 +38,15 @@ TRUSTED_ISSUERS = set(['drift-base'])
 log = logging.getLogger(__name__)
 
 
+def drift_init_extension(app, api, **kwargs):
+    app.jwt_auth_providers = {}
+    jwtsetup(app, api)
+
+
+def register_auth_provider(app, provider, handler):
+    app.jwt_auth_providers[provider] = handler
+
+
 def abort_unauthorized(description):
     """Raise an Unauthorized exception.
     """
@@ -201,11 +210,6 @@ def jwtsetup(app, api):
 
         # In fact only JWT is supported by all drift based deployables. Everything else
         # is specific to drift-base.
-        if authenticate_with_provider is None and auth_info['provider'] not in ['jwt', 'jti']:
-            abort_unauthorized(
-                "Bad Request. Unknown provider '{}'. Only 'jwt' and 'jti' are "
-                "supported".format(auth_info['provider'])
-            )
 
         if auth_info['provider'] == "jwt":
             # Authenticate using a JWT. We validate the token,
@@ -235,6 +239,19 @@ def jwtsetup(app, api):
         ret = issue_token(identity, expire=expire)
         log.info("Authenticated: %s", identity)
         return jsonify(ret)
+
+
+def authenticate_with_provider(auth_info):
+    handler = current_app.jwt_auth_providers.get(auth_info['provider'])
+    if not handler:
+        # provide for a default handler that can deal with multiple providers
+        handler = current_app.jwt_auth_providers.get("default")
+    if not handler:
+        abort_unauthorized(
+                "Bad Request. Unknown provider '{}'. Only 'jwt' and 'jti' are "
+                "supported".format(auth_info['provider'])
+            )
+    return handler(auth_info)
 
 
 def issue_token(payload, expire=None):
@@ -449,7 +466,3 @@ def get_cached_token(jti):
         return None
     payload = json.loads(data)
     return payload
-
-
-def drift_init_extension(app, api, **kwargs):
-    jwtsetup(app, api)
