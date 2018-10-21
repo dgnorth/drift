@@ -11,7 +11,7 @@ import jwt
 from six.moves.http_client import UNAUTHORIZED
 
 from flask import current_app, request, _request_ctx_stack, jsonify, g
-from flask_restful import abort
+from flask_restplus import Namespace, Resource, Model, fields, reqparse, abort
 
 from werkzeug.local import LocalProxy
 from werkzeug.security import gen_salt
@@ -36,9 +36,12 @@ TRUSTED_ISSUERS = set(['drift-base'])
 
 
 log = logging.getLogger(__name__)
+namespace = Namespace("auth", description="Authentication")
 
 
 def drift_init_extension(app, api, **kwargs):
+    api.add_namespace(namespace)
+    api.models[jwt_model.name] = jwt_model
     if not hasattr(app, "jwt_auth_providers"):
         app.jwt_auth_providers = {}
     jwtsetup(app, api)
@@ -71,10 +74,9 @@ def check_jwt_authorization():
     if current_app.config.get("DISABLE_JWT", False):
         skip_check = True
 
-    if request.endpoint in current_app.view_functions:
-        fn = current_app.view_functions[request.endpoint]
-
-        # Check Flask-RESTful endpoints for openness
+    fn = current_app.view_functions.get(request.endpoint)
+    if fn:
+        # Check Flask-RESTplus endpoints for openness
         if hasattr(fn, "view_class"):
             exempt = getattr(fn.view_class, "no_jwt_check", [])
             if request.method in exempt:
@@ -180,25 +182,24 @@ def _fix_legacy_auth(auth_info):
     return auth_info
 
 
-def jwtsetup(app, api):
-    # jwt currently doesnt use an API, handles it in a custom way
+jwt_model = Model('Token', {
+    'token': fields.String(description="token"),
+    'jti': fields.String(description="token id"),
+    })
 
-    # Always trust myself
-    TRUSTED_ISSUERS.add(app.config['name'])
+@namespace.route('', endpoint='authentication')
+class AuthApi(Resource):
+    no_jwt_check = ['GET', 'POST']
 
-    @app.before_request
-    def before_request():
-        # Check for a valid JWT/JTI access token in the request header and populate current_user.
-        check_jwt_authorization()
+    parser = reqparse.RequestParser(bundle_errors=True)
+    parser.add_argument('provider', type=str)
+    parser.add_argument('provider_details', type=dict)
+    parser.add_argument('username', type=str, help='legacy username')
+    parser.add_argument('password', type=str, help='legacy password')
 
-    # Authentication endpoint
-    @jwt_not_required
-    @app.route('/auth', methods=['GET', 'POST'])
-    def auth_request_handler():
-        if request.method == "GET":
-            abort_unauthorized("Bad Request. "
-                               "This endpoint only supports the POST method.")
-
+    @namespace.expect(parser)
+    @namespace.marshal_with(jwt_model)
+    def post(self):
         auth_info = request.get_json()
         if not auth_info:
             abort_unauthorized("Bad Request. Expected json payload.")
@@ -241,7 +242,20 @@ def jwtsetup(app, api):
 
         ret = issue_token(identity, expire=expire)
         log.info("Authenticated: %s", identity)
-        return jsonify(ret)
+        return ret
+
+
+
+def jwtsetup(app, api):
+    # jwt currently doesnt use an API, handles it in a custom way
+
+    # Always trust myself
+    TRUSTED_ISSUERS.add(app.config['name'])
+
+    @app.before_request
+    def before_request():
+        # Check for a valid JWT/JTI access token in the request header and populate current_user.
+        check_jwt_authorization()
 
 
 def authenticate_with_provider(auth_info):
