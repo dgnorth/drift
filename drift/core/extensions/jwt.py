@@ -39,11 +39,14 @@ log = logging.getLogger(__name__)
 
 
 def drift_init_extension(app, api, **kwargs):
-    app.jwt_auth_providers = {}
+    if not hasattr(app, "jwt_auth_providers"):
+        app.jwt_auth_providers = {}
     jwtsetup(app, api)
 
 
 def register_auth_provider(app, provider, handler):
+    if not hasattr(app, "jwt_auth_providers"):
+        app.jwt_auth_providers = {}
     app.jwt_auth_providers[provider] = handler
 
 
