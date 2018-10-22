@@ -19,7 +19,7 @@ try:
 except ImportError:
     got_pygments = False
 
-from flask import g, make_response, jsonify, request, url_for, current_app
+from flask import g, make_response, jsonify, request, current_app
 from click import echo
 
 from driftconfig.util import get_drift_config
@@ -223,8 +223,8 @@ def pretty(ob, lexer=None):
     if got_pygments:
         lexerob = get_lexer_by_name(lexer)
         formatter = get_formatter_by_name(PRETTY_FORMATTER, style=PRETTY_STYLE)
-        #from pygments.filters import *
-        #lexerob.add_filter(VisibleWhitespaceFilter(spaces=True, tabs=True, newlines=True))
+        # from pygments.filters import *
+        # lexerob.add_filter(VisibleWhitespaceFilter(spaces=True, tabs=True, newlines=True))
         ret = highlight(ob, lexerob, formatter)
     else:
         ret = ob

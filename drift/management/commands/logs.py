@@ -1,12 +1,8 @@
 import os
 import os.path
 import sys
-from time import sleep
-import json
 
 from fabric import Connection, Config
-import boto
-import boto.ec2
 from click import echo, secho
 
 from drift.management import get_ec2_instances

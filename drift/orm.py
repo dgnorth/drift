@@ -16,8 +16,9 @@ utc_now = text("(now() at time zone 'utc')")
 Base = declarative_base()
 
 
-#! TODO: Move contents to resources.postgres
-from drift.core.resources.postgres import get_sqlalchemy_session, sqlalchemy_session
+# ! TODO: Move contents to resources.postgres
+# These are here due to importing from other modules
+from drift.core.resources.postgres import get_sqlalchemy_session, sqlalchemy_session  # noqa: F401
 
 
 class ModelBase(Base):

@@ -5,7 +5,7 @@ import os
 import datetime
 import logging
 
-from  six.moves import cPickle as pickle
+from six.moves import cPickle as pickle
 
 from flask import g
 import redis
@@ -233,7 +233,6 @@ class RedisCache(object):
             self.conn.delete(key)
 
 
-
 # NOTE THIS IS DEPRECATED AND NEEDS TO BE UPGRADED TO NU STYLE PROVISIONING LOGIC
 def provision(config, args, recreate=None):
     params = get_parameters(config, args, TIER_DEFAULTS.keys(), "redis")
@@ -244,6 +243,7 @@ def provision(config, args, recreate=None):
     if recreate == 'recreate':
         red = RedisCache(config.tenant_name['tenant_name'], config.deployable['deployable_name'], params)
         red.delete_all()
+
 
 def healthcheck():
     if "redis" not in g.conf.tenant:

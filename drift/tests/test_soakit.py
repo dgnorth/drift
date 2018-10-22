@@ -3,10 +3,6 @@ import logging
 
 from flask import Flask
 
-import jsonschema
-
-
-from drift.core.extensions.schemachecker import get_schema_for_media_type, validate
 
 @unittest.skip("needs refactoring")
 class driftTestCase(unittest.TestCase):
@@ -22,12 +18,13 @@ class driftTestCase(unittest.TestCase):
 
     def test_flasksetup(self):
         # Run minimal setup
-        flasksetup(self.app, options=[])
+        # flasksetup(self.app, options=[])
+        pass
 
     def test_all(self):
         # Run with all options
-        flasksetup(self.app)
-
+        # flasksetup(self.app)
+        pass
 
 
 if __name__ == "__main__":

@@ -7,7 +7,6 @@ import importlib
 import json
 import os.path
 import time
-from functools import partial
 
 from flask import Flask, make_response, current_app
 from flask.json import dumps as flask_json_dumps
@@ -16,9 +15,8 @@ from werkzeug.contrib.fixers import ProxyFix
 from werkzeug.exceptions import HTTPException
 from drift.fixers import ReverseProxied, CustomJSONEncoder
 from drift.utils import enumerate_plugins, get_app_root
-from . import restful as _restful  # apply patching
 
-
+importlib.import_module(".restful", "drift")  # apply patching
 log = logging.getLogger(__name__)
 
 
@@ -31,7 +29,7 @@ class FRPApi(flask_restplus.Api):
         if self._add_specs and self._doc:
             # Register documentation before root if enabled
             app_or_blueprint.add_url_rule(self._doc, 'doc', self.render_doc)
-        #app_or_blueprint.add_url_rule(self._doc, 'root', self.render_root)
+        # app_or_blueprint.add_url_rule(self._doc, 'root', self.render_root)
 
     @property
     def base_path(self):
@@ -147,7 +145,6 @@ def load_flask_config(app_root=None):
 def install_modules(app, api):
     """Install built-in and product specific apps and extensions."""
 
-
     plugins = enumerate_plugins(app.config)
     resources, extensions, apps = plugins['resources'], plugins['extensions'], plugins['apps']
 
@@ -176,7 +173,7 @@ def install_modules(app, api):
         try:
             m = importlib.import_module(blueprint_name)
         except ImportError as e:
-            if 'No module named' not in str(e): #error message is different between py2/py3
+            if 'No module named' not in str(e):  # error message is different between py2/py3
                 raise
             log.exception("Import failed on app module '%s'.", blueprint_name)
         else:

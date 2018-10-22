@@ -31,7 +31,7 @@ class AdminProvisionAPI(Resource):
 
     no_jwt_check = ["POST"]
 
-    #@requires_roles("service")
+    # @requires_roles("service")
     @simple_schema_request({
         "provisioners": {"type": "array", },
     }, required=[])
@@ -59,7 +59,6 @@ class AdminProvisionAPI(Resource):
             tier_name=tier_name,
             deployable_name=current_app.config['name']
         )
-
 
         if conf.tenant["state"] != "initializing":
             raise RuntimeError("Tenant unexpectedly found in state '%s': %s" % (conf.tenant["state"], conf.tenant))

@@ -10,7 +10,6 @@ from flask import make_response
 from flask.json import dumps as flask_json_dumps
 
 import flask_restful
-from flask_restful import Resource, abort
 
 
 # Install proper json dumper for Flask Restful library.
@@ -21,10 +20,12 @@ def output_json(obj, code, headers=None):
     resp.headers.extend(headers or {})
     return resp
 
+
 # Legacy flask_restful api class.
 # need this here to override marshalling without relying on import order
 class PatchedApi(flask_restful.Api):
     _patched = True
+
     def __init__(self, *args, **kwargs):
         super(PatchedApi, self).__init__(*args, **kwargs)
         self.representations['application/json'] = output_json
@@ -37,6 +38,7 @@ class PatchedApi(flask_restful.Api):
         if len(self.resources) > 0:
             for resource, urls, kwargs in self.resources:
                 self._register_view(app, resource, *urls, **kwargs)
+
 
 # now, patch this for good measure
 if not hasattr(flask_restful.Api, "_patched"):

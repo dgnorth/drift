@@ -15,7 +15,6 @@ import json
 import datetime
 import sys
 import time
-from uuid import uuid4
 from socket import gethostname
 from collections import OrderedDict
 from functools import wraps
@@ -36,6 +35,7 @@ def get_stream_handler():
     stream_handler.setFormatter(stream_formatter)
     return stream_handler
 
+
 def get_caller():
     """returns a nice string representing caller for logs
     Note: This is heavy"""
@@ -44,6 +44,7 @@ def get_caller():
     calframe = inspect.getouterframes(curframe, 2)
     caller = "{} ({}#{})".format(calframe[2][3], calframe[2][1], calframe[2][2])
     return caller
+
 
 def get_clean_path_from_url(url):
     """extract the endpoint path from the passed in url and remove
@@ -57,16 +58,18 @@ def get_clean_path_from_url(url):
         lst = path.split("/")
         for i, l in enumerate(lst):
             try:
-                num = int(l)
+                int(l)
             except ValueError:
                 pass
             else:
                 lst[i] = "<int>"
         # assume that the service name is the first part so we skip it
         clean_path = "/" + "/".join(lst[2:])
-    except:
+    except Exception:
+        # Todo: should report these errors
         pass
     return clean_path
+
 
 def get_log_details():
     details = OrderedDict()
@@ -115,6 +118,7 @@ def get_log_details():
 
     return details
 
+
 # Custom log record
 class DriftLogRecord(logging.LogRecord):
     def __init__(self, name, level, fn, lno, msg, args, exc_info, func=None, extra=None, sinfo=None):
@@ -127,8 +131,9 @@ class DriftLogRecord(logging.LogRecord):
             log_details.update(extra)
         for k, v in log_details.items():
             setattr(self, k, v)
-        logger_fields = ("levelname", "levelno", "process", "thread", "name",
-                        "filename", "module", "funcName", "lineno")
+        logger_fields = (
+            "levelname", "levelno", "process", "thread", "name",
+            "filename", "module", "funcName", "lineno")
         for f in logger_fields:
             log_details["logger"][f] = getattr(self, f, None)
         try:
@@ -140,6 +145,7 @@ class DriftLogRecord(logging.LogRecord):
         log_details["logger"]["created"] = datetime.datetime.utcnow().isoformat() + "Z"
         for k, v in log_details.items():
             setattr(self, k, v)
+
 
 class ContextAwareLogger(logging.Logger):
     """
@@ -218,19 +224,21 @@ class JSONFormatter(logging.Formatter):
 
 class ServerLogFormatter(JSONFormatter):
     log_tag = "server"
+
     def format(self, record):
         data = self.get_formatted_data(record)
         data["message"] = super(JSONFormatter, self).format(record)
         data["level"] = record.levelname
         try:
             data["request"] = "{} {}".format(request.method, request.url)
-        except:
+        except Exception:
             pass
         return self.json_format(data)
 
 
 class EventLogFormatter(JSONFormatter):
     log_tag = "events"
+
     def format(self, record):
         data = self.get_formatted_data(record)
         data["event_name"] = super(JSONFormatter, self).format(record)
@@ -240,6 +248,7 @@ class EventLogFormatter(JSONFormatter):
 
 class ClientLogFormatter(JSONFormatter):
     log_tag = "client"
+
     def format(self, record):
         data = self.get_formatted_data(record)
         data.update(getattr(record, "extra", {}))
@@ -263,6 +272,7 @@ def format_request_body(key, value):
 
 class RequestLogFormatter(JSONFormatter):
     log_tag = "request"
+
     def format(self, record):
         data = self.get_formatted_data(record)
         trim_logger(data)
@@ -292,7 +302,7 @@ class RequestLogFormatter(JSONFormatter):
         try:
             data.update(getattr(record, "extra", {}))
         except Exception:
-           pass
+            pass
 
         if data.get('log_level') == 1:
             data = {
@@ -303,6 +313,7 @@ class RequestLogFormatter(JSONFormatter):
                 }
 
         return self.json_format(data)
+
 
 # Calling 'logsetup' more than once may result in multiple handlers emitting
 # multiple log events for a single log call. Flagging it is a simple fix.
@@ -329,7 +340,6 @@ def logsetup(app):
         return
     _setup_done = True
 
-
     @app.before_request
     def log_before_request():
         g.request_start_time = time.time()
@@ -346,7 +356,7 @@ def logsetup(app):
             try:
                 resp_len = len(response.response[0])
                 resp_text = response.response[0][:192]
-            except:
+            except Exception:
                 pass
             t = None
             if hasattr(g, 'request_start_time'):
@@ -384,27 +394,27 @@ def logsetup(app):
     handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_LOCAL0)
     handler.name = "eventlog"
     handler.setFormatter(EventLogFormatter())
-    l = logging.getLogger("eventlog")
-    l.propagate = False
-    l.setLevel('INFO')
-    l.addHandler(handler)
+    log = logging.getLogger("eventlog")
+    log.propagate = False
+    log.setLevel('INFO')
+    log.addHandler(handler)
 
     # Install client file handler
     handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_LOCAL1)
     handler.name = "clientlog"
     handler.setFormatter(ClientLogFormatter())
-    l = logging.getLogger("clientlog")
-    l.propagate = False
-    l.setLevel('INFO')
-    l.addHandler(handler)
+    log = logging.getLogger("clientlog")
+    log.propagate = False
+    log.setLevel('INFO')
+    log.addHandler(handler)
 
     # request handler
     handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_LOCAL2)
     handler.name = "request"
     handler.setFormatter(RequestLogFormatter())
-    l = logging.getLogger("request")
-    l.propagate = False
-    l.addHandler(handler)
+    log = logging.getLogger("request")
+    log.propagate = False
+    log.addHandler(handler)
 
     # Apply additional 'level' and 'propagate' settings for handlers and
     # loggers. See https://docs.python.org/2.7/library/logging.config.html#
@@ -440,4 +450,3 @@ def request_log_level(level):
 
         return decorated
     return wrapper
-

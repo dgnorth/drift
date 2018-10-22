@@ -57,6 +57,7 @@ class SchemaAPI(Resource):
         else:
             return abort(404)
 
+
 api.add_resource(
     SchemaListAPI, "/"
 )

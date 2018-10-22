@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
     drift - tracking setup code
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -23,37 +22,21 @@ log = logging.getLogger(__name__)
 
 def drift_init_extension(app, **kwargs):
 
-    #app.handle_exception = partial(handle_all_exceptions, app.handle_exception)
-    #app.handle_user_exception = partial(handle_all_exceptions, app.handle_user_exception)
+    # app.handle_exception = partial(handle_all_exceptions, app.handle_exception)
+    # app.handle_user_exception = partial(handle_all_exceptions, app.handle_user_exception)
 
     @app.errorhandler(500)
-    def deal_with_exceptions(e):
-        return handle_all_exceptions(e)
-
     @app.errorhandler(503)
     def deal_with_exceptions(e):
         return handle_all_exceptions(e)
 
     @app.errorhandler(400)
-    def deal_with_aborts(e):
-        return handle_all_exceptions(e)
-
     @app.errorhandler(401)
-    def deal_with_aborts(e):
-        return handle_all_exceptions(e)
-
     @app.errorhandler(403)
-    def deal_with_aborts(e):
-        return handle_all_exceptions(e)
-
     @app.errorhandler(404)
-    def deal_with_aborts(e):
-        return handle_all_exceptions(e)
-
     @app.errorhandler(405)
     def deal_with_aborts(e):
         return handle_all_exceptions(e)
-
 
     # Gurko endpoint. Always succeedes.
     @jwt_not_required
@@ -72,7 +55,6 @@ def drift_init_extension(app, **kwargs):
             abort(int(status_code), **data)
         else:
             raise RuntimeError("Borko raising an error.")
-
 
 
 def handle_all_exceptions(e):

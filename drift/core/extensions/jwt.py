@@ -10,7 +10,7 @@ from functools import wraps
 import jwt
 from six.moves.http_client import UNAUTHORIZED
 
-from flask import current_app, request, _request_ctx_stack, jsonify, g
+from flask import current_app, request, _request_ctx_stack, g
 from flask_restplus import Namespace, Resource, Model, fields, reqparse, abort
 
 from werkzeug.local import LocalProxy
@@ -187,6 +187,7 @@ jwt_model = Model('Token', {
     'jti': fields.String(description="token id"),
     })
 
+
 @namespace.route('', endpoint='authentication')
 class AuthApi(Resource):
     no_jwt_check = ['GET', 'POST']
@@ -243,7 +244,6 @@ class AuthApi(Resource):
         ret = issue_token(identity, expire=expire)
         log.info("Authenticated: %s", identity)
         return ret
-
 
 
 def jwtsetup(app, api):

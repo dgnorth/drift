@@ -4,8 +4,8 @@ import os
 import socket
 import collections
 import platform
-from flask import Blueprint, request, jsonify, current_app, g
-from flask import url_for, render_template, make_response
+from flask import Blueprint, request, current_app, g
+from flask import url_for
 from flask_restplus import Namespace, Resource
 from drift.utils import get_tier_name
 from drift.core.extensions.jwt import current_user
@@ -19,9 +19,11 @@ log = logging.getLogger(__name__)
 blueprint = Blueprint("servicestatus_template", __name__, template_folder="static/templates")
 api = namespace = Namespace("servicestatus", path="/", description="Status of the service")
 
+
 def drift_init_extension(app, api, **kw):
     app.register_blueprint(blueprint)
     api.add_namespace(namespace)
+
 
 class InfoPageAPI(Resource):
 
@@ -74,7 +76,7 @@ class InfoPageAPI(Resource):
         for func in current_app.endpoint_registry_funcs + current_app.endpoint_registry_funcs2:
             try:
                 endpoints.update(func(current_user))
-            except:
+            except Exception:
                 log.exception("Failed to get endpoint registry from %s", func)
 
         # Only list out tenants which have a db, and only if caller has service role.
@@ -129,4 +131,3 @@ class InfoPageAPI(Resource):
 
 
 api.add_resource(InfoPageAPI, '/', strict_slashes=False, endpoint="root")
-

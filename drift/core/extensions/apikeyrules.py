@@ -103,7 +103,7 @@ def get_api_key_rule(request_headers, request_url, conf):
     # Fist look up the API key in our config.
     try:
         api_key = conf.table_store.get_table('api-keys').get({'api_key_name': key})
-    except ConstraintError as e:
+    except ConstraintError:
         return retval(description="API Key format '{}' not recognized.".format(key))
 
     if not api_key:
@@ -130,7 +130,8 @@ def get_api_key_rule(request_headers, request_url, conf):
         return retval(description="No product or tenant in context.")
 
     if api_key['product_name'] != product['product_name']:
-        return retval(description="API Key '{}' is for product '{}'"
+        return retval(
+            description="API Key '{}' is for product '{}'"
             " but current tenant '{}' is on product '{}'.".format(
                 key, api_key['product_name'], tenant['tenant_name'], product['product_name']))
 

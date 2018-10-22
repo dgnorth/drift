@@ -8,8 +8,6 @@
 
 from __future__ import absolute_import
 
-import os
-import os.path
 from functools import wraps
 import logging
 
@@ -17,7 +15,7 @@ import six
 from six.moves import http_client as http_client
 from six.moves import cStringIO
 
-from flask import current_app, request, json, url_for
+from flask import current_app, request, url_for
 from flask import after_this_request
 from flask.json import dumps, loads
 from flask.wrappers import Response

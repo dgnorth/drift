@@ -1,6 +1,5 @@
 import unittest
 import json
-from functools import partial
 
 from flask import Blueprint, request
 from flask_restplus import Api, Resource
@@ -11,6 +10,7 @@ from drift.core.extensions.schemachecker import simple_schema_request, schema_re
 
 bp = Blueprint("schema", __name__)
 api = Api(bp)
+
 
 # we want the RuntimeError generaded by the response validator to be raised right through
 @api.errorhandler
@@ -41,12 +41,12 @@ class SchemaCheckTest(DriftTestCase):
 
     def test_successful_input(self):
         # Test successfull input data
-        response = self.post(200, "/schematest", {"string_required": "x", "string_optional": "x"})
+        self.post(200, "/schematest", {"string_required": "x", "string_optional": "x"})
 
     def test_incorrect_response(self):
         # Test incorrect response
         with self.assertRaises(Exception) as context:
-            response = self.post(400, "/schematest", {"string_required": "x", "fail_response": True})
+            self.post(400, "/schematest", {"string_required": "x", "fail_response": True})
             self.assertIn("'This is not expected!' is not of type 'integer'", str(context.exception))
 
 
@@ -54,9 +54,9 @@ class SchemaTestAPI(Resource):
 
     @simple_schema_request(
         {
-            "string_required"  : {"type": "string", },
-            "string_optional"  : {"type": "string", },
-            "fail_response"    : {"type": "boolean", },
+            "string_required": {"type": "string", },
+            "string_optional": {"type": "string", },
+            "fail_response": {"type": "boolean", },
         },
         required=["string_required"]
     )
@@ -71,7 +71,6 @@ class SchemaTestAPI(Resource):
 api.add_resource(
     SchemaTestAPI, "/schematest"
 )
-
 
 
 if __name__ == "__main__":

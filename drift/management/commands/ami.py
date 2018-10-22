@@ -153,7 +153,8 @@ def _bake_command(args):
 
     domain = conf.domain.get()
     if 'aws' not in domain or 'ami_baking_region' not in domain['aws']:
-        echo("Missing configuration value in table 'domain'. Specify the AWS region in " \
+        echo(
+            "Missing configuration value in table 'domain'. Specify the AWS region in "
             "'aws.ami_baking_region'.")
         sys.exit(1)
     aws_region = domain['aws']['ami_baking_region']
@@ -586,7 +587,7 @@ export DRIFT_SERVICE={service_name}
 export AWS_REGION={aws_region}
 
 # Shell script from ami-run.sh:
-'''.format(drift_config_url=drift_config_url, tier_name=tier_name, app_root=app_root,service_name=name, aws_region=aws_region)
+'''.format(drift_config_url=drift_config_url, tier_name=tier_name, app_root=app_root, service_name=name, aws_region=aws_region)
 
     user_data += pkg_resources.resource_string(__name__, "ami-run.sh").decode()
     custom_script_name = os.path.join(conf.drift_app['app_root'], 'scripts', 'ami-run.sh')
@@ -667,7 +668,6 @@ export AWS_REGION={aws_region}
             DefaultResult='CONTINUE'
         )
         echo("Configuring lifecycle hook, response: {!r}".format(response.get('ResponseMetadata')))
-
 
         secho("Done!", fg="green")
         secho("YOU MUST TERMINATE THE OLD EC2 INSTANCES YOURSELF!", fg="yellow")

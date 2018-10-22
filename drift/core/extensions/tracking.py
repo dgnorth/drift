@@ -14,6 +14,7 @@ CORRELATION_ID = "Correlation-ID"
 
 log = logging.getLogger(__name__)
 
+
 def drift_init_extension(app, **kwargs):
     @app.before_request
     def add_correlation_id():

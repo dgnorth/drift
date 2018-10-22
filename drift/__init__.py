@@ -7,5 +7,5 @@ try:
                           commit="$Format:%h$",
                           reponame="drift"
                           )
-except:
+except Exception:
     __version__ = '0.0.0-unknown'

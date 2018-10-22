@@ -74,7 +74,6 @@ def run_command(args):
         echo("the tier using the --deploy-to-this-tier argument and run again.")
         return
 
-
     # The idea:
     # - Generate a source distribution of the current project and all other projects that are
     #   referenced (drift and drift-config in particular).
@@ -173,7 +172,7 @@ def run_command(args):
                 secho("SUCCESS: Instance {}  is serving.".format(ec2.private_ip_address), fg="green")
 
             # todo: see if this needs to be done as well:
-            ## _set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
+            # _set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
 
     # Wrap the business logic in RAII block
     distros = tempfile.mkdtemp(prefix='drift.quickdeploy.')

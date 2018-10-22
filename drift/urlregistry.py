@@ -6,4 +6,3 @@
 def register_endpoints(f):
     from drift.core.extensions.urlregistry import register_endpoints as reg
     return reg(f)
-

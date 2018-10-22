@@ -21,7 +21,7 @@ from drift.flaskfactory import AppRootNotFound
 def get_commands():
     commands = [
         f[:-3]
-        for f in os.listdir(os.path.join(__path__[0], "commands"))
+        for f in os.listdir(os.path.join(os.path.dirname(__file__), "commands"))
         if not f.startswith("_") and f.endswith(".py")
     ]
     return commands
@@ -41,23 +41,29 @@ def do_execute_cmd(argv):
     valid_commands = get_commands()
     parser = argparse.ArgumentParser(description="")
 
-    parser.add_argument('--tier',
+    parser.add_argument(
+        '--tier',
         help="Specify which tenant to use. Will override any other settings."
     )
-    parser.add_argument('--tenant', '-t',
+    parser.add_argument(
+        '--tenant', '-t',
         help="Specify which tenant to use. Will override any other settings."
     )
-    parser.add_argument('--config',
+    parser.add_argument(
+        '--config',
         help="Specify which config source to use. Will override 'DRIFT_CONFIG_URL' environment variable."
     )
-    parser.add_argument("--loglevel", '-l',
+    parser.add_argument(
+        "--loglevel", '-l',
         help="Logging level name. Default is WARNING.", default='WARNING'
     )
-    parser.add_argument('--formatter',
+    parser.add_argument(
+        '--formatter',
         help="Specify which formatter to use for text output. Default is {}.".format(
             PRETTY_FORMATTER)
     )
-    parser.add_argument('--style',
+    parser.add_argument(
+        '--style',
         help="Specify which style to use for text output. Default is {}.".format(
             PRETTY_STYLE)
     )

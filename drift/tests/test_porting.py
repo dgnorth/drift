@@ -8,46 +8,47 @@ import importlib
 """
 Test the import of various top level modules to make sure they compile
 """
+
+
 class ImportTestCase(unittest.TestCase):
     def test_celeryboot(self):
-        import drift.celeryboot
+        importlib.import_module("drift.celeryboot")
 
     def test_devapp(self):
-        import drift.devapp
+        importlib.import_module("drift.devapp")
 
     def test_fixers(self):
-        import drift.fixers
+        importlib.import_module("drift.fixers")
 
     def test_flaskfactory(self):
-        import drift.flaskfactory
+        importlib.import_module("drift.flaskfactory")
 
     def test_orm(self):
-        import drift.orm
+        importlib.import_module("drift.orm")
 
     def test_systesthelper(self):
-        import drift.systesthelper
+        importlib.import_module("drift.systesthelper")
 
     def test_urlregistry(self):
-        import drift.urlregistry
+        importlib.import_module("drift.urlregistry")
 
     def test_utils(self):
-        import drift.utils
+        importlib.import_module("drift.utils")
 
     def test_uwsgiboot(self):
-        import drift.uwsgiboot
+        importlib.import_module("drift.uwsgiboot")
 
     def test_version(self):
-        import drift.version
+        importlib.import_module("drift.version")
 
     def test_webservers(self):
-        import drift.webservers
+        importlib.import_module("drift.webservers")
 
     def test_drift_commands(self):
         import drift.management
         valid_commands = drift.management.get_commands()
         for cmd in valid_commands:
-            module = importlib.import_module("drift.management.commands." + cmd)
-
+            importlib.import_module("drift.management.commands." + cmd)
 
 
 class ScriptImportTestCase(unittest.TestCase):
@@ -55,15 +56,16 @@ class ScriptImportTestCase(unittest.TestCase):
 
     def setUp(self):
         sys.path.append(self.script_dir)
+
     def tearDown(self):
         sys.path.pop()
 
     def test_drift_admin(self):
         # must use this because drift-admin.py contains a dash!
-        __import__('drift-admin', globals(), locals(), [], 0)
+        importlib.import_module('drift-admin')
 
     def test_parse_uwsgi_profiler(self):
-        import parse_uwsgi_profiler
+        importlib.import_module("parse_uwsgi_profiler")
 
     def test_travis_build_dependent_projects(self):
-        import travis_build_dependent_projects
+        importlib.import_module("travis_build_dependent_projects")
