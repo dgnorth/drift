@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import os
 import sys
 import logging
@@ -7,6 +5,7 @@ import importlib
 import json
 import os.path
 import time
+import warnings
 
 from flask import Flask, make_response, current_app
 from flask.json import dumps as flask_json_dumps
@@ -173,10 +172,15 @@ def install_modules(app, api):
         try:
             m = importlib.import_module(blueprint_name)
         except ImportError as e:
-            if 'No module named' not in str(e):  # error message is different between py2/py3
-                raise
-            log.exception("Import failed on app module '%s'.", blueprint_name)
+            if 'No module named' in str(e):  # error message is different between py2/py3
+                pass  # fine, ignore this.
+            raise
         else:
+            # This is a deprectated import mechanism
+            warnings.warn(
+                "extensions should initialize using 'drift_inít_extension()', "
+                "not using a 'blueprints.py' module import.",
+                DeprecationWarning)
             import_time = time.time() - t
             try:
                 m.register_blueprints(app)

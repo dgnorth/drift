@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import
+import warnings
+
 from flask import current_app
-from click import echo
 
 
 # This goes away once we stop using the global @register_endpoints decorator
 needs_to_be_global = []
+
 
 class Endpoints(object):
     """
@@ -39,7 +39,7 @@ class EndpointRegistry(object):
     def init_app(self, app):
         if not hasattr(app, 'extensions'):
             app.extensions = {}
-        if not 'urlregistry' in app.extensions:
+        if 'urlregistry' not in app.extensions:
             app.extensions['urlregistry'] = self
         if not hasattr(app, "endpoint_registry_funcs"):
             app.endpoint_registry_funcs = needs_to_be_global  # used while we still have static registration
@@ -58,6 +58,10 @@ class EndpointRegistry(object):
 
 
 def register_endpoints(f):
+    warnings.warn(
+        "please use Endpoints().register instead of register_endpoints",
+        DeprecationWarning,
+        stacklevel=2)
     # TODO: It is a bad pattern to import app here since it might cause the app to be created
     registry.register_endpoints(f)
     return f
@@ -65,6 +69,7 @@ def register_endpoints(f):
 
 def drift_init_extension(app, **kwargs):
     registry.init_app(app)
+
 
 # the static registry object.  Contains no data, just a plain flask extension
 registry = EndpointRegistry()
