@@ -22,7 +22,7 @@ api = namespace = Namespace("servicestatus", path="/", description="Status of th
 
 def drift_init_extension(app, api, **kw):
     app.register_blueprint(blueprint)
-    api.add_namespace(namespace)
+    #api.add_namespace(namespace)
 
 
 class InfoPageAPI(Resource):
