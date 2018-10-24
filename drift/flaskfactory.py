@@ -56,21 +56,19 @@ def drift_app(app=None):
     # Install apps, api's and extensions.
     sys.path.insert(0, app_root)  # Make current app available
 
-    api = create_api()
+    api = create_api(app)
     with app.app_context():
         install_modules(app, api)
 
-    api.init_app(app)
-
-    # quick fix to override exception handling by restplus
-    @api.errorhandler(HTTPException)
-    def deal_with_aborts(e):
-        from drift.core.extensions.apierrors import handle_all_exceptions
-        return handle_all_exceptions(e)
+    # # quick fix to override exception handling by restplus
+    # @api.errorhandler(HTTPException)
+    # def deal_with_aborts(e):
+    #     from drift.core.extensions.apierrors import handle_all_exceptions
+    #     return handle_all_exceptions(e)
     return app
 
 
-def create_api():
+def create_api(app):
     """
     We could subclass the api, but this is just as good
     """
@@ -102,16 +100,11 @@ def create_api():
             'name': 'Authorization'
         }
     }
-    api = FRPApi(
-        title='Drift App',
-        version='1.0',
-        description='',
-        doc="/doc",  # to not clash with the root view in serviestatus
-        authorizations=authorizations,
-        security='jwt'
-        # All API metadatas
-    )
-    api.representations['application/json'] = output_json
+    from flask_rest_api import Api, Blueprint
+    #  spec_kwargs={'basePath': '/v1', 'host': 'example.com'}
+    api = Api(app)
+    #api.representations['application/json'] = output_json
+    print("HELLO WORLD!")
     return api
 
 
@@ -201,7 +194,12 @@ def init_plugin_list(app, api, plugin_names):
     """
     result = []
     for plugin in plugin_names:
-        if not init_single_plugin(app, api, plugin):
+        success = False
+        try:
+            success = init_single_plugin(app, api, plugin)
+        except Exception as e:
+            log.error("Exception in init_single_plugin for %s: %s", plugin, e)
+        if not success:
             result.append(plugin)
     return result
 
