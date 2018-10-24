@@ -53,7 +53,7 @@ class ReverseProxied(object):
         scheme = environ.get('HTTP_X_SCHEME', '')
         if scheme:
             environ['wsgi.url_scheme'] = scheme
-        elif environ.get('X-Amzn-Vpce-Id'):
+        elif environ.get('Http-X-Amzn-Vpce-Id'):
             # This is a (poor) way to see if the request is coming through AWS API Gateway
             # which only supports https. The API gateway doesn't set 'X-Scheme'.
             environ['wsgi.url_scheme'] = 'https'
