@@ -67,7 +67,7 @@ echo "----------------- Install systemd files. -----------------"
 echo "----------------- Configuring Service -----------------"
 if [ -d ${approot}/aws/systemd ]; then
     if [ -n "$(ls ${approot}/aws/systemd/*.service)" ]; then
-        cp -v ${approot}/aws/systemd/*.service /lib/systemd/system/
+        cp -v ${approot}/aws/systemd/*.service /etc/systemd/system/
     fi
 fi
 
