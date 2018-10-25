@@ -2,7 +2,7 @@ import unittest
 import json
 
 from flask import Blueprint, request
-from flask_restplus import Api, Resource
+from flask_rest_api import Api, Resource
 
 from drift.tests import DriftTestCase
 from drift.core.extensions.schemachecker import simple_schema_request, schema_response, drift_init_extension

@@ -4,23 +4,31 @@ Schames listing APIs
 """
 import logging
 
-from flask import current_app, url_for, abort
-from flask_restplus import Namespace, Resource
+from flask import current_app, url_for
+from flask.views import MethodView
+from flask_rest_api import Blueprint, abort
+import marshmallow as ma
+
 
 log = logging.getLogger(__name__)
-api = namespace = Namespace("schemas")
+
+
+bp = Blueprint('schemas', 'Schemas', url_prefix='/schemas', description='Something about schemas')
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
 
 
-class SchemaListAPI(Resource):
+@bp.route('/', endpoint='schemas')
+class SchemaListAPI(MethodView):
 
     """Fabular"""
 
     def get(self):
         """
+        List schemas
+
         Returns a list of schema media type names and an `href` to the schema
         object.
         """
@@ -43,10 +51,13 @@ class SchemaListAPI(Resource):
         return rs
 
 
-class SchemaAPI(Resource):
+@bp.route('/<string:media_type_name>', endpoint='schema')
+class SchemaAPI(MethodView):
 
     def get(self, media_type_name):
         """
+        Find a single schema
+
         Returns the JSON scema object for the given media type.
         """
         json_schema = current_app.extensions.get("jsonschema", None)
@@ -56,11 +67,3 @@ class SchemaAPI(Resource):
             return schema_object
         else:
             return abort(404)
-
-
-api.add_resource(
-    SchemaListAPI, "/"
-)
-api.add_resource(
-    SchemaAPI, "/<string:media_type_name>", endpoint="schema"
-)

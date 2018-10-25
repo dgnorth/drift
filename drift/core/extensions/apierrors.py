@@ -49,7 +49,7 @@ def drift_init_extension(app, **kwargs):
     @app.route('/borko', methods=['GET', 'POST'])
     def borko_handler():
         data = request.get_json()
-        from flask_restplus import abort
+        from flask_rest_api import abort
         if data:
             status_code = data.pop('status_code', 400)
             abort(int(status_code), **data)
@@ -59,6 +59,7 @@ def drift_init_extension(app, **kwargs):
 
 def handle_all_exceptions(e):
     is_server_error = not isinstance(e, HTTPException)
+    print(e.args)
 
     ret = {}
     error = {}
@@ -113,7 +114,7 @@ def handle_all_exceptions(e):
                 error['description'] = error.pop('message')
 
             # Legacy field ´code´ has been renamed error_code. the "code" keyword is used
-            # in flask_restplus.abort to signify status code.
+            # in flask_rest_api.abort to signify status code.
             if 'error_code' in e.data:
                 error['code'] = error.pop('error_code')
 

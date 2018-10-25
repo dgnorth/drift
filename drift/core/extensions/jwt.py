@@ -11,7 +11,9 @@ import jwt
 from six.moves.http_client import UNAUTHORIZED
 
 from flask import current_app, request, _request_ctx_stack, g
-from flask_restplus import Namespace, Resource, Model, fields, reqparse, abort
+from flask.views import MethodView
+from flask_rest_api import Blueprint, abort
+import marshmallow as ma
 
 from werkzeug.local import LocalProxy
 from werkzeug.security import gen_salt
@@ -36,12 +38,14 @@ TRUSTED_ISSUERS = set(['drift-base'])
 
 
 log = logging.getLogger(__name__)
-namespace = Namespace("auth", description="Authentication")
-
+bp = Blueprint('auth', 'Authentication', url_prefix='/auth', description='Authentication endpoints')
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
-    api.models[jwt_model.name] = jwt_model
+    api.register_blueprint(bp)
+    api.spec.definition('AuthRequest', schema=AuthRequestSchema)
+    api.spec.definition('Auth', schema=AuthSchema)
+
+    #api.models[jwt_model.name] = jwt_model
     if not hasattr(app, "jwt_auth_providers"):
         app.jwt_auth_providers = {}
     jwtsetup(app, api)
@@ -182,26 +186,31 @@ def _fix_legacy_auth(auth_info):
     return auth_info
 
 
-jwt_model = Model('Token', {
-    'token': fields.String(description="token"),
-    'jti': fields.String(description="token id"),
-    })
+class AuthRequestSchema(ma.Schema):
+    provider = ma.fields.Str(description="Provider name")
+    provider_details = ma.fields.Dict(description="Provider specific details")
+    username = ma.fields.Str(description="Legacy username")
+    password = ma.fields.Str(description="Legacy password")
 
 
-@namespace.route('', endpoint='authentication')
-class AuthApi(Resource):
+class AuthSchema(ma.Schema):
+    token = ma.fields.String(description="Token")
+    jti = ma.fields.String(description="Token id")
+
+
+@bp.route('', endpoint='authentication')
+class AuthApi(MethodView):
     no_jwt_check = ['GET', 'POST']
 
-    parser = reqparse.RequestParser(bundle_errors=True)
-    parser.add_argument('provider', type=str)
-    parser.add_argument('provider_details', type=dict)
-    parser.add_argument('username', type=str, help='legacy username')
-    parser.add_argument('password', type=str, help='legacy password')
+    @bp.arguments(AuthRequestSchema)
+    @bp.response(AuthSchema)
+    def post(self, auth_info):
+        """
+        Authenticate
 
-    @namespace.expect(parser)
-    @namespace.marshal_with(jwt_model)
-    def post(self):
-        auth_info = request.get_json()
+        Does the song-and-dance against any of the supported providers and returns
+        a JWT token for use in subsequent requests.
+        """
         if not auth_info:
             abort_unauthorized("Bad Request. Expected json payload.")
 

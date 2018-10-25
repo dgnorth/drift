@@ -20,7 +20,7 @@ from driftconfig.relib import ConstraintError
 log = logging.getLogger(__name__)
 
 
-def dritf_init_extension(app, **kwargs):
+def drift_init_extension(app, **kwargs):
     @app.before_request
     def check_api_key_rules():
         # A note about availability of 'g.conf': The 'driftconfig' module makes this object

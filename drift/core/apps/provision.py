@@ -7,8 +7,10 @@ import importlib
 
 from six.moves import http_client
 
-from flask import current_app, abort, request, g
-from flask_restplus import Namespace, Resource, reqparse
+from flask import current_app, request, g
+from flask.views import MethodView
+from flask_rest_api import Blueprint, abort
+import marshmallow as ma
 
 from driftconfig.config import TSTransaction
 
@@ -18,24 +20,39 @@ from driftconfig.relib import create_backend, get_store_from_url
 from drift.core.extensions.schemachecker import simple_schema_request
 
 log = logging.getLogger(__name__)
-api1 = Namespace("provision", description="the provision api")
-api2 = Namespace("admin", description="the admin api")
+bp_provision = Blueprint("provision", "Provision", url_prefix='/provision', description="The provision API")
+bp_admin = Blueprint("admin", "Admin Provision", url_prefix='/admin', description="The admin Provision API")
+
+
+class AdminProvisionRequestSchema(ma.Schema):
+    provisioners = ma.fields.Dict(description="The provisioners")
+
+
+class AdminProvision2GetSchema(ma.Schema):
+    tenant_name = ma.fields.Str(description="Name of the tenant to provision")
+
+class AdminProvision2PostSchema(ma.Schema):
+    tenant_name = ma.fields.Str(description="Name of the tenant to provision")
+    preview = ma.fields.Boolean(description="Just check")
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(api1)
-    api.add_namespace(api2)
+    api.register_blueprint(bp_provision)
+    api.register_blueprint(bp_admin)
 
 
-class AdminProvisionAPI(Resource):
+@bp_provision.route('', endpoint='provision_admin')
+class AdminProvisionAPI(MethodView):
 
     no_jwt_check = ["POST"]
 
-    # @requires_roles("service")
-    @simple_schema_request({
-        "provisioners": {"type": "array", },
-    }, required=[])
-    def post(self):
+    @bp_provision.arguments(AdminProvisionRequestSchema)
+    def post(self, args):
+        """
+        Provision tenant
+
+        <ADD DESCRIPTION>
+        """
         tenant_name = g.conf.tenant_name['tenant_name']
         tier_name = g.conf.tier['tier_name']
 
@@ -45,7 +62,7 @@ class AdminProvisionAPI(Resource):
 
         args_per_provisioner = {}
         if request.json:
-            for arg in request.json.get("provisioners", {}):
+            for arg in args.get("provisioners", {}):
                 if "provisioner" not in arg or "arguments" not in arg:
                     log.warning("Provisioner argument missing 'provisioner' or 'arguments'")
                     continue
@@ -91,23 +108,19 @@ class AdminProvisionAPI(Resource):
 
         return "OK"
 
-
-api1.add_resource(AdminProvisionAPI, "/")
-
-
-class AdminProvisionAPI2(Resource):
+@bp_admin.route('/provision', endpoint='provision')
+class AdminProvisionAPI2(MethodView):
 
     no_jwt_check = ["GET", "POST"]
 
-    get_args = reqparse.RequestParser()
-    get_args.add_argument("tenant_name", type=str)
+    @bp_admin.arguments(AdminProvision2GetSchema)
+    def get(self, args):
+        """
+        Get provisioned tenant
 
-    @simple_schema_request({
-        "tenant_name": {"type": "string"}
-    }, required=[])
-    def get(self):
-        args = self.get_args.parse_args()
-        tenant_name = args.tenant_name
+        <ADD DESCRIPTION>
+        """
+        tenant_name = args.get('tenant_name')
         if tenant_name:
             crit = {'tenant_name': tenant_name}
         else:
@@ -120,9 +133,15 @@ class AdminProvisionAPI2(Resource):
         "tenant_name": {"type": "string"},
         "preview": {"type": "boolean"},
     }, required=[])
-    def post(self):
-        tenant_name = request.json.get('tenant_name') if request.json else None
-        preview = request.json.get('preview', False) if request.json else False
+    @bp_admin.arguments(AdminProvision2PostSchema)
+    def post(self, args):
+        """
+        Provision tenant number 2
+
+        <ADD DESCRIPTION>
+        """
+        tenant_name = args.get('tenant_name') if request.json else None
+        preview = args.get('preview', False) if request.json else False
         result = []
 
         with TSTransaction(commit_to_origin=not preview) as ts:
@@ -146,6 +165,3 @@ class AdminProvisionAPI2(Resource):
                 result.append(report)
 
         return result
-
-
-api2.add_resource(AdminProvisionAPI2, "/provision")

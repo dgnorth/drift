@@ -7,33 +7,36 @@ import importlib
 from six.moves.http_client import SERVICE_UNAVAILABLE
 
 from flask import current_app, g
-from flask_restplus import Namespace, Resource, abort, fields
+from flask.views import MethodView
+from flask_rest_api import Blueprint, abort
+import marshmallow as ma
 
 
 log = logging.getLogger(__name__)
-namespace = Namespace("healtchcheck", description="Service and tenant health check")
+bp = Blueprint('healtchcheck', 'HealthCheck', url_prefix='/healthcheck', description='Service and tenant health check')
+
+
+class HealthCheckSchema(ma.Schema):
+    result = ma.fields.Str(description="Is the service healthy")
 
 
 def drift_init_extension(app, api, **kwargs):
-    api.add_namespace(namespace)
+    api.register_blueprint(bp)
+    api.spec.definition('HealthCheck', schema=HealthCheckSchema)
 
 
-healthcheck_model = namespace.model('HealthCheck', {
-    'result': fields.String(description="Is the service healthy")
-})
-
-
-@namespace.route('/', endpoint='health')
-class HealthCheckAPI(Resource):
+@bp.route('', endpoint='health')
+class HealthCheckAPI(MethodView):
     no_jwt_check = ["GET"]
 
-    @namespace.marshal_with(healthcheck_model)
-    @namespace.doc(responses={SERVICE_UNAVAILABLE: 'Tenant or deployable in bad state'})
+    @bp.response(HealthCheckSchema)
     def get(self):
-        """Returns 200 if the service and tenant are in a good state or 503 if there is a problem.
+        """
+        Tenant health check
+
+        Returns 200 if the service and tenant are in a good state or 503 if there is a problem.
         The caller does not need to be authenticated to call this endpoint.
         """
-
         # If there is no tenant, this health check is only reporting a successful rest call
         if not g.conf.tenant:
             return {'result': "ok, but no tenant specified."}

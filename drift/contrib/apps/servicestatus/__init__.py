@@ -4,9 +4,11 @@ import os
 import socket
 import collections
 import platform
-from flask import Blueprint, request, current_app, g
+from flask import request, current_app, g
 from flask import url_for
-from flask_restplus import Namespace, Resource
+from flask.views import MethodView
+from flask_rest_api import Blueprint, abort
+import marshmallow as ma
 from drift.utils import get_tier_name
 from drift.core.extensions.jwt import current_user
 import datetime
@@ -15,21 +17,43 @@ import json
 import logging
 log = logging.getLogger(__name__)
 
-# The blueprint is only used to add a template folder
-blueprint = Blueprint("servicestatus_template", __name__, template_folder="static/templates")
-api = namespace = Namespace("servicestatus", path="/", description="Status of the service")
+
+bp = Blueprint('root', 'Service Status', url_prefix='/', description='Status of the service')
 
 
-def drift_init_extension(app, api, **kw):
-    app.register_blueprint(blueprint)
-    #api.add_namespace(namespace)
+class ServiceStatusSchema(ma.Schema):
+    result = ma.fields.Str(description="Is the service healthy")
+    host_info = ma.fields.Dict(description="Information about the host machine")
+    service_name = ma.fields.Str(description="Name of this service deployable")
+    endpoints = ma.fields.Dict(description="List of all exposed endpoints. Contains contextual information if Auth header is provided")
+    current_user = ma.fields.Dict(description="Decoded JWT of the current user")
+    tier_name = ma.fields.Str(description="Name of this tier")
+    tenant_name = ma.fields.Str(description="Name of the current tenant")
+    server_time = ma.fields.DateTime(description="Current wallclock time of the server machine")
+    tenants = ma.fields.Dict(description="Information about tenants")
+    platform = ma.fields.Dict(description="Information about the platform")
+    config_dump = ma.fields.Dict(description="Dump of the entire Flask config")
+    default_tenant = ma.fields.Str(description="Default tenant name")
 
 
-class InfoPageAPI(Resource):
+def drift_init_extension(app, api, **kwargs):
+    api.register_blueprint(bp)
+    api.spec.definition('ServiceStatus', schema=ServiceStatusSchema)
+
+
+@bp.route('', endpoint='root')
+class InfoPageAPI(MethodView):
 
     no_jwt_check = ["GET"]
 
+    @bp.response(ServiceStatusSchema)
     def get(self):
+        """
+        Root endpoint
+
+        Basic information about the service and exposed endpoints.
+        This is the place to start for interacting with the service.
+        """
         tier_name = get_tier_name()
         deployable_name = current_app.config['name']
 
@@ -69,7 +93,7 @@ class InfoPageAPI(Resource):
             platform_info = str(e)
 
         endpoints = collections.OrderedDict()
-        endpoints["root"] = url_for("root", _external=True)
+        endpoints["root"] = url_for("root.root", _external=True)
         if endpoints["root"].endswith("/"):
             endpoints["root"] = endpoints["root"][:-1]
         endpoints["auth"] = request.url_root + "auth"  # !evil concatination
@@ -128,6 +152,3 @@ class InfoPageAPI(Resource):
             ret['default_tenant'] = os.environ.get('DRIFT_DEFAULT_TENANT')
 
         return ret
-
-
-api.add_resource(InfoPageAPI, '/', strict_slashes=False, endpoint="root")

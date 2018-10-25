@@ -9,7 +9,7 @@ import warnings
 
 from flask import Flask, make_response, current_app
 from flask.json import dumps as flask_json_dumps
-import flask_restplus
+from flask_rest_api import Api, Blueprint
 from werkzeug.contrib.fixers import ProxyFix
 from werkzeug.exceptions import HTTPException
 from drift.fixers import ReverseProxied, CustomJSONEncoder
@@ -17,22 +17,6 @@ from drift.utils import enumerate_plugins, get_app_root
 
 importlib.import_module(".restful", "drift")  # apply patching
 log = logging.getLogger(__name__)
-
-
-# workaround to allow us to use the root in our api, and not conflict
-# with the documentation root.  see: https://github.com/noirbizarre/flask-restplus/issues/247
-class FRPApi(flask_restplus.Api):
-
-    def _register_doc(self, app_or_blueprint):
-        # HINT: This is just a copy of the original implementation with the last line commented out.
-        if self._add_specs and self._doc:
-            # Register documentation before root if enabled
-            app_or_blueprint.add_url_rule(self._doc, 'doc', self.render_doc)
-        # app_or_blueprint.add_url_rule(self._doc, 'root', self.render_root)
-
-    @property
-    def base_path(self):
-        return ''
 
 
 class AppRootNotFound(RuntimeError):
@@ -57,9 +41,15 @@ def drift_app(app=None):
     sys.path.insert(0, app_root)  # Make current app available
 
     api = create_api(app)
+    # shitmixing this since flask-rest-api steals the 301-redirect exception
+    def err(*args, **kwargs):
+        pass
+
+    api._register_error_handlers = err
+    api.init_app(app)
+
     with app.app_context():
         install_modules(app, api)
-
     # # quick fix to override exception handling by restplus
     # @api.errorhandler(HTTPException)
     # def deal_with_aborts(e):
@@ -92,19 +82,9 @@ def create_api(app):
         resp = make_response(dumped, code)
         resp.headers.extend(headers or {})
         return resp
-
-    authorizations = {
-        'jwt': {
-            'type': 'apiKey',
-            'in': 'header',
-            'name': 'Authorization'
-        }
-    }
-    from flask_rest_api import Api, Blueprint
     #  spec_kwargs={'basePath': '/v1', 'host': 'example.com'}
-    api = Api(app)
+    api = Api()
     #api.representations['application/json'] = output_json
-    print("HELLO WORLD!")
     return api
 
 
@@ -165,9 +145,7 @@ def install_modules(app, api):
         try:
             m = importlib.import_module(blueprint_name)
         except ImportError as e:
-            if 'No module named' in str(e):  # error message is different between py2/py3
-                pass  # fine, ignore this.
-            raise
+            pass
         else:
             # This is a deprectated import mechanism
             warnings.warn(
@@ -199,6 +177,7 @@ def init_plugin_list(app, api, plugin_names):
             success = init_single_plugin(app, api, plugin)
         except Exception as e:
             log.error("Exception in init_single_plugin for %s: %s", plugin, e)
+            raise
         if not success:
             result.append(plugin)
     return result
