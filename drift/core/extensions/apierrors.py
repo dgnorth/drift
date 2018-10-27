@@ -35,6 +35,7 @@ def drift_init_extension(app, **kwargs):
     @app.errorhandler(403)
     @app.errorhandler(404)
     @app.errorhandler(405)
+    @app.errorhandler(422)
     def deal_with_aborts(e):
         return handle_all_exceptions(e)
 
@@ -59,7 +60,7 @@ def drift_init_extension(app, **kwargs):
 
 def handle_all_exceptions(e):
     is_server_error = not isinstance(e, HTTPException)
-    print(e.args)
+    print("handle_all_exceptions - %s" % e)
 
     ret = {}
     error = {}
@@ -107,6 +108,8 @@ def handle_all_exceptions(e):
         # Support for Flask Restful 'data' property in exceptions.
         if hasattr(e, 'data') and e.data:
             error.update(e.data)
+            if 'schema' in error:
+                del error['schema']
 
             # Legacy field 'message'. If it's in the 'data' payload, rename the field
             # to 'description'.
@@ -121,5 +124,4 @@ def handle_all_exceptions(e):
         if e.code >= 500:
             # It's a "soft" server error. Let's log it out.
             log.warning(title + " " + error['description'])
-
     return make_response(jsonify(ret), ret['status_code'])

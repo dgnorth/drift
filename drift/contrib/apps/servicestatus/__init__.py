@@ -121,7 +121,7 @@ class InfoPageAPI(MethodView):
             "current_user": dict(current_user) if current_user else None,
             "tier_name": tier_name,
             "tenant_name": g.conf.tenant_name['tenant_name'] if g.conf.tenant_name else '(none)',
-            "server_time": datetime.datetime.utcnow().isoformat("T") + "Z",
+            "server_time": datetime.datetime.utcnow(),
             "tenants": tenants,
             "platform": platform_info,
         }

@@ -40,7 +40,7 @@ class SchemaListAPI(MethodView):
             {
                 "media_type_name": media_type_name,
                 "href": url_for(
-                    "schema",
+                    "schema.schema",
                     media_type_name=media_type_name,
                     _external=True
                 ),
