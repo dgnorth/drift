@@ -89,7 +89,7 @@ def check_jwt_authorization():
             skip_check = True
 
     # the static folder is open to all without authentication
-    if request.endpoint in ("restplus_doc.static", "static", "specs", "doc") \
+    if request.endpoint.startswith('api-docs') \
        or request.url.endswith("favicon.ico"):
         skip_check = True
 

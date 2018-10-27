@@ -22,6 +22,7 @@ setup(
         'Flask>=1.0.0',
         'Flask-RESTful',  # Will be removed
         'flask-restplus',
+        'flask-rest-api',
         'jsonschema',
         'pyopenssl>=17',
         'celery',
