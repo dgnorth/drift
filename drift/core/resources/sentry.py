@@ -30,10 +30,11 @@ def _init_sentry():
         return True
 
 
-if not _init_sentry():
-    log.warning(
-        "Sentry not initialized. run 'driftconfig assign-tier' to refresh the config."
-    )
+def drift_init_extension(app, **kwargs):
+    if not _init_sentry():
+        log.warning(
+            "Sentry not initialized. run 'driftconfig assign-tier' to refresh the config."
+        )
 
 
 def register_deployable(ts, deployablename, attributes):
