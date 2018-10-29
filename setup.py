@@ -39,6 +39,7 @@ setup(
         'redlock',
         'cryptography',
         'PyJWT',
+        'sentry-sdk[flask]',
     ],
 
     extras_require={
