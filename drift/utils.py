@@ -21,6 +21,7 @@ except ImportError:
 
 from flask import g, make_response, jsonify, request, current_app
 from click import echo
+from flask_marshmallow.fields import AbsoluteURLFor
 
 from driftconfig.util import get_drift_config
 
@@ -258,3 +259,16 @@ def get_avaible_pretty_settings():
     styles = ', '.join(list(get_all_styles()))
     s = "Available formatters: {}\nAvailable styles: {}".format(formatters, styles)
     return s
+
+
+class Url(AbsoluteURLFor):
+    """
+    Extends AbsoluteURLFor field. If 'kwargs' contains 'doc' it will not be passed to
+    AbsoluteURLFor but instead added to the metadata of the parent class as 'description'.
+    """
+    def __init__(self, endpoint, **kwargs):
+        doc = kwargs.pop('doc')
+        super().__init__(endpoint, **kwargs)
+        if doc:
+            self.metadata['description'] = doc
+
