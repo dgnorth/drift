@@ -176,7 +176,7 @@ def init_plugin_list(app, api, plugin_names):
         try:
             success = init_single_plugin(app, api, plugin)
         except Exception as e:
-            log.error("Exception in init_single_plugin for %s: %s", plugin, e)
+            log.exception("Exception in init_single_plugin for %s: %s", plugin, e)
             raise
         if not success:
             result.append(plugin)
