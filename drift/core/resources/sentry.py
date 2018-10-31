@@ -4,8 +4,13 @@ Sentry integration
 import logging
 import os
 
-import sentry_sdk
-from sentry_sdk.integrations.flask import FlaskIntegration
+USE_RAVEN = True  # The sentry_sdk crashes in AWS Lambda
+
+if USE_RAVEN:
+    from raven.contrib.flask import Sentry
+else:
+    import sentry_sdk
+    from sentry_sdk.integrations.flask import FlaskIntegration
 
 from driftconfig.util import get_drift_config
 from drift.utils import get_tier_name
@@ -18,7 +23,7 @@ TIER_DEFAULTS = {"dsn": "<PLEASE FILL IN>"}
 
 
 # Initialize Sentry at file scope to catch'em all.
-def _init_sentry():
+def _init_sentry(app):
     dsn = os.environ.get('SENTRY_DSN')
     if not dsn:
         tier = get_drift_config(tier_name=get_tier_name()).tier
@@ -29,12 +34,25 @@ def _init_sentry():
             # Configuration value not set yet
             dsn = None
     if dsn:
-        sentry_sdk.init(dsn=dsn, integrations=[FlaskIntegration()])
+        app.config['SENTRY_USER_ATTRS'] = [
+            'identity_id',
+            'user_id',
+            'user_name',
+            'roles',
+            'jti',
+            'player_id',
+            'player_name',
+            'client_id',
+        ]
+        if USE_RAVEN:
+            Sentry(app)
+        else:
+            sentry_sdk.init(dsn=dsn, integrations=[FlaskIntegration()])
         return True
 
 
 def drift_init_extension(app, **kwargs):
-    if not _init_sentry():
+    if not _init_sentry(app):
         log.warning(
             "Sentry not initialized. run 'driftconfig assign-tier' to refresh the config."
         )
