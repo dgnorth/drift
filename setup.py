@@ -19,14 +19,15 @@ setup(
     ]},
 
     install_requires=[
-        'Flask>=1.0.0',
+        'Flask',
         'Flask-RESTful',  # Will be removed
         'flask-restplus',
         'flask-rest-api',
+        'flask_marshmallow',
         'jsonschema',
         'pyopenssl>=17',
         'celery',
-        'click', # explicit requirement on the click library for echo and cmdlinge
+        'click',  # explicit requirement on the click library for echo and cmdlinge
 
         # Python 3 compatibility
         'six',
@@ -39,7 +40,8 @@ setup(
         'redlock',
         'cryptography',
         'PyJWT',
-        'sentry-sdk[flask]',
+        'sentry-sdk',
+        'blinker',
     ],
 
     extras_require={

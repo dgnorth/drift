@@ -1,10 +1,12 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "b645774b76afb8bd6468200565d2490acac29b4a52d0e357d8fbea0032de3032"
+            "sha256": "4548a806972b267254c1133b9e8c9764089d7a139188a100f28bd0da2b692361"
         },
         "pipfile-spec": 6,
-        "requires": {},
+        "requires": {
+            "python_version": "3.6"
+        },
         "sources": [
             {
                 "name": "pypi",
@@ -112,7 +114,6 @@
             "hashes": [
                 "sha256:471aee25f3992bd325afa3772f1063dbdbbca947a041b8b89466dc00d606f8b6"
             ],
-            "markers": "extra == 'flask'",
             "version": "==1.4"
         },
         "boto": {
@@ -302,8 +303,14 @@
                 "sha256:2271c0070dbcb5275fad4a82e29f23ab92682dc45f9dfbc22c02ba9b9322ce48",
                 "sha256:a080b744b7e345ccfcbc77954861cb05b3c63786e93f2b3875e0913d44b43f05"
             ],
-            "markers": "extra == 'flask'",
             "version": "==1.0.2"
+        },
+        "flask-marshmallow": {
+            "hashes": [
+                "sha256:75c9d80f22af982b1e8ccec109d3b75c14bb5570602ae3705a4ff775badd2816",
+                "sha256:db7aff4130eb99fd05ab78fd2e2c58843ba0f208899aeb1c14aff9cd98ae8c80"
+            ],
+            "version": "==0.9.0"
         },
         "flask-rest-api": {
             "hashes": [
@@ -604,9 +611,6 @@
             "version": "==0.1.13"
         },
         "sentry-sdk": {
-            "extras": [
-                "flask"
-            ],
             "hashes": [
                 "sha256:d4eb77414e21258943cdd7ea4aa216e2d994d38700d747d5d3da943edd414b58",
                 "sha256:e77795ca8bafbcf4a19d9c2fcd99f9cb68a9623e5f853a0758084a8b025e6c87"
