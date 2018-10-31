@@ -50,6 +50,15 @@ class DriftTestCase(TestCase):
         app = Flask(__name__)
         # apply the same kind of patching as regular factory apps get
         _apply_patches(app)
+        from drift.flaskfactory import create_api
+        api = create_api(app)
+        # shitmixing this since flask-rest-api steals the 301-redirect exception
+        def err(*args, **kwargs):
+            pass
+
+        api._register_error_handlers = err
+        api.init_app(app)
+
         app.config['TESTING'] = True
         self.test_client = app.test_client()
         app.config["name"] = '{} unit test'.format(self.__class__.__name__)
