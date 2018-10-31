@@ -25,6 +25,9 @@ def _init_sentry():
         if tier and 'drift.core.resources.sentry' in tier['resources']:
             sentry_config = tier['resources']['drift.core.resources.sentry']
             dsn = sentry_config.get('dsn')
+        if dsn == TIER_DEFAULTS['dsn']:
+            # Configuration value not set yet
+            dsn = None
     if dsn:
         sentry_sdk.init(dsn=dsn, integrations=[FlaskIntegration()])
         return True
