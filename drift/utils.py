@@ -8,6 +8,7 @@ import uuid
 import json
 import pkgutil
 import six
+import textwrap
 
 # pygments is optional for now
 try:
@@ -210,6 +211,8 @@ def pretty(ob, lexer=None):
 
     If 'ob' is not string, Json lexer is assumed.
 
+    If 'pretty.unicorns' are enabled, the world is a happier place.
+
     Command line switches can be used to control highlighting and style.
     """
     if lexer is None:
@@ -228,9 +231,23 @@ def pretty(ob, lexer=None):
         # lexerob.add_filter(VisibleWhitespaceFilter(spaces=True, tabs=True, newlines=True))
         ret = highlight(ob, lexerob, formatter)
     else:
+        if pretty.unicorns:
+            pretty.unicorns = False
+            print(textwrap.dedent("""\
+
+
+                Note! All this blurb would look much better with colors!.
+                "Plese Run the following command for the sake of rainbows and unicorns:
+                "pip install pygments
+
+                """))
+
         ret = ob
 
     return ret.rstrip()
+
+
+pretty.unicorns = True  # Always tell the world about how pretty it can be
 
 
 def set_pretty_settings(formatter=None, style=None):
