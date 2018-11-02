@@ -34,6 +34,8 @@ class ServiceStatusSchema(ma.Schema):
     platform = ma.fields.Dict(description="Information about the platform")
     config_dump = ma.fields.Dict(description="Dump of the entire Flask config")
     default_tenant = ma.fields.Str(description="Default tenant name")
+    request_headers = ma.fields.Dict(description="Request headers (debug only)")
+    request_object = ma.fields.Dict(description="Request object info (debug only)")
 
 
 def drift_init_extension(app, api, **kwargs):
@@ -142,7 +144,20 @@ class InfoPageAPI(MethodView):
 
         if current_app.debug:
             # TODO: Only do for authenticated sessions.. preferably..
-            ret["headers"] = dict(request.headers)
+            ret["request_headers"] = dict(request.headers)
+            ret['request_object'] = {
+                'remote_addr': request.remote_addr,
+                'path': request.path,
+                'full_path': request.full_path,
+                'script_root': request.script_root,
+                'url': request.url,
+                'base_url': request.base_url,
+                'url_root': request.url_root,
+                'authorization': request.authorization,
+                'endpoint': request.endpoint,
+                'host': request.host,
+                'remote_user': request.remote_user,
+            }
 
             # Pretty print the config
             d = {k: str(v) for k, v in current_app.config.items()}
