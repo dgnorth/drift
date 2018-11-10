@@ -6,11 +6,12 @@ import logging
 from datetime import datetime, timedelta
 import json
 from functools import wraps
+import re
 
 import jwt
 from six.moves.http_client import UNAUTHORIZED
 
-from flask import current_app, request, _request_ctx_stack, g
+from flask import current_app, request, _request_ctx_stack, g, session
 from flask.views import MethodView
 from flask_rest_api import Blueprint, abort
 import marshmallow as ma
@@ -36,80 +37,128 @@ JWT_EXPIRATION_DELTA_FOR_SERVICES = 60 * 60 * 24 * 365
 # Implicitly trust following issuers:
 TRUSTED_ISSUERS = set(['drift-base'])
 
+# list of regular expression objects matching endpoint definitions
+WHITELIST_ENDPOINTS = [
+    r"^api-docs\.",  # the marshmalloc documentation endpoint
+    ]
+# possibly not needed, but wth.
+WHITELIST_URLS = [
+    r"/favicon\.ico",
+    ]
+
+# List of open endpoints, i.e. not requiring a valid JWT.
+# these are the view functions themselves
+_open_endpoints = set()
 
 log = logging.getLogger(__name__)
 bp = Blueprint('auth', 'Authentication', url_prefix='/auth', description='Authentication endpoints')
+
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
     api.spec.definition('AuthRequest', schema=AuthRequestSchema)
     api.spec.definition('Auth', schema=AuthSchema)
 
-    #api.models[jwt_model.name] = jwt_model
+    # api.models[jwt_model.name] = jwt_model
     if not hasattr(app, "jwt_auth_providers"):
         app.jwt_auth_providers = {}
-    jwtsetup(app, api)
+
+    # Always trust myself
+    TRUSTED_ISSUERS.add(app.config['name'])
+    jwtsetup(app)
+
+
+def jwtsetup(app):
+    """
+    This function still used by unittests
+    """
+    # install authentication handler
+    @app.before_request
+    def before_request():
+        # Check for a valid JWT/JTI access token in the request header and populate current_user.
+        check_jwt_authorization()
+
+
+def check_jwt_authorization():
+    """
+    Authentication handler.  Verifies jwt tokens from the session or header, if not
+    already done.
+    """
+    print ("checking")
+    current_identity = getattr(_request_ctx_stack.top, 'current_identity', None)
+    if current_identity:
+        return  # authentication has already been verified
+
+    if not requires_auth():
+        return  # doesn't require authentication
+
+    token, auth_type = get_auth_token_and_type()
+    current_identity = verify_token(token, auth_type)
+
+    # Authorization token has now been converted to a verified payload
+    print("setting it", current_identity)
+    _request_ctx_stack.top.drift_jwt_payload = current_identity
+
+
+def query_current_user():
+    """
+    Return the current jwt payload if the user has been authenticated
+    """
+    return getattr(_request_ctx_stack.top, 'drift_jwt_payload', None)
+
+
+current_user = LocalProxy(query_current_user)
+
+
+def requires_auth():
+    """
+    returns True if the current request requires authentication
+    """
+
+    # 404 errors don't require auth
+    endpoint = request.endpoint
+    if not endpoint:
+        return False
+
+    if current_app.config.get("DISABLE_JWT", False):
+        return False
+
+    # check for matched urls
+    for expr in WHITELIST_URLS:
+        if re.search(expr, request.url):
+            return False
+
+    # check for matched endpoints
+
+    for expr in WHITELIST_ENDPOINTS:
+        if re.search(expr, request.endpoint):
+            return False
+
+    # skip apis that have been decorated
+    fn = current_app.view_functions.get(request.endpoint)
+    if fn:
+        if hasattr(fn, "view_class"):
+            exempt = getattr(fn.view_class, "no_jwt_check", [])
+            if request.method in exempt:
+                return False
+        else:
+            # plain view function, decorated with jwt_not_required()
+            if fn in _open_endpoints:
+                return False
+    return True
+
+
+def abort_unauthorized(description):
+    """
+    Raise an Unauthorized exception.
+    """
+    abort(UNAUTHORIZED, description=description)
 
 
 def register_auth_provider(app, provider, handler):
     if not hasattr(app, "jwt_auth_providers"):
         app.jwt_auth_providers = {}
     app.jwt_auth_providers[provider] = handler
-
-
-def abort_unauthorized(description):
-    """Raise an Unauthorized exception.
-    """
-    abort(UNAUTHORIZED, description=description)
-
-
-def query_current_user():
-    return getattr(_request_ctx_stack.top, 'current_identity', None)
-
-
-def check_jwt_authorization():
-    current_identity = getattr(_request_ctx_stack.top,
-                               'current_identity', None)
-    if current_identity:
-        return current_identity
-
-    skip_check = False
-
-    if current_app.config.get("DISABLE_JWT", False):
-        skip_check = True
-
-    fn = current_app.view_functions.get(request.endpoint)
-    if fn:
-        # Check Flask-RESTplus endpoints for openness
-        if hasattr(fn, "view_class"):
-            exempt = getattr(fn.view_class, "no_jwt_check", [])
-            if request.method in exempt:
-                skip_check = True
-        elif fn in _open_endpoints:
-            skip_check = True
-
-    # the static folder is open to all without authentication
-    if (request.endpoint and request.endpoint.startswith('api-docs')) \
-       or request.url.endswith("favicon.ico"):
-        skip_check = True
-
-    # In case the endpoint requires no authorization, and the request does not
-    # carry any authorization info as well, we will not try to verify any JWT's
-    if skip_check and 'Authorization' not in request.headers:
-        return
-
-    token, auth_type = get_auth_token_and_type()
-    current_identity = verify_token(token, auth_type)
-    if auth_type == "JWT":
-        # Cache this token
-        cache_token(current_identity)
-
-    # Authorization token has now been converted to a verified payload
-    _request_ctx_stack.top.current_identity = current_identity
-    return current_identity
-
-
-current_user = LocalProxy(check_jwt_authorization)
 
 
 def requires_roles(_roles):
@@ -141,10 +190,6 @@ def requires_roles(_roles):
             return fn(*args, **kwargs)
         return decorator
     return wrapper
-
-
-# List of open endpoints, i.e. not requiring a valid JWT.
-_open_endpoints = set()
 
 
 def jwt_not_required(fn):
@@ -252,19 +297,11 @@ class AuthApi(MethodView):
 
         ret = issue_token(identity, expire=expire)
         log.info("Authenticated: %s", identity)
+
+        # store the authentication token in the session cooke as well for
+        # web-based convenience
+        session['Authorization'] = "JWT " + ret['token']
         return ret
-
-
-def jwtsetup(app, api):
-    # jwt currently doesnt use an API, handles it in a custom way
-
-    # Always trust myself
-    TRUSTED_ISSUERS.add(app.config['name'])
-
-    @app.before_request
-    def before_request():
-        # Check for a valid JWT/JTI access token in the request header and populate current_user.
-        check_jwt_authorization()
 
 
 def authenticate_with_provider(auth_info):
@@ -323,7 +360,10 @@ def issue_token(payload, expire=None):
 
 def get_auth_token_and_type():
     auth_types_supported = ["JWT", "JTI"]
-    auth_header_value = request.headers.get('Authorization', None)
+    # support Authorization in the session
+    auth_header_value = session.get('Authorization')
+    # override with request header if present
+    auth_header_value = request.headers.get('Authorization', auth_header_value)
     if not auth_header_value:
         log.warning("No auth header for authorization required request %s",
                     request)
@@ -441,6 +481,9 @@ def verify_token(token, auth_type):
             abort_unauthorized("Invalid JWT. Token is for tier '%s' but this"
                                " is tier '%s'" % (tier, cfg_tier_name))
 
+        if auth_type == "JWT":
+            # Cache this token for JTI identification
+            cache_token(payload)
     return payload
 
 
@@ -468,6 +511,7 @@ def create_standard_claims(expire=None):
     return standard_claims
 
 
+# Cache token in Redis so that a JTI can be used instead of a JWT.  A valid JTI is implicitly trusted.
 def cache_token(payload, expire=None):
     expire = expire or 86400
 
