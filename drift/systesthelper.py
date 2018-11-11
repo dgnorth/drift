@@ -246,6 +246,13 @@ class DriftBaseTestCase(unittest.TestCase):
         r = self.get("/")
         self.endpoints = r.json()["endpoints"]
 
+        # This will make sure that the authentication and session state is proper.
+        self.assertNotEqual(
+            self.endpoints['my_user'],
+            None,
+            "Just authenticated but 'my_user' endpoint is not set. JWT or session state logic perhaps broken."
+        )
+
     def auth_service(self):
         """
         Authenticate as a service user
