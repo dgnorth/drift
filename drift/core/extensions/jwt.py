@@ -88,11 +88,16 @@ def check_jwt_authorization():
     if current_identity:
         return  # authentication has already been verified
 
-    if not requires_auth():
-        return  # doesn't require authentication
+    # In case the endpoint requires no authorization, and the request does not
+    # carry any authorization info as well, we will not try to verify any JWT's
+    if 'Authorization' not in request.headers and not requires_auth():
+        return
 
     token, auth_type = get_auth_token_and_type()
     current_identity = verify_token(token, auth_type)
+    if auth_type == "JWT":
+        # Cache this token for JTI identification
+        cache_token(current_identity)
 
     # Authorization token has now been converted to a verified payload
     _request_ctx_stack.top.drift_jwt_payload = current_identity
@@ -479,9 +484,6 @@ def verify_token(token, auth_type):
             abort_unauthorized("Invalid JWT. Token is for tier '%s' but this"
                                " is tier '%s'" % (tier, cfg_tier_name))
 
-        if auth_type == "JWT":
-            # Cache this token for JTI identification
-            cache_token(payload)
     return payload
 
 
