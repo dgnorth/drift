@@ -84,8 +84,7 @@ def check_jwt_authorization():
     Authentication handler.  Verifies jwt tokens from the session or header, if not
     already done.
     """
-    print ("checking")
-    current_identity = getattr(_request_ctx_stack.top, 'current_identity', None)
+    current_identity = getattr(_request_ctx_stack.top, 'drift_jwt_payload', None)
     if current_identity:
         return  # authentication has already been verified
 
@@ -96,7 +95,6 @@ def check_jwt_authorization():
     current_identity = verify_token(token, auth_type)
 
     # Authorization token has now been converted to a verified payload
-    print("setting it", current_identity)
     _request_ctx_stack.top.drift_jwt_payload = current_identity
 
 
