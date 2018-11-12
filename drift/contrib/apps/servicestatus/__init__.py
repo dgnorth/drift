@@ -40,7 +40,7 @@ class ServiceStatusSchema(ma.Schema):
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
-    api.spec.definition('ServiceStatus', schema=ServiceStatusSchema)
+    api.spec.components.schema('ServiceStatus', schema=ServiceStatusSchema)
 
 
 @bp.route('', endpoint='root')

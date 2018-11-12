@@ -56,8 +56,8 @@ bp = Blueprint('auth', 'Authentication', url_prefix='/auth', description='Authen
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
-    api.spec.definition('AuthRequest', schema=AuthRequestSchema)
-    api.spec.definition('Auth', schema=AuthSchema)
+    api.spec.components.schema('AuthRequest', schema=AuthRequestSchema)
+    api.spec.components.schema('Auth', schema=AuthSchema)
 
     # api.models[jwt_model.name] = jwt_model
     if not hasattr(app, "jwt_auth_providers"):

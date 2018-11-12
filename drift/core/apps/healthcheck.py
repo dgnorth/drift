@@ -22,7 +22,7 @@ class HealthCheckSchema(ma.Schema):
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
-    api.spec.definition('HealthCheck', schema=HealthCheckSchema)
+    api.spec.components.schema('HealthCheck', schema=HealthCheckSchema)
 
 
 @bp.route('', endpoint='health')
