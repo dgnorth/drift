@@ -117,6 +117,9 @@ def get_options(parser):
     p.add_argument(
         "--preview", help="Show arguments only", action="store_true"
     )
+    p.add_argument(
+        "--verbose", help="Verbose output", action="store_true"
+    )
 
     # The 'copy-image' command
     p = subparsers.add_parser(
@@ -427,11 +430,12 @@ def _run_command(args):
 
     aws_region = conf.tier['aws']['region']
 
-    echo("AWS REGION: {!r}".format(aws_region))
-    echo("DOMAIN:")
-    echo(json.dumps(conf.domain.get(), indent=4))
-    echo("DEPLOYABLE:")
-    echo(json.dumps(conf.deployable, indent=4))
+    if args.verbose:
+        echo("AWS REGION: {!r}".format(aws_region))
+        echo("DOMAIN:")
+        echo(json.dumps(conf.domain.get(), indent=4))
+        echo("DEPLOYABLE:")
+        echo(json.dumps(conf.deployable, indent=4))
 
     ec2_conn = boto.ec2.connect_to_region(aws_region)
     iam_conn = boto.iam.connect_to_region(aws_region)
@@ -462,7 +466,7 @@ def _run_command(args):
         echo("Using the newest AMI baked (which may not be what you expect).")
 
     ami = _find_latest_ami(name, release)
-    echo("Latest AMI: {!r}".format(ami))
+    echo("AMI: {} [{}]".format(ami.id, ami.name))
 
     if args.ami:
         echo("Using a specified AMI: {!r}".format(args.ami))
@@ -486,15 +490,17 @@ def _run_command(args):
         ami_created=ami.creation_date,
         ami_tags={d['Key']: d['Value'] for d in ami.tags},
     )
-    echo("AMI Info:")
-    echo(pretty(ami_info))
 
-    if autoscaling:
-        echo("Autoscaling group:")
-        echo(pretty(autoscaling))
-    else:
-        echo("EC2:")
-        echo("\tInstance Type:\t{}".format(args.instance_type))
+    if args.verbose:
+        echo("AMI Info:")
+        echo(pretty(ami_info))
+
+        if autoscaling:
+            echo("Autoscaling group:")
+            echo(pretty(autoscaling))
+        else:
+            echo("EC2:")
+            echo("\tInstance Type:\t{}".format(args.instance_type))
 
     ec2 = boto3.resource('ec2', region_name=aws_region)
 
@@ -505,22 +511,14 @@ def _run_command(args):
         secho("Error: No subnet available matching filter {}".format(filters), fg="red")
         sys.exit(1)
 
-    echo("Subnets:")
-    for subnet in subnets:
-        echo("\t{} - {}".format(fold_tags(subnet.tags)['Name'], subnet.id))
-
     # Get the "one size fits all" security group
     filters = {'tag:tier': tier_name, 'tag:Name': '{}-private-sg'.format(tier_name)}
     security_group = list(ec2.security_groups.filter(Filters=filterize(filters)))[0]
-    echo("Security Group:\n\t{} [{} {}]".format(fold_tags(security_group.tags)["Name"], security_group.id, security_group.vpc_id))
 
     # The key pair name for SSH
     key_name = conf.tier['aws']['ssh_key']
     if "." in key_name:
         key_name = key_name.split(".", 1)[0]  # TODO: Distinguish between key name and .pem key file name
-
-    echo("SSH Key:")
-    echo(key_name)
 
     '''
     autoscaling group:
@@ -574,10 +572,6 @@ def _run_command(args):
 
     tags.update(fold_tags(ami.tags))
 
-    echo("Tags:")
-    for k in sorted(tags.keys()):
-        echo("  %s: %s" % (k, tags[k]))
-
     user_data = '''#!/bin/bash
 # Environment variables set by drift-admin run command:
 export DRIFT_CONFIG_URL={drift_config_url}
@@ -598,9 +592,23 @@ export AWS_REGION={aws_region}
     else:
         echo("Note: No custom ami-run.sh script found for this application.")
 
-    echo("user_data:")
-    from drift.utils import pretty as poo
-    echo(poo(user_data, 'bash'))
+    if args.verbose:
+        echo("Subnets:")
+        for subnet in subnets:
+            echo("\t{} - {}".format(fold_tags(subnet.tags)['Name'], subnet.id))
+
+        echo("Security Group:\n\t{} [{} {}]".format(fold_tags(security_group.tags)["Name"], security_group.id, security_group.vpc_id))
+
+        echo("SSH Key:")
+        echo(key_name)
+
+        echo("Tags:")
+        for k in sorted(tags.keys()):
+            echo("  %s: %s" % (k, tags[k]))
+
+        echo("user_data:")
+        from drift.utils import pretty as poo
+        echo(poo(user_data, 'bash'))
 
     if args.preview:
         echo("--preview specified, exiting now before actually doing anything.")
@@ -621,8 +629,13 @@ export AWS_REGION={aws_region}
             InstanceMonitoring={'Enabled': True},
             UserData=user_data,
         )
-        echo("Creating launch configuration using params:")
-        echo(pretty(kwargs))
+
+        if args.verbose:
+            echo("Creating launch configuration using params:")
+            echo(pretty(kwargs))
+        else:
+            echo("Creating launch configuration: {}".format(launch_config_name))
+
         client.create_launch_configuration(**kwargs)
 
         # Update current autoscaling group or create a new one if it doesn't exist.
@@ -660,6 +673,7 @@ export AWS_REGION={aws_region}
         client.create_or_update_tags(Tags=tagsarg)
 
         # Define a 2 min termination cooldown so api-router can drain the connections.
+        echo("Configuring lifecycle hook.")
         response = client.put_lifecycle_hook(
             LifecycleHookName='Wait-2-minutes-on-termination',
             AutoScalingGroupName=target_name,
@@ -667,10 +681,19 @@ export AWS_REGION={aws_region}
             HeartbeatTimeout=120,
             DefaultResult='CONTINUE'
         )
-        echo("Configuring lifecycle hook, response: {!r}".format(response.get('ResponseMetadata')))
+
+        echo("Terminating instances in autoscaling group. New ones will be launched.")
+        echo("Old instances will linger for 2 minutes while connections are drained.")
+        asg = client.describe_auto_scaling_groups(AutoScalingGroupNames=[target_name])
+        for instance in asg['AutoScalingGroups'][0]['Instances']:
+            response = client.terminate_instance_in_auto_scaling_group(
+                InstanceId=instance['InstanceId'],
+                ShouldDecrementDesiredCapacity=False
+            )
+            echo("   " + response['Activity']['Description'])
 
         secho("Done!", fg="green")
-        secho("YOU MUST TERMINATE THE OLD EC2 INSTANCES YOURSELF!", fg="yellow")
+
     else:
         # Pick a random subnet from list of available subnets
         subnet = random.choice(subnets)
