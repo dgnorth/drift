@@ -88,7 +88,7 @@ def do_execute_cmd(argv):
 
     try:
         conf, source = get_default_drift_config_and_source()
-        echo(pretty("Drift configuration source: {!r}".format(source)))
+        echo("Drift configuration source: {!r}".format(source))
     except ConfigNotFound:
         pass
 
