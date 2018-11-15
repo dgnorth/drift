@@ -196,7 +196,7 @@ def _install_prerequisites(packages, global_install=False):
 
     outs, errs = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE).communicate()
     npm_list = json.loads(outs.decode('ascii'))
-    installed = list(npm_list['dependencies'].keys())
+    installed = list(npm_list.get('dependencies', {}).keys())
 
     for package_name in packages:
         if package_name not in installed:
