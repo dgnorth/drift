@@ -1,0 +1,108 @@
+# Serverless configuration file
+service: {{ deployable.deployable_name }}-lambda  # drift-base-lambda
+
+plugins:
+    - serverless-python-requirements
+    - serverless-log-forwarding
+    {%- if offline %}
+    - serverless-offline-python
+    {%- endif %}
+
+custom:
+    # serverless-python-requirements plugin
+    pythonRequirements:
+        dockerizePip: non-linux
+
+    {% if log_forwarding_arn %}
+    # serverless-log-forwarding
+    logForwarding:
+        destinationARN: {{ log_forwarding_arn }}
+        filterPattern: "-\"RequestId: \""
+    {% else %}
+    # Note! serverless-log-forwarding lambda not found. Add the following tags to it:
+    #   tier:         {{ tier.tier_name }}
+    #   service-type: log-forwarder
+    {% endif %}
+
+provider:
+    name: aws
+    runtime: python3.6
+    stage: main
+    stackName: {{ tier.tier_name }}-{{ deployable.deployable_name }}-lambda
+    stackTags:
+      tier: {{ tier.tier_name }}
+      service-name: {{ deployable.deployable_name }}
+
+    region: {{ tier.aws_region }}
+    timeout: 30    # The default is 6 seconds. Note: API Gateway current maximum is 30 seconds
+    deploymentBucket:
+        name: serverless-{{ tier.tier_name.lower() }}
+    vpc:
+        securityGroupIds: [{% for sg in tier.security_groups %}{{ sg }}{{ ", " if not loop.last }}{% endfor %}]
+        subnetIds: [{% for subnet in tier.subnets %}{{ subnet }}{{ ", " if not loop.last }}{% endfor %}]
+    environment: # Service wide environment variables
+        DRIFT_TIER: {{ tier.tier_name }}
+        DRIFT_CONFIG_URL: {{ tier.config_url }}
+
+    tags:
+        tier: {{ tier.tier_name }}
+        service-name: {{ deployable.deployable_name }}
+        Name: {{ tier.tier_name }}-{{ deployable.deployable_name }}
+
+    {% if wsgiapp %}
+    # API Gateway
+    apiName: {{ tier.tier_name }}-{{ deployable.deployable_name }}
+    endpointType: private
+
+    resourcePolicy:
+        - Effect: Deny
+          Principal: "*"
+          Action: execute-api:Invoke
+          Resource:
+              - execute-api:/*/*/*
+          Condition:
+              StringNotEquals:
+                  "aws:sourceVpc": {{ tier.vpc_id }}
+        - Effect: Allow
+          Principal: "*"
+          Action: execute-api:Invoke
+          Resource:
+              - execute-api:/*/*/*
+    {% endif %}
+{% if wsgiapp or events %}
+functions:
+    {% if wsgiapp %}
+    wsgiapp:
+        handler: {{ wsgiapp }}
+        events:
+            - http: ANY /
+            - http: 'ANY {proxy+}'
+        tags:
+            tier: {{ tier.tier_name }}
+            service-name: {{ deployable.deployable_name }}
+    {% endif %}
+
+    {% if events %}
+    events:
+    {% for event in events %}
+        {% if event.event_type == 's3' %}
+        - s3:
+            bucket: {{ event.bucket}}
+            event: s3:ObjectCreated:*
+
+        {% elif event.event_type == 'schedule' %}
+        - schedule:
+            rate: {{ event.rate }}
+
+        {% elif event.event_type == 'sns' %}
+        - sns:
+            topicName: {{ event.topicName }}
+
+        {% elif event.event_type == 'sqs' %}
+        - sqs:
+            arn: {{ event.arn }}
+            batchSize: {{ event.batchSize }}
+        {% endif %}
+    {%- endfor %}
+    {% endif %}
+{% endif %}

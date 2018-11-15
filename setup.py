@@ -13,7 +13,13 @@ setup(
     description='Micro-framework for SOA based applications',
     packages=find_packages(),
     include_package_data=True,
-    scripts=['scripts/drift-admin.py'],
+    scripts=[
+        'scripts/drift-admin.py',
+        'scripts/sls-deploy.py',
+    ],
+    data_files=[
+        ('scripts', ['serverless.jinja.yml']),
+    ],
     entry_points={'console_scripts': [
         'drift-admin = drift.management:execute_cmd',
     ]},
