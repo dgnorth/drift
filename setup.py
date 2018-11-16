@@ -17,9 +17,6 @@ setup(
         'scripts/drift-admin.py',
         'scripts/sls-deploy.py',
     ],
-    data_files=[
-        ('scripts', ['serverless.jinja.yml']),
-    ],
     entry_points={'console_scripts': [
         'drift-admin = drift.management:execute_cmd',
     ]},
