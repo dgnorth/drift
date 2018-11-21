@@ -55,6 +55,7 @@ setup(
             'boto3',
             'paramiko',
             'fabric>=2.0',
+            'pyyaml',
         ],
         'test': [
             'pytest',

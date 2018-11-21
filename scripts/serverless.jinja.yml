@@ -3,9 +3,11 @@ service: {{ deployable.deployable_name }}-lambda  # drift-base-lambda
 
 plugins:
     - serverless-python-requirements
-    - serverless-log-forwarding
     {%- if offline %}
     - serverless-offline-python
+    {%- endif %}
+    {%- if log_forwarding_arn %}
+    - serverless-log-forwarding
     {%- endif %}
 
 custom:
@@ -36,7 +38,7 @@ provider:
     region: {{ tier.aws_region }}
     timeout: 30    # The default is 6 seconds. Note: API Gateway current maximum is 30 seconds
     deploymentBucket:
-        name: serverless-{{ tier.tier_name.lower() }}
+        name: {{ tier.s3_bucket }}
     vpc:
         securityGroupIds: [{% for sg in tier.security_groups %}{{ sg }}{{ ", " if not loop.last }}{% endfor %}]
         subnetIds: [{% for subnet in tier.subnets %}{{ subnet }}{{ ", " if not loop.last }}{% endfor %}]
