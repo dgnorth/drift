@@ -157,7 +157,7 @@ def cli(tier_name, offline, preview, verbose, clean):
             'vpc_id': vpc_id,
             'security_groups': security_groups,
             'subnets': subnet_ids,
-            's3_bucket': tier['aws']['s3_bucket'],
+            's3_bucket': tier['resources']['drift.core.resources.awsdeploy']['s3_bucket'],
         },
         'deployable': {'deployable_name': conf.drift_app['name']},
         'wsgiapp': conf.drift_app.get('wsgiapp', 'driftbase.serverless_wsgi.handler'),
