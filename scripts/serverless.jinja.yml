@@ -51,7 +51,7 @@ provider:
         service-name: {{ deployable.deployable_name }}
         Name: {{ tier.tier_name }}-{{ deployable.deployable_name }}
 
-    {% if wsgiapp %}
+    {% if apihandler %}
     # API Gateway
     apiName: {{ tier.tier_name }}-{{ deployable.deployable_name }}
     endpointType: private
@@ -71,11 +71,11 @@ provider:
           Resource:
               - execute-api:/*/*/*
     {% endif %}
-{% if wsgiapp or events %}
+{% if apihandler or events %}
 functions:
-    {% if wsgiapp %}
-    wsgiapp:
-        handler: {{ wsgiapp }}
+    {% if apihandler %}
+    apihandler:
+        handler: {{ apihandler }}
         events:
             - http: ANY /
             - http: 'ANY {proxy+}'

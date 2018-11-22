@@ -130,7 +130,7 @@ def cli(tier_name, offline, preview, verbose, clean):
     # deployable:
     #     deployable_name
     #
-    # wsgiapp: wsgi handler or None
+    # apihandler: api gateway handler or None
     #
     # events: (array of:)
     #     function_name     Actual Python function name, must be unique for the deployable
@@ -160,14 +160,14 @@ def cli(tier_name, offline, preview, verbose, clean):
             's3_bucket': tier['resources']['drift.core.resources.awsdeploy']['s3_bucket'],
         },
         'deployable': {'deployable_name': conf.drift_app['name']},
-        'wsgiapp': conf.drift_app.get('wsgiapp', 'driftbase.serverless_wsgi.handler'),
+        'apihandler': conf.drift_app.get('apihandler', 'drift.contrib.aws.lambdawsgi.handler'),
         'events': [],
         'log_forwarding_arn': log_forwarding_arn,
         'offline': offline,
     }
 
-    if not template_args['wsgiapp'] and not template_args['events']:
-        secho("Warning: Neither wsgiapp nor events defined. Nothing to do really.", fg='yellow')
+    if not template_args['apihandler'] and not template_args['events']:
+        secho("Warning: Neither apihandler nor events defined. Nothing to do really.", fg='yellow')
         sys.exit(1)
 
     # Generate the serverless.yml configuration file
