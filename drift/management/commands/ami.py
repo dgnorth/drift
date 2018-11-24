@@ -21,7 +21,6 @@ from six import print_
 try:
     # boto library is not a hard requirement for drift.
     import boto.ec2
-    import boto.iam
     import boto3
 except ImportError:
     pass
@@ -261,14 +260,12 @@ def _bake_command(args):
         echo("Reverting to {!r}".format(current_branch))
         checkout(current_branch)
 
-    user = boto.iam.connect_to_region(aws_region).get_user()  # The current IAM user running this command
-
     packer_vars.update({
         "instance_type": args.instance_type,
         "service": name,
         "region": aws_region,
         "source_ami": ami.id,
-        "user_name": user.user_name,
+        "user_name": boto3.client('sts').get_caller_identity()['Arn'],
         "domain_name": domain['domain_name'],
     })
 
@@ -438,7 +435,6 @@ def _run_command(args):
         echo(json.dumps(conf.deployable, indent=4))
 
     ec2_conn = boto.ec2.connect_to_region(aws_region)
-    iam_conn = boto.iam.connect_to_region(aws_region)
 
     if conf.tier['is_live']:
         secho("NOTE! This tier is marked as LIVE. Special restrictions may apply. Use --force to override.", fg="yellow")
@@ -557,7 +553,7 @@ def _run_command(args):
         "service-type": conf.drift_app.get('service_type', 'web-app'),
         "config-url": drift_config_url,
         "app-root": app_root,
-        "launched-by": iam_conn.get_user().user_name,
+        "launched-by": boto3.client('sts').get_caller_identity()['Arn'],
     }
 
     if tags['service-type'] == 'web-app':
