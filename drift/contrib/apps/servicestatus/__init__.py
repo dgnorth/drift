@@ -7,7 +7,7 @@ import platform
 from flask import request, current_app, g
 from flask import url_for
 from flask.views import MethodView
-from flask_rest_api import Blueprint, abort
+from flask_rest_api import Blueprint
 import marshmallow as ma
 from drift.utils import get_tier_name
 from drift.core.extensions.jwt import current_user
@@ -38,9 +38,17 @@ class ServiceStatusSchema(ma.Schema):
     request_object = ma.fields.Dict(description="Request object info (debug only)")
 
 
+# Fix soon:
+import apispec
+APISPEC_VERSION_MAJOR = int(apispec.__version__.split('.')[0])
+
+
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
-    api.spec.components.schema('ServiceStatus', schema=ServiceStatusSchema)
+    if APISPEC_VERSION_MAJOR < 1:
+        api.spec.definition('ServiceStatus', schema=ServiceStatusSchema)
+    else:
+        api.spec.components.schema('ServiceStatus', schema=ServiceStatusSchema)
 
 
 @bp.route('', endpoint='root')
