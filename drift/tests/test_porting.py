@@ -60,10 +60,6 @@ class ScriptImportTestCase(unittest.TestCase):
     def tearDown(self):
         sys.path.pop()
 
-    def test_drift_admin(self):
-        # must use this because drift-admin.py contains a dash!
-        importlib.import_module('drift-admin')
-
     def test_parse_uwsgi_profiler(self):
         importlib.import_module("parse_uwsgi_profiler")
 
