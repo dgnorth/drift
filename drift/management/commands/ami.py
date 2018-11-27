@@ -202,6 +202,7 @@ def _bake_command(args):
         echo("Finding the latest AMI on AWS that matches {!r}".format(UBUNTU_RELEASE))
         filters = [
             {'Name': 'name', 'Values': [UBUNTU_RELEASE]},
+            {'Name': 'architecture', 'Values': ['x86_64']},
         ]
         amis = list(ec2.images.filter(Owners=[_get_owner_id_for_canonical(aws_region)], Filters=filters))
         if not amis:
