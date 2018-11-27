@@ -65,6 +65,10 @@ def all_casings(input_string):
 
 
 def handle_request(app, event, context):
+
+    # This document contains info on the format and possible values of 'event'.
+    # https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html
+
     if event.get("source") in ["aws.events", "serverless-plugin-warmup"]:
         return {}
 
@@ -119,6 +123,16 @@ def handle_request(app, event, context):
         "wsgi.url_scheme": headers.get(u"X-Forwarded-Proto", "http"),
         "wsgi.version": (1, 0),
     }
+
+    # AWS API Gateway overwrite the X-Forwarded-For header which means that we need to pass
+    # the real remote IP from nginx using X-Real-IP header. Just to be on the safe side we
+    # make sure that it's really nginx calling the API Gateway:
+    # TODO: Make a better check for this:
+    apirouter_calling_us = environ['REMOTE_ADDR'].startswith('10.')
+
+    if not environ['REMOTE_ADDR'] or apirouter_calling_us:
+        environ['REMOTE_ADDR'] = headers.get(u"X-Real-IP", u"")
+        headers['X-Forwarded-For'] = environ['REMOTE_ADDR']
 
     for key, value in environ.items():
         if isinstance(value, string_types):

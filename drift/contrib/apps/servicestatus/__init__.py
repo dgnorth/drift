@@ -36,6 +36,7 @@ class ServiceStatusSchema(ma.Schema):
     default_tenant = ma.fields.Str(description="Default tenant name")
     request_headers = ma.fields.Dict(description="Request headers (debug only)")
     request_object = ma.fields.Dict(description="Request object info (debug only)")
+    wsgi_env = ma.fields.Dict(description="WSGI Environment")
 
 
 # Fix soon:
@@ -66,6 +67,9 @@ class InfoPageAPI(MethodView):
         """
         tier_name = get_tier_name()
         deployable_name = current_app.config['name']
+
+        # See if caller is privy to some extra info
+        show_extra_info = (current_user and ('service' in current_user['roles'])) or current_app.debug
 
         host_info = collections.OrderedDict()
         host_info["host-name"] = socket.gethostname()
@@ -114,7 +118,7 @@ class InfoPageAPI(MethodView):
                 log.exception("Failed to get endpoint registry from %s", func)
 
         # Only list out tenants which have a db, and only if caller has service role.
-        if (current_user and ('service' in current_user['roles'])) or current_app.debug:
+        if show_extra_info:
             ts = g.conf.table_store
             tenants_table = ts.get_table('tenants')
             tenants = []
@@ -150,7 +154,7 @@ class InfoPageAPI(MethodView):
             except Exception:
                 log.exception("Failed to read deployment manifest from %s", path)
 
-        if current_app.debug:
+        if show_extra_info:
             # TODO: Only do for authenticated sessions.. preferably..
             ret["request_headers"] = dict(request.headers)
             ret['request_object'] = {
@@ -166,6 +170,7 @@ class InfoPageAPI(MethodView):
                 'host': request.host,
                 'remote_user': request.remote_user,
             }
+            ret['wsgi_env'] = {k: str(v) for k, v in request.environ.items()}
 
             # Pretty print the config
             d = {k: str(v) for k, v in current_app.config.items()}
