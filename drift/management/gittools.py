@@ -47,6 +47,14 @@ def get_git_version():
     """Returns git version info bits in a dict, or None if there is no version
     to be found (i.e. no tag for instance).
     """
+
+    # If running in Travis CI we may not have any tags as Travis does a very shallow clone
+    # of the repo. We fix it (hopefully) by fetching much deeper than 50 commits back.
+    if os.environ.get('TRAVIS', False):
+        cmd = 'git fetch --tags --depth=2000'
+        echo("Travis CI detected. Fetch deeper just in case: " + cmd)
+        subprocess.call(cmd.split(' '))
+
     p = subprocess.Popen(
         ["git", "describe", "--tags", "--dirty", "--long"],
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT
@@ -55,6 +63,7 @@ def get_git_version():
     stdout = str(stdout.decode())
 
     if p.returncode == 128:
+        echo(stdout)
         return  # No tag found, probably
 
     if p.returncode != 0:
