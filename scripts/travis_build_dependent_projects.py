@@ -23,7 +23,7 @@ def main():
             echo(u"Checking repo: {}\n{!r}".format(repo.slug, repo.description))
             try:
                 build = conn.build(repo.last_build_id)
-                if "kitrun.py" in build.config.get("script", [""])[0]:
+                if "config.json" in build.config.get("config", [""])[0]:
                     echo("Found drift project: {!r}".format(repo.slug))
                     if not build.running:
                         echo("Restarting...")
