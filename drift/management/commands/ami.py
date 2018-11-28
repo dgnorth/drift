@@ -304,6 +304,9 @@ def _bake_command(args):
 
     echo("Baking AMI with: {}".format(' '.join(cmd)))
     if args.preview:
+        echo("Manifest tags assigned to AMI:")
+        echo(pretty(manifest))
+
         echo("Not building or packaging because --preview is on. Exiting now.")
         sys.exit(0)
 
@@ -360,7 +363,7 @@ def _bake_command(args):
 
     if manifest:
         echo("Adding manifest tags to AMI:")
-        pretty(manifest)
+        echo(pretty(manifest))
         prefix = "drift:manifest:"
         tags = []
         for k, v in manifest.items():
@@ -551,7 +554,7 @@ def _run_command(args):
         "Name": target_name,
         "tier": tier_name,
         "service-name": name,
-        "service-type": conf.drift_app.get('service_type', 'web-app'),
+        "service-type": conf.drift_app.get('service_type', '<unknown>'),
         "config-url": drift_config_url,
         "app-root": app_root,
         "launched-by": boto3.client('sts').get_caller_identity()['Arn'],
