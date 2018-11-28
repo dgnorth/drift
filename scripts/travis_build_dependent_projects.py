@@ -23,7 +23,7 @@ def main():
             echo(u"Checking repo: {}\n{!r}".format(repo.slug, repo.description))
             try:
                 build = conn.build(repo.last_build_id)
-                if "config.json" in build.config.get("config", [""])[0]:
+                if 'drift' in build.config.get('drift_build_trigger', []):
                     echo("Found drift project: {!r}".format(repo.slug))
                     if not build.running:
                         echo("Restarting...")
