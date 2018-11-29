@@ -249,6 +249,7 @@ def _bake_command(args):
         }
 
         if not args.preview:
+            # TODO: This code mirrors the one in ami.py. It's not DRY.
             cmd = [sys.executable, 'setup.py', 'sdist', '--formats=tar']
             ret = subprocess.call(cmd)
             if ret != 0:

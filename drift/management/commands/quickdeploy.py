@@ -92,11 +92,12 @@ def run_command(args):
 
         for project_folder in project_folders:
             echo("Creating source distribution from {!r}".format(project_folder))
+            # TODO: This code mirrors the one in ami.py. It's not DRY.
             cmd = [
                 sys.executable,  # "python",
                 os.path.join(project_folder, "setup.py"),
                 "sdist",
-                "--formats=zip",
+                "--formats=tar",
                 "--dist-dir=" + distros,
             ]
 
@@ -156,20 +157,32 @@ def run_command(args):
                 conn.run('rm -f "{}"'.format(temp))
 
             # See if the server responds to an http request
+            secho("Pinging endpoint:", bold=True)
             timeout = 5.0
-            try:
-                ret = requests.get(
-                    'http://{}:8080'.format(ec2.private_ip_address),
-                    timeout=timeout,
-                    )
-            except Exception as e:
-                if 'Read timed out' in str(e):
-                    secho("WARNING! Web server didn't respond in {} seconds.".format(timeout), fg="yellow")
+            retries = 15
+            wait_between = 0.5
+            for i in range(retries):
+                try:
+                    ret = requests.get(
+                        'http://{}:8080'.format(ec2.private_ip_address),
+                        timeout=timeout,
+                        )
+                except Exception as e:
+                    if 'Read timed out' in str(e):
+                        secho("WARNING! Web server timeout in {} seconds.".format(timeout), fg="yellow")
+                    elif "Max retries exceeded" in str(e):
+                        pass
+                    else:
+                        secho("ERROR! {}".format(e), fg="red")
                 else:
-                    secho("ERROR! {}".format(e), fg="red")
+                    secho("SUCCESS: Instance {}  is serving. status code: {}".format(ec2.private_ip_address, ret.status_code), fg="green")
+                    break
+
+                if i < retries - 1:
+                    secho("Endpoint not responding, retrying in {} seconds...".format(wait_between))
+                    time.sleep(wait_between)
             else:
-                ret.raise_for_status()
-                secho("SUCCESS: Instance {}  is serving.".format(ec2.private_ip_address), fg="green")
+                secho("ERROR: Instance is not responding!", fg='red')
 
             # todo: see if this needs to be done as well:
             # _set_ec2_tags(ec2, deployment_manifest, "drift:manifest:")
