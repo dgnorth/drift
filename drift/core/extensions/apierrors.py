@@ -14,6 +14,7 @@ import sys
 from six import StringIO
 from flask import make_response, jsonify, request, current_app
 from werkzeug.exceptions import HTTPException
+from flask_rest_api import abort
 
 from drift.core.extensions.jwt import query_current_user, jwt_not_required
 
@@ -39,18 +40,17 @@ def drift_init_extension(app, **kwargs):
     def deal_with_aborts(e):
         return handle_all_exceptions(e)
 
-    # Gurko endpoint. Always succeedes.
+    # Health check endpoint. Always succeedes.
     @jwt_not_required
-    @app.route('/gurko', methods=['GET'])
+    @app.route('/healthcheck', methods=['GET'])
     def gurko_handler():
-        return jsonify({"all": "is well"})
+        return jsonify({"status": "fine"})
 
     # Borko endpoint. Always fails.
     @jwt_not_required
     @app.route('/borko', methods=['GET', 'POST'])
     def borko_handler():
         data = request.get_json()
-        from flask_rest_api import abort
         if data:
             status_code = data.pop('status_code', 400)
             abort(int(status_code), **data)
