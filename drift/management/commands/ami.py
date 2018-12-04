@@ -555,7 +555,7 @@ def _run_command(args):
         "Name": target_name,
         "tier": tier_name,
         "service-name": name,
-        "service-type": conf.drift_app.get('service_type', '<unknown>'),
+        "service-type": conf.drift_app.get('service_type', 'web-app'),
         "config-url": drift_config_url,
         "app-root": app_root,
         "launched-by": boto3.client('sts').get_caller_identity()['Arn'],
