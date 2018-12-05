@@ -5,7 +5,10 @@ import os
 import logging
 import random
 
-import boto3
+try:
+    import boto3
+except ImportError:
+    pass  # In most cases the registration method is not executed.
 
 log = logging.getLogger(__name__)
 
