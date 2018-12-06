@@ -20,9 +20,10 @@ try:
 except ImportError:
     got_pygments = False
 
-from flask import g, make_response, jsonify, request, current_app
+from flask import g, make_response, jsonify, request, current_app, url_for
 from click import echo
 from flask_marshmallow.fields import AbsoluteURLFor
+import flask_rest_api
 
 from driftconfig.util import get_drift_config
 
@@ -288,4 +289,14 @@ class Url(AbsoluteURLFor):
         super().__init__(endpoint, **kwargs)
         if doc:
             self.metadata['description'] = doc
+
+
+def set_url_in_header(location_url):
+    response_header = {"Location": location_url}
+    flask_rest_api.utils.get_appcontext()['headers'].update(response_header)
+
+
+def set_url_for_in_header(*args, **kw):
+    kw['_external'] = True
+    set_url_in_header(url_for(*args, **kw))
 
