@@ -11,9 +11,10 @@ import re
 import jwt
 from six.moves.http_client import UNAUTHORIZED
 
-from flask import current_app, request, _request_ctx_stack, g, session, url_for
+from flask import current_app, request, _request_ctx_stack, g, session, url_for, redirect
 from flask.views import MethodView
 from flask_rest_api import Blueprint, abort
+
 import marshmallow as ma
 
 from werkzeug.local import LocalProxy
@@ -38,11 +39,10 @@ TRUSTED_ISSUERS = set(['drift-base'])
 # list of regular expression objects matching endpoint definitions
 WHITELIST_ENDPOINTS = [
     r"^api-docs\.",  # the marshmalloc documentation endpoint
+    r"^static$",  # the marshmalloc documentation endpoint
     ]
-# possibly not needed, but wth.
-WHITELIST_URLS = [
-    r"/favicon\.ico",
-    ]
+
+
 
 # List of open endpoints, i.e. not requiring a valid JWT.
 # these are the view functions themselves
@@ -66,6 +66,21 @@ def drift_init_extension(app, api, **kwargs):
     else:
         api.spec.components.schema('AuthRequest', schema=AuthRequestSchema)
         api.spec.components.schema('Auth', schema=AuthSchema)
+
+    # Flask Secret must be set for cookies and other secret things
+    # HACK WARNING: It is weirdly difficult to get a drift config at this point.
+    from drift.flaskfactory import load_flask_config
+    from driftconfig.util import get_default_drift_config
+    ts = get_default_drift_config()
+    public_keys = ts.get_table('public-keys')
+    row = public_keys.get({
+        'tier_name': get_tier_name(),
+        'deployable_name': load_flask_config()['name'],
+    })
+
+    # If there is no 'secret_key' specified then session cookies are not supported.
+    app.config['SECRET_KEY'] = row.get('secret_key')
+    app.config['SESSION_COOKIE_NAME'] = 'drift-session'
 
     # api.models[jwt_model.name] = jwt_model
     if not hasattr(app, "jwt_auth_providers"):
@@ -98,7 +113,8 @@ def check_jwt_authorization():
 
     # In case the endpoint requires no authorization, and the request does not
     # carry any authorization info as well, we will not try to verify any JWT's
-    if 'Authorization' not in request.headers and not requires_auth():
+    got_auth = 'Authorization' in request.headers or 'jwt' in session
+    if not got_auth and not requires_auth():
         return
 
     token, auth_type = get_auth_token_and_type()
@@ -134,13 +150,7 @@ def requires_auth():
     if current_app.config.get("DISABLE_JWT", False):
         return False
 
-    # check for matched urls
-    for expr in WHITELIST_URLS:
-        if re.search(expr, request.url):
-            return False
-
     # check for matched endpoints
-
     for expr in WHITELIST_ENDPOINTS:
         if re.search(expr, request.endpoint):
             return False
@@ -242,6 +252,58 @@ def _fix_legacy_auth(auth_info):
     return auth_info
 
 
+def _authenticate(auth_info):
+    """
+    Authenticate
+
+    Does the song-and-dance against any of the supported providers and returns
+    a JWT token for use in subsequent requests.
+    """
+    if not auth_info:
+        abort_unauthorized("Bad Request. Expected json payload.")
+
+    if "provider" not in auth_info:
+        auth_info = _fix_legacy_auth(auth_info)
+
+    provider_details = auth_info.get('provider_details')
+
+    # TODO: Move specific auth logic outside this module.
+    # Steam and Game Center. should not be in here.
+
+    # In fact only JWT is supported by all drift based deployables. Everything else
+    # is specific to drift-base.
+
+    if auth_info['provider'] == "jwt":
+        # Authenticate using a JWT. We validate the token,
+        # and issue a new one based on that.
+        token = provider_details['jwt']
+        payload = verify_token(token, "JWT")
+        # Issue a JWT with same payload as the one we got
+        log.debug("Authenticating using a JWT: %s", payload)
+        identity = payload
+    elif auth_info['provider'] == "jti":
+        if provider_details and 'jti' in provider_details:
+            identity = get_cached_token(provider_details['jti'])
+        if not identity:
+            abort_unauthorized("Bad Request. Invalid JTI.")
+    else:
+        identity = authenticate_with_provider(auth_info)
+
+    if not identity or not identity.get("identity_id"):
+        raise RuntimeError("authenticate must return a dict with at"
+                           " least 'identity_id' field.")
+
+    if 'service' in identity['roles']:
+        expire = JWT_EXPIRATION_DELTA_FOR_SERVICES
+    else:
+        expire = JWT_EXPIRATION_DELTA
+
+    ret = issue_token(identity, expire=expire)
+    log.info("Authenticated: %s", identity)
+
+    return ret
+
+
 class AuthRequestSchema(ma.Schema):
     provider = ma.fields.Str(description="Provider name")
     provider_details = ma.fields.Dict(description="Provider specific details")
@@ -261,58 +323,34 @@ class AuthApi(MethodView):
     @bp.arguments(AuthRequestSchema)
     @bp.response(AuthSchema)
     def post(self, auth_info):
-        """
-        Authenticate
+        return _authenticate(auth_info)
 
-        Does the song-and-dance against any of the supported providers and returns
-        a JWT token for use in subsequent requests.
-        """
-        if not auth_info:
-            abort_unauthorized("Bad Request. Expected json payload.")
 
-        if "provider" not in auth_info:
-            auth_info = _fix_legacy_auth(auth_info)
-
-        provider_details = auth_info.get('provider_details')
-
-        # TODO: Move specific auth logic outside this module.
-        # Steam and Game Center. should not be in here.
-
-        # In fact only JWT is supported by all drift based deployables. Everything else
-        # is specific to drift-base.
-
-        if auth_info['provider'] == "jwt":
-            # Authenticate using a JWT. We validate the token,
-            # and issue a new one based on that.
-            token = provider_details['jwt']
-            payload = verify_token(token, "JWT")
-            # Issue a JWT with same payload as the one we got
-            log.debug("Authenticating using a JWT: %s", payload)
-            identity = payload
-        elif auth_info['provider'] == "jti":
-            if provider_details and 'jti' in provider_details:
-                identity = get_cached_token(provider_details['jti'])
-            if not identity:
-                abort_unauthorized("Bad Request. Invalid JTI.")
-        else:
-            identity = authenticate_with_provider(auth_info)
-
-        if not identity or not identity.get("identity_id"):
-            raise RuntimeError("authenticate must return a dict with at"
-                               " least 'identity_id' field.")
-
-        if 'service' in identity['roles']:
-            expire = JWT_EXPIRATION_DELTA_FOR_SERVICES
-        else:
-            expire = JWT_EXPIRATION_DELTA
-
-        ret = issue_token(identity, expire=expire)
-        log.info("Authenticated: %s", identity)
-
+@bp.route('/login', endpoint='login')
+class AuthApi(MethodView):
+    no_jwt_check = ['POST']
+    @bp.arguments(AuthRequestSchema)
+    def post(self, auth_info):
         # store the authentication token in the session cooke as well for
         # web-based convenience
-        session['Authorization'] = "JWT " + ret['token']
-        return ret
+        if not current_app.config.get('SECRET_KEY'):
+            log.error("No SECRET_KEY set, can't store session token!")
+            abort_unauthorized("Login sessions not supported.")
+
+        is_secure = request.environ.get('wsgi.url_scheme') == 'https'
+        current_app.config['SESSION_COOKIE_SECURE'] = is_secure
+        ret = _authenticate(auth_info)
+        session['jwt'] = "JWT " + ret['token']
+        return redirect(url_for('root.root', _external=True))
+
+
+@bp.route('/logout', endpoint='logout')
+class AuthApi(MethodView):
+    no_jwt_check = ['POST']
+    def post(self):
+        # Remove the 'Authentication' token from the session if it's there
+        session.pop('jwt', None)
+        return redirect(url_for('root.root', _external=True))
 
 
 def authenticate_with_provider(auth_info):
@@ -372,7 +410,7 @@ def issue_token(payload, expire=None):
 def get_auth_token_and_type():
     auth_types_supported = ["JWT", "JTI"]
     # support Authorization in the session
-    auth_header_value = session.get('Authorization')
+    auth_header_value = session.get('jwt')
     # override with request header if present
     auth_header_value = request.headers.get('Authorization', auth_header_value)
     if not auth_header_value:
@@ -548,6 +586,10 @@ def get_cached_token(jti):
 
 @endpoints.register
 def endpoint_info(current_user):
-    ret = {"auth": url_for("auth", _external=True)}
+    ret = {
+        'auth': url_for("auth", _external=True),
+        'auth_login': url_for("auth.login", _external=True),
+        'auth_logout': url_for("auth.logout", _external=True),
+    }
 
     return ret

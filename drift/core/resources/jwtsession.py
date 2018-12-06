@@ -13,6 +13,7 @@ Custom attributes for top level registration:
 """
 import logging
 import datetime
+import secrets
 
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
@@ -41,6 +42,9 @@ def register_deployable_on_tier(ts, deployable, attributes):
     row = ts.get_table('public-keys').get(pk)
     if row is None:
         row = ts.get_table('public-keys').add(pk)
+
+    # Add session cookie secret key
+    row.setdefault('secret_key', secrets.token_urlsafe(32))
 
     # Generate RSA key pairs
     private_key = rsa.generate_private_key(

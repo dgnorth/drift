@@ -34,9 +34,6 @@ def drift_app(app=None):
     log.info("Init app.static_folder: %s", app.static_folder)
     log.info("Init app.template_folder: %s", app.template_folder)
 
-    # configuration.  Initial defaults
-    # secret must be set for cookies and other secret things
-    app.config['SECRET_KEY'] = b"not so very secret"
     # load deployment settings
     app.config.update(load_flask_config())
     _apply_patches(app)
