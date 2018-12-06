@@ -11,7 +11,7 @@ import re
 import jwt
 from six.moves.http_client import UNAUTHORIZED
 
-from flask import current_app, request, _request_ctx_stack, g, session
+from flask import current_app, request, _request_ctx_stack, g, session, url_for
 from flask.views import MethodView
 from flask_rest_api import Blueprint, abort
 import marshmallow as ma
@@ -20,9 +20,7 @@ from werkzeug.local import LocalProxy
 from werkzeug.security import gen_salt
 
 from drift.utils import get_tier_name
-
-# LEGACY: Callback function for authentication
-authenticate_with_provider = None
+from drift.core.extensions.urlregistry import Endpoints
 
 
 JWT_VERIFY_CLAIMS = ['signature', 'exp', 'iat']
@@ -52,6 +50,8 @@ _open_endpoints = set()
 
 log = logging.getLogger(__name__)
 bp = Blueprint('auth', 'Authentication', url_prefix='/auth', description='Authentication endpoints')
+endpoints = Endpoints()
+
 
 # Fix soon:
 import apispec
@@ -544,3 +544,10 @@ def get_cached_token(jti):
         return None
     payload = json.loads(data)
     return payload
+
+
+@endpoints.register
+def endpoint_info(current_user):
+    ret = {"auth": url_for("auth", _external=True)}
+
+    return ret

@@ -14,9 +14,7 @@ from six.moves import http_client
 from driftconfig.util import set_sticky_config, get_default_drift_config
 import driftconfig.testhelpers
 
-from drift.core.extensions.jwt import JWT_ALGORITHM
-
-import drift.core.extensions.jwt
+from drift.core.extensions.jwt import JWT_ALGORITHM, register_auth_provider
 from .flaskfactory import drift_app
 
 
@@ -26,6 +24,7 @@ log = logging.getLogger(__name__)
 service_username = "user+pass:$SERVICE$"
 service_password = "SERVICE"
 local_password = "LOCAL"
+AUTH_TEST_PROVIDER = 'unit_test'
 
 big_number = 9999999999
 
@@ -125,6 +124,7 @@ class DriftBaseTestCase(unittest.TestCase):
     player_id = None
     user_id = None
     player_name = None
+    auth_provider = AUTH_TEST_PROVIDER
 
     @staticmethod
     def mock(func):
@@ -229,7 +229,7 @@ class DriftBaseTestCase(unittest.TestCase):
         """
         username = username or "systest"
         payload = {
-            "provider": "unit_test",
+            "provider": self.auth_provider,
             "username": username,
             "password": local_password,
         }
@@ -246,13 +246,6 @@ class DriftBaseTestCase(unittest.TestCase):
         r = self.get("/")
         self.endpoints = r.json()["endpoints"]
 
-        # This will make sure that the authentication and session state is proper.
-        self.assertNotEqual(
-            self.endpoints['my_user'],
-            None,
-            "Just authenticated but 'my_user' endpoint is not set. JWT or session state logic perhaps broken."
-        )
-
     def auth_service(self):
         """
         Authenticate as a service user
@@ -260,7 +253,7 @@ class DriftBaseTestCase(unittest.TestCase):
         payload = {
             "username": service_username,
             "password": service_password,
-            "provider": "user+pass"
+            "provider": self.auth_provider,
         }
         resp = self.post("/auth", data=payload)
         token = resp.json()["token"]
@@ -292,23 +285,19 @@ class DriftBaseTestCase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        setup_tenant()
+        ts = setup_tenant()
         cls.host = "http://localhost"
         app = drift_app()
         cls.app = app.test_client()
 
-        # Note: If driftbase.auth.authenticate module has been imported, it means that
-        # the current app is drift-base and it has its proper auth handlers hooked up.
-        # If the current app is not drift-base, we need to provide a callback function that
-        # returns an identity.has not been imported.
-        # This is generally a bad way of injecting dependencies and will hopefully be cleaned
-        # up in the near future.
-        if drift.core.extensions.jwt.authenticate_with_provider is None:
-            drift.core.extensions.jwt.authenticate_with_provider = cls._authenticate_with_provider
+        # Add a 'unit_test' authentication provider
+        register_auth_provider(app, AUTH_TEST_PROVIDER, cls._authenticate_with_provider)
+
+        # HACK WARNING: drift-base implements its own authentication logic. If there is a
+        # provider called 'user+pass' we will use that instead of the unit test version.
+        if 'user+pass' in app.jwt_auth_providers:
+            cls.auth_provider = 'user+pass'
 
     @classmethod
     def tearDownClass(cls):
         remove_tenant()
-
-        if drift.core.extensions.jwt.authenticate_with_provider is cls._authenticate_with_provider:
-            drift.core.extensions.jwt.authenticate_with_provider = None
