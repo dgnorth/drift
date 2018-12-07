@@ -79,27 +79,18 @@ def drift_init_extension(app, api, **kwargs):
     })
 
     # If there is no 'secret_key' specified then session cookies are not supported.
-    app.config['SECRET_KEY'] = row.get('secret_key')
-    app.config['SESSION_COOKIE_NAME'] = 'drift-session'
+    if row and 'secret_key' in row:
+        app.config['SECRET_KEY'] = row['secret_key']
+        app.config['SESSION_COOKIE_NAME'] = 'drift-session'
 
-    # api.models[jwt_model.name] = jwt_model
     if not hasattr(app, "jwt_auth_providers"):
         app.jwt_auth_providers = {}
 
     # Always trust myself
     TRUSTED_ISSUERS.add(app.config['name'])
-    jwtsetup(app)
 
-
-def jwtsetup(app):
-    """
-    This function still used by unittests
-    """
-    # install authentication handler
-    @app.before_request
-    def before_request():
-        # Check for a valid JWT/JTI access token in the request header and populate current_user.
-        check_jwt_authorization()
+    # Install authorization check
+    app.before_request(check_jwt_authorization)
 
 
 def check_jwt_authorization():
@@ -118,7 +109,7 @@ def check_jwt_authorization():
         return
 
     token, auth_type = get_auth_token_and_type()
-    current_identity = verify_token(token, auth_type)
+    current_identity = verify_token(token, auth_type, g.conf)
     if auth_type == "JWT":
         # Cache this token for JTI identification
         cache_token(current_identity)
@@ -252,7 +243,7 @@ def _fix_legacy_auth(auth_info):
     return auth_info
 
 
-def _authenticate(auth_info):
+def _authenticate(auth_info, conf):
     """
     Authenticate
 
@@ -277,7 +268,7 @@ def _authenticate(auth_info):
         # Authenticate using a JWT. We validate the token,
         # and issue a new one based on that.
         token = provider_details['jwt']
-        payload = verify_token(token, "JWT")
+        payload = verify_token(token, "JWT", conf)
         # Issue a JWT with same payload as the one we got
         log.debug("Authenticating using a JWT: %s", payload)
         identity = payload
@@ -323,7 +314,7 @@ class AuthApi(MethodView):
     @bp.arguments(AuthRequestSchema)
     @bp.response(AuthSchema)
     def post(self, auth_info):
-        return _authenticate(auth_info)
+        return _authenticate(auth_info, g.conf)
 
 
 @bp.route('/login', endpoint='login')
