@@ -45,7 +45,6 @@ def enumerate_plugins(config):
 
     # Include explicitly referenced resource modules.
     resources = config.get("resources", [])
-    resources.insert(0, 'drift.core.resources.driftconfig')  # Hard dependency
 
     # Include all core extensions and those referenced in the config.
     pkgpath = os.path.dirname(drift.core.extensions.__file__)

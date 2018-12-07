@@ -10,6 +10,7 @@ from functools import wraps
 
 from six.moves import http_client
 
+from werkzeug.local import LocalProxy
 from flask import g, current_app
 from flask import _app_ctx_stack as stack
 from flask_rest_api import abort
@@ -64,7 +65,8 @@ class DriftConfig(object):
         return ts
 
     def before_request(self):
-        _assign_drift_config(allow_missing_tenant=True)
+        # Add a just-in-time getter for config
+        g.conf = LocalProxy(self.get_config)
 
     def after_request(self, response):
         # TODO: Move this logice elsewhere
@@ -76,16 +78,32 @@ class DriftConfig(object):
 
         return response
 
+    def get_config(self):
+        ctx = stack.top
+        if ctx is not None:
+            if not hasattr(ctx, 'driftconfig'):
+                ctx.driftconfig = get_config_for_request()
+            return ctx.driftconfig
 
-def _assign_drift_config(allow_missing_tenant):
-    """Helper to fetch and assign drift config to g.conf."""
-    g.conf = get_drift_config(
+
+
+def get_config_for_request():
+    conf = get_drift_config(
         ts=current_app.extensions['driftconfig'].table_store,
         tenant_name=tenant_from_hostname,
         tier_name=get_tier_name(),
         deployable_name=current_app.config['name'],
-        allow_missing_tenant=allow_missing_tenant,
+        allow_missing_tenant=True,
     )
+
+    if not conf.tenant_name and conf.deployable.get('jit_provision_tenants', True):
+        pass
+        # Make sure caller is allowed
+        ##from drift.core.extensions.jwt import check_jwt_authorization, current_user
+        ##check_jwt_authorization()
+        ##print("current user it alst leat", current_user)
+
+    return conf
 
 
 def check_tenant_state(tenant):
@@ -96,29 +114,6 @@ def check_tenant_state(tenant):
             description="Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
                 tenant['tenant_name'], tenant['tier_name'], tenant['deployable_name'], tenant['state'])
         )
-
-
-def check_tenant(f):
-    """Make sure current tenant is provided, provisioned and active."""
-    @wraps(f)
-    def _check(*args, **kwargs):
-        if not tenant_from_hostname:
-            abort(
-                http_client.BAD_REQUEST,
-                description="No tenant specified. Please specify one using host name prefix or "
-                "the environment variable DRIFT_DEFAULT_TENANT."
-            )
-
-        if g.conf.tenant is None:
-            # Note that this most surely bombs with relevant logging and error context.
-            try:
-                _assign_drift_config(allow_missing_tenant=False)
-            except TenantNotConfigured as e:
-                abort(http_client.BAD_REQUEST, description=str(e))
-
-        check_tenant_state(g.conf.tenant)
-        return f(*args, **kwargs)
-    return _check
 
 
 def drift_init_extension(app, **kwargs):

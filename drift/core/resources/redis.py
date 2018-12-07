@@ -5,15 +5,16 @@ import os
 import datetime
 import logging
 
-from six.moves import cPickle as pickle
-
-from flask import g
+from six.moves import cPickle as pickle, http_client
 import redis
+
+from flask import g, abort
+from flask import _app_ctx_stack as stack
 from redlock import RedLockFactory
 from werkzeug._compat import integer_types
+from werkzeug.local import LocalProxy
 
 from driftconfig.util import get_parameters
-
 
 log = logging.getLogger(__name__)
 
@@ -84,12 +85,26 @@ class RedisExtension(object):
         app.before_request(self.before_request)
 
     def before_request(self):
-        # TODO: See if g.conf can be assumed here!
-        if g.conf.tenant and g.conf.tenant.get("redis"):
-            redis_config = g.conf.tenant.get("redis")
-            g.redis = RedisCache(g.conf.tenant_name['tenant_name'], g.conf.deployable['deployable_name'], redis_config)
-        else:
-            g.redis = None
+        g.redis = LocalProxy(self.get_session)
+
+    def get_session(self):
+        ctx = stack.top
+        if ctx is not None:
+            if not hasattr(ctx, 'redis_session'):
+                ctx.redis_session = get_redis_session()
+            return ctx.redis_session
+
+
+def get_redis_session():
+    if g.conf.tenant and g.conf.tenant.get("redis"):
+        redis_config = g.conf.tenant.get("redis")
+        return RedisCache(
+            g.conf.tenant_name['tenant_name'],
+            g.conf.deployable['deployable_name'],
+            redis_config
+        )
+    else:
+        abort(http_client.BAD_REQUEST, "No Redis resource configured.")
 
 
 def drift_init_extension(app, **kwargs):

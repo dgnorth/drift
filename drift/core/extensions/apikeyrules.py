@@ -12,7 +12,7 @@ import re
 from six.moves import http_client
 from six.moves.urllib.parse import urlparse
 
-from flask import request, g, jsonify, make_response
+from flask import request, g, jsonify, make_response, current_app
 
 from driftconfig.relib import ConstraintError
 
@@ -23,11 +23,8 @@ log = logging.getLogger(__name__)
 def drift_init_extension(app, **kwargs):
     @app.before_request
     def check_api_key_rules():
-        # A note about availability of 'g.conf': The 'driftconfig' module makes this object
-        # available, and as it is a 'resource' module, it is guaranteed to be executed before
-        # any 'extension' module code.
-
-        rule = get_api_key_rule(request.headers, request.url, g.conf)
+        conf = current_app.extensions['driftconfig'].get_config()
+        rule = get_api_key_rule(request.headers, request.url, conf)
         if not rule:
             return
 

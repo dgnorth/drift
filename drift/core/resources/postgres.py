@@ -24,7 +24,6 @@ from flask import g, abort
 from flask import _app_ctx_stack as stack
 
 from drift.flaskfactory import load_flask_config
-from drift.core.resources.driftconfig import check_tenant
 
 import logging
 log = logging.getLogger(__name__)
@@ -202,7 +201,6 @@ class Postgres(object):
                 except Exception as e:
                     log.error("Could not close sqlalchemy session: %s", e)
 
-    @check_tenant
     def get_session(self):
         ctx = stack.top
         if ctx is not None:

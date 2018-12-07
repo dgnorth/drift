@@ -110,7 +110,8 @@ def check_jwt_authorization():
         return
 
     token, auth_type = get_auth_token_and_type()
-    current_identity = verify_token(token, auth_type, g.conf)
+    conf = current_app.extensions['driftconfig'].get_config()
+    current_identity = verify_token(token, auth_type, conf)
     if auth_type == "JWT":
         # Cache this token for JTI identification
         cache_token(current_identity)
@@ -335,6 +336,8 @@ class AuthApi(MethodView):
         session['jwt'] = "JWT " + ret['token']
         return redirect(url_for('root.root', _external=True))
 
+
+# TODO!!! Move these endpoints elsewhere. This module should only deal with the tokens themselves.
 
 @bp.route('/logout', endpoint='logout')
 class AuthApi(MethodView):
