@@ -320,7 +320,7 @@ class AuthApi(MethodView):
 
 
 @bp.route('/login', endpoint='login')
-class AuthApi(MethodView):
+class AuthLoginApi(MethodView):
     no_jwt_check = ['POST']
     @bp.arguments(AuthRequestSchema)
     def post(self, auth_info):
@@ -340,7 +340,7 @@ class AuthApi(MethodView):
 # TODO!!! Move these endpoints elsewhere. This module should only deal with the tokens themselves.
 
 @bp.route('/logout', endpoint='logout')
-class AuthApi(MethodView):
+class AuthLogoutApi(MethodView):
     no_jwt_check = ['POST']
     def post(self):
         # Remove the 'Authentication' token from the session if it's there
