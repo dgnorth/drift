@@ -22,6 +22,7 @@ from werkzeug.security import gen_salt
 
 from drift.utils import get_tier_name
 from drift.core.extensions.urlregistry import Endpoints
+from drift.core.extensions.tenancy import tenant_from_hostname
 
 
 JWT_VERIFY_CLAIMS = ['signature', 'exp', 'iat']
@@ -507,6 +508,10 @@ def verify_token(token, auth_type, conf):
         except jwt.InvalidTokenError as e:
             abort_unauthorized("Invalid token: %s" % str(e))
 
+        # TODO!!!! Move the stuff below somewhere else. This function should only be
+        # concerned about validating the token itself and not if the payload matches
+        # other authorization rules regarding tiers, tenants and such.
+
         # Verify tier
         if 'tier' not in payload:
             abort_unauthorized("Invalid JWT. Token must specify 'tier'.")
@@ -522,13 +527,13 @@ def verify_token(token, auth_type, conf):
             abort_unauthorized("Invalid JWT. Token must specify 'tenant'.")
 
         tenant = payload['tenant']
-        if not conf.tenant_name:
-            from driftconfig.util import TenantNotConfigured
-            raise TenantNotConfigured("Tenant not configured.")
-
-        if tenant != conf.tenant_name['tenant_name']:
+        if conf.tenant_name:
+            this_tenant = conf.tenant_name['tenant_name']
+        else:
+            this_tenant = tenant_from_hostname
+        if tenant != this_tenant:
             abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
-                               " is tenant '%s'" % (tenant, conf.tenant_name['tenant_name']))
+                " is tenant '%s'" % (tenant, this_tenant))
 
     return payload
 
