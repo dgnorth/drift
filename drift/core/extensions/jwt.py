@@ -330,7 +330,7 @@ class AuthApi(MethodView):
 
         is_secure = request.environ.get('wsgi.url_scheme') == 'https'
         current_app.config['SESSION_COOKIE_SECURE'] = is_secure
-        ret = _authenticate(auth_info)
+        ret = _authenticate(auth_info, g.conf)
         session['jwt'] = "JWT " + ret['token']
         return redirect(url_for('root.root', _external=True))
 
@@ -438,7 +438,7 @@ def get_auth_token_and_type():
     return parts[1], auth_type
 
 
-def verify_token(token, auth_type):
+def verify_token(token, auth_type, conf):
     """Verifies 'token' and returns its payload."""
     if auth_type == "JTI":
         payload = get_cached_token(token)
@@ -480,15 +480,15 @@ def verify_token(token, auth_type):
         public_key = None
 
         if issuer in TRUSTED_ISSUERS:
-            ts = g.conf.table_store
+            ts = conf.table_store
             public_keys = ts.get_table('public-keys')
             drift_base_key = public_keys.get(
-                {'tier_name': g.conf.tier['tier_name'], 'deployable_name': issuer})
+                {'tier_name': conf.tier['tier_name'], 'deployable_name': issuer})
             if drift_base_key:
                 public_key = drift_base_key['keys'][0]['public_key']
 
         if public_key is None:
-            trusted_issuers = g.conf.deployable.get('jwt_trusted_issuers', [])
+            trusted_issuers = conf.deployable.get('jwt_trusted_issuers', [])
             for trusted_issuer in trusted_issuers:
                 if trusted_issuer["iss"] == issuer:
                     public_key = trusted_issuer["pub_rsa"]
@@ -507,19 +507,28 @@ def verify_token(token, auth_type):
         except jwt.InvalidTokenError as e:
             abort_unauthorized("Invalid token: %s" % str(e))
 
-        # Verify tenant and tier
-        tenant, tier = payload.get('tenant'), payload.get('tier')
-        if not tenant or not tier:
-            abort_unauthorized("Invalid JWT. "
-                               "Token must specify both 'tenant' and 'tier'.")
-        if tenant != g.conf.tenant_name['tenant_name']:
-            abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
-                               " is tenant '%s'" % (tenant, g.conf.tenant_name['tenant_name']))
+        # Verify tier
+        if 'tier' not in payload:
+            abort_unauthorized("Invalid JWT. Token must specify 'tier'.")
 
-        cfg_tier_name = get_tier_name()
-        if tier != cfg_tier_name:
+        tier = payload['tier']
+        tier_name = get_tier_name()
+        if tier != tier_name:
             abort_unauthorized("Invalid JWT. Token is for tier '%s' but this"
-                               " is tier '%s'" % (tier, cfg_tier_name))
+                " is tier '%s'" % (tier, tier_name))
+
+        # Verify tenant
+        if 'tenant' not in payload:
+            abort_unauthorized("Invalid JWT. Token must specify 'tenant'.")
+
+        tenant = payload['tenant']
+        if not conf.tenant_name:
+            from driftconfig.util import TenantNotConfigured
+            raise TenantNotConfigured("Tenant not configured.")
+
+        if tenant != conf.tenant_name['tenant_name']:
+            abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
+                               " is tenant '%s'" % (tenant, conf.tenant_name['tenant_name']))
 
     return payload
 
