@@ -145,8 +145,8 @@ def install_modules(app, api):
 
         try:
             m = importlib.import_module(blueprint_name)
-        except ImportError as e:
-            pass
+        except ImportError:
+            log.exception("Can't import blueprint %s", blueprint_name)
         else:
             # This is a deprectated import mechanism
             warnings.warn(
