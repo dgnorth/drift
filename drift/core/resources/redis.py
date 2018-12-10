@@ -15,6 +15,8 @@ from werkzeug._compat import integer_types
 from werkzeug.local import LocalProxy
 
 from driftconfig.util import get_parameters
+from drift.core.extensions.driftconfig import check_tenant
+
 
 log = logging.getLogger(__name__)
 
@@ -94,7 +96,13 @@ class RedisExtension(object):
                 ctx.redis_session = get_redis_session()
             return ctx.redis_session
 
+    def get_session_if_available(self):
+        """Return redis session if it's already initialized."""
+        if stack.top:
+            return getattr(stack.top, 'redis_session', None)
 
+
+@check_tenant
 def get_redis_session():
     if g.conf.tenant and g.conf.tenant.get("redis"):
         redis_config = g.conf.tenant.get("redis")

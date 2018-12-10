@@ -24,6 +24,7 @@ from flask import g, abort
 from flask import _app_ctx_stack as stack
 
 from drift.flaskfactory import load_flask_config
+from drift.core.extensions.driftconfig import check_tenant
 
 import logging
 log = logging.getLogger(__name__)
@@ -226,6 +227,7 @@ def drift_init_extension(app, **kwargs):
     Postgres(app)
 
 
+@check_tenant
 def get_sqlalchemy_session(conn_string=None):
     """
     Return an SQLAlchemy session for the specified DB connection string

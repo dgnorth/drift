@@ -86,14 +86,13 @@ class DriftConfig(object):
             return ctx.driftconfig
 
 
-
-def get_config_for_request():
+def get_config_for_request(allow_missing_tenant=True):
     conf = get_drift_config(
         ts=current_app.extensions['driftconfig'].table_store,
         tenant_name=tenant_from_hostname,
         tier_name=get_tier_name(),
         deployable_name=current_app.config['name'],
-        allow_missing_tenant=True,
+        allow_missing_tenant=allow_missing_tenant,
     )
 
     if not conf.tenant_name and conf.deployable.get('jit_provision_tenants', True):
@@ -114,6 +113,32 @@ def check_tenant_state(tenant):
             description="Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
                 tenant['tenant_name'], tenant['tier_name'], tenant['deployable_name'], tenant['state'])
         )
+
+def check_tenant(f):
+    """Make sure current tenant is provided, provisioned and active."""
+    @wraps(f)
+    def _check(*args, **kwargs):
+        if not tenant_from_hostname:
+            abort(
+                http_client.BAD_REQUEST,
+                description="No tenant specified. Please specify one using host name prefix or "
+                "the environment variable DRIFT_DEFAULT_TENANT."
+            )
+
+        conf = current_app.extensions['driftconfig'].get_config()
+        if not conf.tenant:
+            # This will trigger a proper exception
+            try:
+                get_config_for_request(allow_missing_tenant=False)
+                raise RuntimeError("Should not reach this.")
+            except TenantNotConfigured as e:
+                abort(http_client.BAD_REQUEST, description=str(e))
+
+        check_tenant_state(g.conf.tenant)
+        return f(*args, **kwargs)
+
+    return _check
+
 
 
 def drift_init_extension(app, **kwargs):
