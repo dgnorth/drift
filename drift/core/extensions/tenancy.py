@@ -9,15 +9,19 @@ from __future__ import absolute_import
 import os
 import logging
 import socket
+import warnings
 
-from flask import request, _app_ctx_stack as stack
+from flask import request, _app_ctx_stack as stack, has_request_context, has_app_context
 from werkzeug.local import LocalProxy
 
 
 log = logging.getLogger(__name__)
 
 
-def get_tenant_from_hostname(*args, **kw):
+def get_tenant_name(*args, **kw):
+    if not has_app_context():
+        return _figure_out_tenant()
+
     ctx = stack.top
     if ctx is not None:
         if not hasattr(ctx, 'current_tenant'):
@@ -29,7 +33,7 @@ def get_tenant_from_hostname(*args, **kw):
         return os.environ.get('DRIFT_DEFAULT_TENANT')
 
 
-tenant_from_hostname = LocalProxy(get_tenant_from_hostname)
+tenant_name = LocalProxy(get_tenant_name)
 
 
 def _figure_out_tenant():
@@ -37,10 +41,13 @@ def _figure_out_tenant():
     Figure out the current tenant name. It's either set through an environment variable
     'DRIFT_DEFAULT_TENANT', or it's the left-most part of the host name.
     """
+    tenant_name = os.environ.get('DRIFT_DEFAULT_TENANT')
+
+    if not has_request_context():
+        return tenant_name
+
     if 'Drift-Tenant' in request.headers:
         return request.headers['Drift-tenant']
-
-    tenant_name = os.environ.get('DRIFT_DEFAULT_TENANT')
 
     # Figure out tenant. Normally the tenant name is embedded in the hostname.
     host = str(request.headers.get("Host"))
@@ -70,3 +77,14 @@ def _is_valid_ipv4_address(address):
         return False
 
     return True
+
+
+# Deprecated name as it's misleading
+def _get_tenant_from_hostname(*args, **kw):
+    warnings.warn(
+        "'tenant_from_hostname' has been renamed 'tenant_name'.",
+        DeprecationWarning
+    )
+    return get_tenant_name()
+
+tenant_from_hostname = LocalProxy(_get_tenant_from_hostname)
