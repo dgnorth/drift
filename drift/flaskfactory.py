@@ -49,8 +49,15 @@ def drift_app(app=None):
     api._register_error_handlers = err
     api.init_app(app)
 
+    t = time.time()
+
     with app.app_context():
         install_modules(app, api)
+
+    elapsed = time.time() - t
+    if elapsed > 0.750:
+        log.error("Module installation took %.3f seconds.", elapsed)
+
     # # quick fix to override exception handling by restplus
     # @api.errorhandler(HTTPException)
     # def deal_with_aborts(e):
@@ -121,7 +128,7 @@ def install_modules(app, api):
     plugins = enumerate_plugins(app.config)
     resources, extensions, apps = plugins['resources'], plugins['extensions'], plugins['apps']
 
-    log.info(
+    log.debug(
         "Installing extras:\nResources:\n\t%s\nExtensions:\n\t%s\nApps:\n\t%s",
         "\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps)
     )
@@ -158,9 +165,11 @@ def install_modules(app, api):
                 m.register_blueprints(app)
             except Exception:
                 log.exception("Couldn't register blueprints for module '%s'", module_name)
+
             elapsed = time.time() - t
-            if elapsed > 0.1:
-                log.warning(
+            if elapsed > 0.50:
+                log.log(
+                    'ERROR' if elapsed > 0.200 else 'WARNING',
                     "App module '%s' took %.3f seconds to initialize. (import time was %.3f).",
                     module_name, elapsed, import_time
                 )

@@ -5,10 +5,8 @@ import os
 import logging
 import random
 
-try:
-    import boto3
-except ImportError:
-    pass  # In most cases the registration method is not executed.
+# Note! boto3 is not imported here as this module is only used when configuring and provisioning
+# resources on AWS. There is a big performance impact in importing boto3.
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +27,8 @@ def register_resource_on_tier(ts, tier, attributes):
     # This resource requires AWS and can't run locally.
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         return
+
+    import boto3
 
     # Provision a free-for-all S3 bucket for this tier.
     # Example: dgnorth.DEVNORTH or dgnorth.MYTIER.837
@@ -66,6 +66,10 @@ def register_resource_on_tier(ts, tier, attributes):
                 CreateBucketConfiguration={'LocationConstraint': attributes['region']},
             )
 
+        def tag_resources(arns, tags, region_name=None):
+            tags_client = boto3.client('resourcegroupstaggingapi', region_name=region_name)
+            tags_client.tag_resources(ResourceARNList=arns, Tags=tags)
+
         tag_resources(['arn:aws:s3:::' + bucket_name], bucket_tags, attributes['region'])
         log.info("S3 bucket for tier created: %s", bucket_name)
         log.info("Response: %s", response)
@@ -88,6 +92,8 @@ def find_resources(recource_types, tags=None, region_name=None):
 
     Returns list of dict with 'arn' and 'tags'.
     """
+    import boto3
+
     ret = []
     tags_client = boto3.client('resourcegroupstaggingapi', region_name=region_name)
     paginator = tags_client.get_paginator('get_resources')
@@ -106,6 +112,3 @@ def find_resources(recource_types, tags=None, region_name=None):
     return ret
 
 
-def tag_resources(arns, tags, region_name=None):
-    tags_client = boto3.client('resourcegroupstaggingapi', region_name=region_name)
-    tags_client.tag_resources(ResourceARNList=arns, Tags=tags)

@@ -15,9 +15,6 @@ from click import echo
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 
-from alembic.config import Config
-from alembic import command
-
 from werkzeug.local import LocalProxy
 from sqlalchemy import create_engine
 from flask import g, abort
@@ -322,6 +319,11 @@ def db_check(params):
 
 
 def create_db(params, report=None):
+
+    # These imports have significant performance impact so that's why they are not at file scope.
+    from alembic.config import Config
+    from alembic import command
+
     t = time.time()  # Simple timing of CB creation.
     params = process_connection_values(params)
     db_name = params["database"]
