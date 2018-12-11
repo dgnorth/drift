@@ -4,13 +4,6 @@ Sentry integration
 import logging
 import os
 
-USE_RAVEN = True  # The sentry_sdk crashes in AWS Lambda
-
-if USE_RAVEN:
-    from raven.contrib.flask import Sentry
-else:
-    import sentry_sdk
-    from sentry_sdk.integrations.flask import FlaskIntegration
 
 from driftconfig.util import get_drift_config
 from drift.utils import get_tier_name
@@ -33,22 +26,31 @@ def _init_sentry(app):
         if dsn == TIER_DEFAULTS['dsn']:
             # Configuration value not set yet
             dsn = None
-    if dsn:
-        app.config['SENTRY_USER_ATTRS'] = [
-            'identity_id',
-            'user_id',
-            'user_name',
-            'roles',
-            'jti',
-            'player_id',
-            'player_name',
-            'client_id',
-        ]
-        if USE_RAVEN:
-            Sentry(app)
-        else:
-            sentry_sdk.init(dsn=dsn, integrations=[FlaskIntegration()])
-        return True
+
+    if not dsn:
+        return
+
+    app.config['SENTRY_USER_ATTRS'] = [
+        'identity_id',
+        'user_id',
+        'user_name',
+        'roles',
+        'jti',
+        'player_id',
+        'player_name',
+        'client_id',
+    ]
+
+    USE_RAVEN = True  # The sentry_sdk crashes in AWS Lambda
+
+    if USE_RAVEN:
+        from raven.contrib.flask import Sentry
+        Sentry(app)
+    else:
+        import sentry_sdk
+        from sentry_sdk.integrations.flask import FlaskIntegration
+        sentry_sdk.init(dsn=dsn, integrations=[FlaskIntegration()])
+    return True
 
 
 def drift_init_extension(app, **kwargs):

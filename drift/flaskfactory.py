@@ -6,14 +6,15 @@ import json
 import os.path
 import time
 import warnings
+import pkgutil
 
 from flask import Flask, make_response, current_app
 from flask.json import dumps as flask_json_dumps
-from flask_rest_api import Api, Blueprint
+from flask_rest_api import Api
 from werkzeug.contrib.fixers import ProxyFix
-from werkzeug.exceptions import HTTPException
 from drift.fixers import ReverseProxied, CustomJSONEncoder
-from drift.utils import enumerate_plugins, get_app_root
+from drift.utils import get_app_root
+import drift.core.extensions
 
 importlib.import_module(".restful", "drift")  # apply patching
 log = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ def drift_app(app=None):
     sys.path.insert(0, app_root)  # Make current app available
 
     api = create_api(app)
+
     # shitmixing this since flask-rest-api steals the 301-redirect exception
     def err(*args, **kwargs):
         pass
@@ -58,11 +60,6 @@ def drift_app(app=None):
     if elapsed > 0.750:
         log.error("Module installation took %.3f seconds.", elapsed)
 
-    # # quick fix to override exception handling by restplus
-    # @api.errorhandler(HTTPException)
-    # def deal_with_aborts(e):
-    #     from drift.core.extensions.apierrors import handle_all_exceptions
-    #     return handle_all_exceptions(e)
     return app
 
 
@@ -122,13 +119,40 @@ def load_flask_config(app_root=None):
     return config_values
 
 
+def enumerate_plugins(config):
+    """Returns a list of resource, extension and app module names for current deployable."""
+
+    # Include explicitly referenced resource modules.
+    resources = config.get("resources", [])
+
+    # Include all core extensions and those referenced in the config.
+    pkgpath = os.path.dirname(drift.core.extensions.__file__)
+    extensions = [
+        'drift.core.extensions.' + name
+        for _, name, _ in pkgutil.iter_modules([pkgpath])
+        if name not in ['test', 'tests'] and not name.startswith('test_')
+    ]
+    extensions += config.get("extensions", [])
+    extensions = sorted(list(set(extensions)))  # Remove duplicates
+
+    # Include explicitly referenced app modules
+    apps = config.get("apps", [])
+
+    return {
+        'resources': resources,
+        'extensions': extensions,
+        'apps': apps,
+        'all': resources + extensions + apps,
+    }
+
+
 def install_modules(app, api):
     """Install built-in and product specific apps and extensions."""
 
     plugins = enumerate_plugins(app.config)
     resources, extensions, apps = plugins['resources'], plugins['extensions'], plugins['apps']
 
-    log.debug(
+    log.info(
         "Installing extras:\nResources:\n\t%s\nExtensions:\n\t%s\nApps:\n\t%s",
         "\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps)
     )
@@ -139,9 +163,9 @@ def install_modules(app, api):
 
     # first, try new-style install of the plugins
     # The order of initialization matters, so we try both new and old style here.
-    resources = init_plugin_list(app, api, resources)
-    extensions = init_plugin_list(app, api, extensions)
-    apps = init_plugin_list(app, api, apps)
+    resources = init_plugin_list(app, api, resources, 'resources')
+    extensions = init_plugin_list(app, api, extensions, 'extensions')
+    apps = init_plugin_list(app, api, apps, 'apps')
 
     # then, continue with old-style init of different kinds of apps
     # backwards compatibility
@@ -175,7 +199,7 @@ def install_modules(app, api):
                 )
 
 
-def init_plugin_list(app, api, plugin_names):
+def init_plugin_list(app, api, plugin_names, category):
     """
     Walk through a list of plugins and initialize them new-style,
     returning a list of those plugins that weren't initialized
@@ -184,7 +208,7 @@ def init_plugin_list(app, api, plugin_names):
     for plugin in plugin_names:
         success = False
         try:
-            success = init_single_plugin(app, api, plugin)
+            success = init_single_plugin(app, api, plugin, category)
         except Exception as e:
             log.exception("Exception in init_single_plugin for %s: %s", plugin, e)
             raise
@@ -193,7 +217,7 @@ def init_plugin_list(app, api, plugin_names):
     return result
 
 
-def init_single_plugin(app, api, plugin_name):
+def init_single_plugin(app, api, plugin_name, category):
     """
     Import a single plugin and call its initialization function
     """
@@ -202,6 +226,7 @@ def init_single_plugin(app, api, plugin_name):
     module_name = plugin_name
     m = importlib.import_module(module_name)
     import_time = time.time() - t
+
     if hasattr(m, "drift_init_extension"):
         # the following takes a single 'app' argument and then a kwargs dict
         m.drift_init_extension(app, api=api)
@@ -210,7 +235,12 @@ def init_single_plugin(app, api, plugin_name):
         m.register_extension(app)
         init = True
     else:
-        log.debug("Extension module '%s' has no drift_init_extension() function.", module_name)
+        if category in ['apps', 'extensions']:
+            log.warning(
+                "%s module '%s' has no drift_init_extension() function.",
+                category.title(), module_name
+            )
+
     elapsed = time.time() - t
     if elapsed > 0.1:
         log.warning(

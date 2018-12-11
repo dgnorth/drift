@@ -6,7 +6,6 @@ from functools import wraps
 from socket import gethostname
 import uuid
 import json
-import pkgutil
 import six
 import textwrap
 
@@ -27,7 +26,6 @@ import flask_rest_api
 
 from driftconfig.util import get_drift_config
 
-import drift.core.extensions
 from drift.core.extensions.tenancy import tenant_from_hostname
 
 log = logging.getLogger(__name__)
@@ -38,32 +36,6 @@ host_name = gethostname()
 def get_app_root():
     """Returns absolute path to the current application root directory."""
     return os.path.expanduser(os.environ.get('DRIFT_APP_ROOT', os.path.abspath('.')))
-
-
-def enumerate_plugins(config):
-    """Returns a list of resource, extension and app module names for current deployable."""
-
-    # Include explicitly referenced resource modules.
-    resources = config.get("resources", [])
-
-    # Include all core extensions and those referenced in the config.
-    pkgpath = os.path.dirname(drift.core.extensions.__file__)
-    extensions = [
-        'drift.core.extensions.' + name
-        for _, name, _ in pkgutil.iter_modules([pkgpath])
-    ]
-    extensions += config.get("extensions", [])
-    extensions = sorted(list(set(extensions)))  # Remove duplicates
-
-    # Include explicitly referenced app modules
-    apps = config.get("apps", [])
-
-    return {
-        'resources': resources,
-        'extensions': extensions,
-        'apps': apps,
-        'all': resources + extensions + apps,
-    }
 
 
 def get_config(ts=None, tier_name=None, tenant_name=None):
