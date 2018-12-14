@@ -52,7 +52,7 @@ def _get_tenant_from_hostname(*args, **kw):
         "'tenant_from_hostname' has been renamed 'current_tenant_name'.",
         DeprecationWarning
     )
-    return get_tenant_name()
+    return _flask_get_tenant_name()
 
 tenant_from_hostname = LocalProxy(_get_tenant_from_hostname)
 # Flask specific block ends
