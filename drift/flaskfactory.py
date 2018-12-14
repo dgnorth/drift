@@ -20,6 +20,10 @@ importlib.import_module(".restful", "drift")  # apply patching
 log = logging.getLogger(__name__)
 
 
+APP_INIT_THRESHOLD = .250  # If app creation takes longer a warning is logged.
+MODULE_INIT_THRESHOLD = .050  # If module initialization takes longer a warning is logged.
+
+
 class AppRootNotFound(RuntimeError):
     """To enable CLI to filter on this particular case."""
     pass
@@ -57,8 +61,8 @@ def drift_app(app=None):
         install_modules(app, api)
 
     elapsed = time.time() - t
-    if elapsed > 0.750:
-        log.error("Module installation took %.3f seconds.", elapsed)
+    if elapsed > APP_INIT_THRESHOLD:
+        log.warning("Module installation took %.3f seconds.", elapsed)
 
     return app
 
@@ -161,15 +165,31 @@ def install_modules(app, api):
     #     ("\n\t".join(resources), "\n\t".join(extensions), "\n\t".join(apps))
     # )
 
+    performance = []
     # first, try new-style install of the plugins
     # The order of initialization matters, so we try both new and old style here.
-    resources = init_plugin_list(app, api, resources, 'resources')
-    extensions = init_plugin_list(app, api, extensions, 'extensions')
-    apps = init_plugin_list(app, api, apps, 'apps')
+    resources = init_plugin_list(app, api, resources, 'resources', performance)
+    extensions = init_plugin_list(app, api, extensions, 'extensions', performance)
+    apps = init_plugin_list(app, api, apps, 'apps', performance)
 
     # then, continue with old-style init of different kinds of apps
     # backwards compatibility
     for module_name in apps:
+        init_legacy_module(app, module_name, performance)
+
+    # Report import time if they are terrible
+
+    report = [
+        "\t{total_time:.3f} ({import_time:.3f})\t{module_name} [{category}]".format(**module)
+        for module in performance
+        if module['total_time'] > MODULE_INIT_THRESHOLD
+    ]
+
+    if report:
+        log.warning("Performance issues:\n%s" % '\n'.join(report))
+
+
+def init_legacy_module(app, module_name, performance):
         t = time.time()
         m = importlib.import_module(module_name)
         blueprint_name = "{}.blueprints".format(module_name)
@@ -190,16 +210,15 @@ def install_modules(app, api):
             except Exception:
                 log.exception("Couldn't register blueprints for module '%s'", module_name)
 
-            elapsed = time.time() - t
-            if elapsed > 0.50:
-                log.log(
-                    'ERROR' if elapsed > 0.200 else 'WARNING',
-                    "App module '%s' took %.3f seconds to initialize. (import time was %.3f).",
-                    module_name, elapsed, import_time
-                )
+            performance.append({
+                'category': 'legacy',
+                'module_name': module_name,
+                'total_time': time.time() - t,
+                'import_time': import_time,
+            })
 
 
-def init_plugin_list(app, api, plugin_names, category):
+def init_plugin_list(app, api, plugin_names, category, performance):
     """
     Walk through a list of plugins and initialize them new-style,
     returning a list of those plugins that weren't initialized
@@ -208,7 +227,7 @@ def init_plugin_list(app, api, plugin_names, category):
     for plugin in plugin_names:
         success = False
         try:
-            success = init_single_plugin(app, api, plugin, category)
+            success = init_single_plugin(app, api, plugin, category, performance)
         except Exception as e:
             log.exception("Exception in init_single_plugin for %s: %s", plugin, e)
             raise
@@ -217,13 +236,12 @@ def init_plugin_list(app, api, plugin_names, category):
     return result
 
 
-def init_single_plugin(app, api, plugin_name, category):
+def init_single_plugin(app, api, module_name, category, performance):
     """
     Import a single plugin and call its initialization function
     """
     init = False
     t = time.time()
-    module_name = plugin_name
     m = importlib.import_module(module_name)
     import_time = time.time() - t
 
@@ -241,12 +259,13 @@ def init_single_plugin(app, api, plugin_name, category):
                 category.title(), module_name
             )
 
-    elapsed = time.time() - t
-    if elapsed > 0.1:
-        log.warning(
-            "Extension module '%s' took %.3f seconds to initialize (import time was %.3f).",
-            module_name, elapsed, import_time
-        )
+    performance.append({
+        'category': category,
+        'module_name': module_name,
+        'total_time': time.time() - t,
+        'import_time': import_time,
+    })
+
     return init
 
 
