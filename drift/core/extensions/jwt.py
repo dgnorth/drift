@@ -11,7 +11,7 @@ import re
 import jwt
 from six.moves.http_client import UNAUTHORIZED
 
-from flask import current_app, request, _request_ctx_stack, g, session, url_for, redirect
+from flask import current_app, request, _request_ctx_stack, g, url_for, redirect, make_response
 from flask.views import MethodView
 from flask_rest_api import Blueprint, abort
 
@@ -22,7 +22,7 @@ from werkzeug.security import gen_salt
 
 from drift.utils import get_tier_name
 from drift.core.extensions.urlregistry import Endpoints
-from drift.core.extensions.tenancy import tenant_from_hostname
+from drift.core.extensions.tenancy import current_tenant_name, split_host
 
 
 JWT_VERIFY_CLAIMS = ['signature', 'exp', 'iat']
@@ -43,7 +43,7 @@ WHITELIST_ENDPOINTS = [
     r"^static$",  # the marshmalloc documentation endpoint
     ]
 
-
+SESSION_COOKIE_NAME = 'drift-session'
 
 # List of open endpoints, i.e. not requiring a valid JWT.
 # these are the view functions themselves
@@ -82,7 +82,7 @@ def drift_init_extension(app, api, **kwargs):
     # If there is no 'secret_key' specified then session cookies are not supported.
     if row and 'secret_key' in row:
         app.config['SECRET_KEY'] = row['secret_key']
-        app.config['SESSION_COOKIE_NAME'] = 'drift-session'
+        app.config['SESSION_COOKIE_NAME'] = SESSION_COOKIE_NAME
 
     if not hasattr(app, "jwt_auth_providers"):
         app.jwt_auth_providers = {}
@@ -105,8 +105,8 @@ def check_jwt_authorization():
 
     # In case the endpoint requires no authorization, and the request does not
     # carry any authorization info as well, we will not try to verify any JWT's
-    got_auth = 'Authorization' in request.headers or 'jwt' in session
-    if not got_auth and not requires_auth():
+    got_auth = 'Authorization' in request.headers or SESSION_COOKIE_NAME in request.cookies
+    if not requires_auth(got_auth):
         return
 
     token, auth_type = get_auth_token_and_type()
@@ -130,7 +130,7 @@ def query_current_user():
 current_user = LocalProxy(query_current_user)
 
 
-def requires_auth():
+def requires_auth(got_auth):
     """
     returns True if the current request requires authentication
     """
@@ -146,7 +146,7 @@ def requires_auth():
     # check for matched endpoints
     for expr in WHITELIST_ENDPOINTS:
         if re.search(expr, request.endpoint):
-            return False
+            return got_auth
 
     # skip apis that have been decorated
     fn = current_app.view_functions.get(request.endpoint)
@@ -154,11 +154,15 @@ def requires_auth():
         if hasattr(fn, "view_class"):
             exempt = getattr(fn.view_class, "no_jwt_check", [])
             if request.method in exempt:
-                return False
+                if getattr(fn.view_class, "no_auth_header_check", False):
+                    # Ignore authorization headers completely
+                    return False
+                else:
+                    return got_auth
         else:
             # plain view function, decorated with jwt_not_required()
             if fn in _open_endpoints:
-                return False
+                return got_auth
     return True
 
 
@@ -311,41 +315,58 @@ class AuthSchema(ma.Schema):
 
 @bp.route('', endpoint='authentication')
 class AuthApi(MethodView):
+    no_auth_header_check = True
     no_jwt_check = ['GET', 'POST']
 
     @bp.arguments(AuthRequestSchema)
     @bp.response(AuthSchema)
     def post(self, auth_info):
-        return _authenticate(auth_info, g.conf)
+        auth_info = _authenticate(auth_info, g.conf)
+        return {
+            'token': auth_info['token'],
+            'jti': auth_info['payload']['jti'],
+        }
 
 
 @bp.route('/login', endpoint='login')
 class AuthLoginApi(MethodView):
+    no_auth_header_check = True
     no_jwt_check = ['POST']
+
     @bp.arguments(AuthRequestSchema)
     def post(self, auth_info):
-        # store the authentication token in the session cooke as well for
-        # web-based convenience
-        if not current_app.config.get('SECRET_KEY'):
-            log.error("No SECRET_KEY set, can't store session token!")
-            abort_unauthorized("Login sessions not supported.")
-
         is_secure = request.environ.get('wsgi.url_scheme') == 'https'
-        current_app.config['SESSION_COOKIE_SECURE'] = is_secure
-        ret = _authenticate(auth_info, g.conf)
-        session['jwt'] = "JWT " + ret['token']
-        return redirect(url_for('root.root', _external=True))
+        auth_info = _authenticate(auth_info, g.conf)
+        host_parts = split_host(request.headers['Host'])
+
+        # If the token is valid for any tenant the cookie must be set for cross domain.
+        if auth_info['payload'].get('tenant') == '*' and host_parts['domain_name']:
+            domain = '.' + host_parts['domain_name']
+        else:
+            domain = None
+
+        response = make_response(redirect(url_for('root.root', _external=True)))
+        response.set_cookie(
+            SESSION_COOKIE_NAME,
+            'JWT ' + auth_info['token'],
+            expires=auth_info['payload']['exp'],
+            domain=domain,
+            secure=is_secure,
+        )
+
+        return response
 
 
-# TODO!!! Move these endpoints elsewhere. This module should only deal with the tokens themselves.
-
+# TODO!!! Move these endpoints elsewhere.
 @bp.route('/logout', endpoint='logout')
 class AuthLogoutApi(MethodView):
+    no_auth_header_check = True
     no_jwt_check = ['POST']
+
     def post(self):
-        # Remove the 'Authentication' token from the session if it's there
-        session.pop('jwt', None)
-        return redirect(url_for('root.root', _external=True))
+        response = make_response(redirect(url_for('root.root', _external=True)))
+        response.set_cookie(SESSION_COOKIE_NAME, '', expires=-1)
+        return response
 
 
 def authenticate_with_provider(auth_info):
@@ -369,8 +390,8 @@ def issue_token(payload, expire=None):
     The token is cached in Redis using token key 'jti', if caching is available
     'payload' contains the custom fields to add to the tokens payload.
 
-    The function returns a dict with the fields 'jwt' and 'jti' which contain
-    the token and token id respectively.
+    The function returns a dict with the fields 'token' and 'payload' which contain
+    the token and the payload embedded in the token.
 
     Note: This function must be called within a request context.
     """
@@ -397,15 +418,15 @@ def issue_token(payload, expire=None):
     log.debug("Issuing a new token: %s.", payload)
     ret = {
         'token': access_token.decode('utf-8'),
-        'jti': payload.get('jti'),
+        'payload': payload,
     }
     return ret
 
 
 def get_auth_token_and_type():
     auth_types_supported = ["JWT", "JTI"]
-    # support Authorization in the session
-    auth_header_value = session.get('jwt')
+    # support Authorization in session cookie
+    auth_header_value = request.cookies.get(SESSION_COOKIE_NAME)
     # override with request header if present
     auth_header_value = request.headers.get('Authorization', auth_header_value)
     if not auth_header_value:
@@ -533,7 +554,7 @@ def verify_token(token, auth_type, conf):
         if conf.tenant_name:
             this_tenant = conf.tenant_name['tenant_name']
         else:
-            this_tenant = tenant_from_hostname
+            this_tenant = current_tenant_name
         if tenant != this_tenant:
             abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
                 " is tenant '%s'" % (tenant, this_tenant))
