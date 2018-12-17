@@ -48,10 +48,11 @@ current_tenant_name = LocalProxy(_flask_get_tenant_name)
 
 # Deprecated name as it's a bit misleading.
 def _get_tenant_from_hostname(*args, **kw):
-    warnings.warn(
-        "'tenant_from_hostname' has been renamed 'current_tenant_name'.",
-        DeprecationWarning
-    )
+    # warnings.warn(
+    #     "'tenant_from_hostname' has been renamed 'current_tenant_name'.",
+    #     DeprecationWarning,
+    #     stacklevel=2
+    # )
     return _flask_get_tenant_name()
 
 tenant_from_hostname = LocalProxy(_get_tenant_from_hostname)
