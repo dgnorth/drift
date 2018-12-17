@@ -365,7 +365,12 @@ class AuthLoginApi(MethodView):
 @bp.route('/logout', endpoint='logout')
 class AuthLogoutApi(MethodView):
     no_auth_header_check = True
-    no_jwt_check = ['POST']
+    no_jwt_check = ['GET', 'POST']
+
+    def get(self):
+        response = make_response(redirect(url_for('root.root', _external=True)))
+        response.set_cookie(SESSION_COOKIE_NAME, '', expires=-1)
+        return response
 
     def post(self):
         response = make_response(redirect(url_for('root.root', _external=True)))
