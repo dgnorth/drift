@@ -56,9 +56,16 @@ def run_migrations():
             secho("\n\tConnecting {server}:{port}/{database}...".format(**pginfo), nl=False)
 
             engine = connect(pginfo, connect_timeout=3.0)
-            connection = engine.connect()
-            transaction = connection.begin()
+            try:
+                connection = engine.connect()
+            except Exception as e:
+                if 'timeout expired' in str(e):
+                    secho("ERROR: {}".format(e), fg='red')
+                    continue
+                else:
+                    raise
 
+            transaction = connection.begin()
             secho("OK", fg="green")
             secho("\tRunning migration...", nl=False)
             context.configure(
@@ -68,7 +75,6 @@ def run_migrations():
                 target_metadata=Base.metadata,
             )
             context.run_migrations()
-
             transaction.commit()
             connection.close()
             secho("OK", fg="green")
