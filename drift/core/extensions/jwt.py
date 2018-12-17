@@ -302,6 +302,8 @@ def _authenticate(auth_info, conf):
 
 
 class AuthRequestSchema(ma.Schema):
+    class Meta:
+        strict = True
     provider = ma.fields.Str(description="Provider name")
     provider_details = ma.fields.Dict(description="Provider specific details")
     username = ma.fields.Str(description="Legacy username")
@@ -309,6 +311,8 @@ class AuthRequestSchema(ma.Schema):
 
 
 class AuthSchema(ma.Schema):
+    class Meta:
+        strict = True
     token = ma.fields.String(description="Token")
     jti = ma.fields.String(description="Token id")
 
