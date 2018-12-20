@@ -74,7 +74,7 @@ def split_host(host):
 
     if ':' in host:
         ret['host'], ret['port'] = host.split(':', 1)
-    if '.' in host and not _is_valid_ipv4_address(host):
+    if '.' in ret['host'] and not _is_valid_ipv4_address(ret['host']):
         ret['tenant'], ret['domain'] = host.split('.', 1)
 
     return ret
