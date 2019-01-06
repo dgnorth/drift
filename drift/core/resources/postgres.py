@@ -18,7 +18,7 @@ from sqlalchemy.pool import NullPool
 from werkzeug.local import LocalProxy
 from sqlalchemy import create_engine
 from flask import g, abort
-from flask import _app_ctx_stack as stack
+from flask import _app_ctx_stack as stack, current_app
 
 from drift.flaskfactory import load_flask_config
 from drift.core.extensions.driftconfig import check_tenant
@@ -39,6 +39,8 @@ TIER_DEFAULTS = {
 
 
 HAS_LOCAL_SERVER_MODE = True  # Supports DRIFT_USE_LOCAL_SERVERS flag.
+
+USE_FLASCHEMY = False  # Experimental until proven otherwise
 
 
 def register_deployable(ts, deployablename, attributes):
@@ -223,6 +225,11 @@ class Postgres(object):
 def drift_init_extension(app, **kwargs):
     Postgres(app)
 
+    if app.config.get('USE_FLASCHEMY', False) or os.environ.get('USE_FLASCHEMY') == '1':
+        from flask_sqlalchemy import SQLAlchemy
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'  # Just to quiet down a warning
+        SQLAlchemy(app)
+
 
 @check_tenant
 def get_sqlalchemy_session(conn_string=None):
@@ -235,6 +242,13 @@ def get_sqlalchemy_session(conn_string=None):
 
         ci = g.conf.tenant.get('postgres')
         conn_string = format_connection_string(ci)
+
+    if current_app.config.get('USE_FLASCHEMY', False) or os.environ.get('USE_FLASCHEMY') == '1':
+        # Flaschemy injection
+        # Populate binds just-in-time. The middleware takes care of rest
+        current_app.config['SQLALCHEMY_BINDS'] = {g.conf.tenant['tenant_name']: conn_string}
+        engine = current_app.extensions['sqlalchemy'].db.get_engine(bind=g.conf.tenant['tenant_name'])
+        return current_app.extensions['sqlalchemy'].db.create_scoped_session(options={'bind': engine})
 
     log.debug("Creating sqlalchemy session with connection string '%s'", conn_string)
     connect_args = {
