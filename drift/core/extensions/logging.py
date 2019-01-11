@@ -333,7 +333,10 @@ class StreamFormatter(logging.Formatter):
 
 
 def logsetup(app):
-    return  # Temporarily disabling all this stuff
+
+    # Special case for AWS Lambda. We skip all logging setup when running as Lambda.
+    if 'AWS_EXECUTION_ENV' in os.environ:
+        return
 
     global _setup_done
     if _setup_done:
