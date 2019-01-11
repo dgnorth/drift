@@ -227,12 +227,12 @@ def drift_init_extension(app, **kwargs):
 
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'  # Just to quiet down a warning
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False  # https://tinyurl.com/SQLALCHEMY-TRACK-MODIFICATIONS
-    app.config['SQLALCHEMY_DATABASE_OPTIONS'] = {
+    app.config.setdefault('SQLALCHEMY_DATABASE_OPTIONS', {}).update({
         'connect_args': {
             'connect_timeout': 10,
             'application_name': Postgres.get_application_name(),
         }
-    }
+    })
     SQLAlchemy(app)
 
 
