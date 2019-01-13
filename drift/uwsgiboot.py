@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import logging
+logging.basicConfig(level='INFO')
 
 try:
     import ddtrace
@@ -9,5 +10,4 @@ except ImportError:
 
 from .flaskfactory import drift_app
 
-logging.basicConfig(level='INFO')
 app = drift_app()
