@@ -147,7 +147,7 @@ class InfoPageAPI(MethodView):
                 # usually means there is no deployment manifest, and no-one should care.
                 pass
             else:
-                log.info("No deployment manifest found at %s", path)
+                log.debug("No deployment manifest found at %s", path)
         else:
             try:
                 ret["deployment"] = json.load(open(path))
