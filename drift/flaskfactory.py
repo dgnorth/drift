@@ -30,6 +30,13 @@ class AppRootNotFound(RuntimeError):
 
 
 def drift_app(app=None):
+    try:
+        return _drift_app(app=app)
+    except Exception:
+        log.exception("Flask app creation failed.")
+
+
+def _drift_app(app=None):
     """Flask factory for Drift based apps."""
 
     app_root = get_app_root()
