@@ -5,7 +5,7 @@ Log level is set to 'INFO'.
 import logging
 import ddtrace
 
-from .flaskfactory import drift_app
+from drift.flaskfactory import drift_app
 
 logging.basicConfig(level='INFO')
 ddtrace.patch_all()

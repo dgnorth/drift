@@ -6,7 +6,7 @@ overridden using environment variable 'LOGLEVEL' and 'DRIFT_DEFAULT_TENANT' resp
 import logging
 import os
 
-from .flaskfactory import drift_app
+from drift.flaskfactory import drift_app
 
 log_level = os.environ.get('LOGLEVEL', 'WARNING').upper()
 logging.basicConfig(level=log_level)
