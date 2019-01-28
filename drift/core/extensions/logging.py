@@ -100,7 +100,7 @@ def get_log_details():
     jwt_context = {}
     try:
         fields = set(["user_id", "player_id", "roles", "jti", "user_name", "player_name", "client_id", "identity_id"])
-        for k, v in current_user.iteritems():
+        for k, v in current_user.items():
             if k in fields:
                 key = "{}".format(k)
                 jwt_context[key] = v
@@ -291,7 +291,7 @@ class RequestLogFormatter(JSONFormatter):
         try:
             if request.json:
                 request_body = {key: format_request_body(key, value)
-                                for key, value in request.json.iteritems()}
+                                for key, value in request.json.items()}
             else:
                 request_body = request.data
         except Exception:
