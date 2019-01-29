@@ -71,6 +71,8 @@ if [ -d ${approot}/aws/systemd ]; then
     fi
 fi
 
+mkdir -p /var/log/drift
+chown syslog:adm /var/log/drift
 mkdir -p /var/log/uwsgi
 chown syslog:adm /var/log/uwsgi
 mkdir -p /var/log/celery
