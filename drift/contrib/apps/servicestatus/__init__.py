@@ -39,17 +39,8 @@ class ServiceStatusSchema(ma.Schema):
     wsgi_env = ma.fields.Dict(description="WSGI Environment")
 
 
-# Fix soon:
-import apispec
-APISPEC_VERSION_MAJOR = int(apispec.__version__.split('.')[0])
-
-
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
-    if APISPEC_VERSION_MAJOR < 1:
-        api.spec.definition('ServiceStatus', schema=ServiceStatusSchema)
-    else:
-        api.spec.components.schema('ServiceStatus', schema=ServiceStatusSchema)
 
 
 @bp.route('', endpoint='root')

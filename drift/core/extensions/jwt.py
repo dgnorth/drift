@@ -54,19 +54,8 @@ bp = Blueprint('auth', 'Authentication', url_prefix='/auth', description='Authen
 endpoints = Endpoints()
 
 
-# Fix soon:
-import apispec
-APISPEC_VERSION_MAJOR = int(apispec.__version__.split('.')[0])
-
-
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
-    if APISPEC_VERSION_MAJOR < 1:
-        api.spec.definition('AuthRequest', schema=AuthRequestSchema)
-        api.spec.definition('Auth', schema=AuthSchema)
-    else:
-        api.spec.components.schema('AuthRequest', schema=AuthRequestSchema)
-        api.spec.components.schema('Auth', schema=AuthSchema)
 
     # Flask Secret must be set for cookies and other secret things
     # HACK WARNING: It is weirdly difficult to get a drift config at this point.

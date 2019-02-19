@@ -20,17 +20,8 @@ class HealthCheckSchema(ma.Schema):
     result = ma.fields.Str(description="Is the service healthy")
 
 
-# Fix soon:
-import apispec
-APISPEC_VERSION_MAJOR = int(apispec.__version__.split('.')[0])
-
-
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
-    if APISPEC_VERSION_MAJOR < 1:
-        api.spec.definition('HealthCheck', schema=HealthCheckSchema)
-    else:
-        api.spec.components.schema('HealthCheck', schema=HealthCheckSchema)
 
 
 @bp.route('', endpoint='health')

@@ -60,7 +60,6 @@ def _drift_app(app=None):
         pass
 
     api._register_error_handlers = err
-    api.init_app(app)
 
     t = time.time()
 
@@ -99,7 +98,8 @@ def create_api(app):
         resp.headers.extend(headers or {})
         return resp
     #  spec_kwargs={'basePath': '/v1', 'host': 'example.com'}
-    api = Api()
+    app.config['OPENAPI_VERSION'] = '3.0.2'
+    api = Api(app)
     #api.representations['application/json'] = output_json
     return api
 
