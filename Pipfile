@@ -10,6 +10,6 @@ driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'deve
 [packages]
 
 [requires]
-python_version = "3.6"
+python_version = "3"
 
 
