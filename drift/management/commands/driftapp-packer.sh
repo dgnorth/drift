@@ -48,7 +48,7 @@ echo "----------------- Create virtualenv and install dependencies -------------
 cd ${approot}
 if [ -z "${SKIP_PIP}" ]; then
     echo "Running pipenv install"
-    pipenv install --deploy --verbose
+    pipenv install --deploy
 fi
 
 export VIRTUALENV=`pipenv --venv`
