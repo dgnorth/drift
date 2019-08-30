@@ -615,6 +615,8 @@ export AWS_REGION={aws_region}
         echo("--preview specified, exiting now before actually doing anything.")
         sys.exit(0)
 
+    user_data = user_data.replace('\r\n', '\n')
+
     if autoscaling:
         client = boto3.client('autoscaling', region_name=aws_region)
         launch_config_name = '{}-{}-launchconfig-{}-{}'.format(tier_name, name, datetime.utcnow(), release)
