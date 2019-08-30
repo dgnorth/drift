@@ -41,6 +41,7 @@ def _drift_app(app=None):
 
     app_root = get_app_root()
     app = app or Flask('drift', instance_path=app_root, root_path=app_root)
+    app.url_map.strict_slashes = False
 
     log.info("Init app.instance_path: %s", app.instance_path)
     log.info("Init app.static_folder: %s", app.static_folder)
