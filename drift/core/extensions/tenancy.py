@@ -18,6 +18,10 @@ from werkzeug.local import LocalProxy
 log = logging.getLogger(__name__)
 
 
+def drift_init_extension(app, **kwargs):
+    pass
+
+
 def get_tenant_name(request_headers=None):
     """Figure out tenant name in the following order:
     1. Tenant name explicitly specified in request header under the key 'Drift-Header'.
