@@ -46,7 +46,8 @@ def make_celery(app):
         raise RuntimeError("No tier config found for '%s'" % tier_name)
     resources = tier_config['resources']
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-        broker_url = "redis://localhost:6379/15"
+        hostname = os.environ.get('DRIFT_CELERY_HOST', 'localhost')
+        broker_url = "redis://{}:6379/15".format(hostname)
     else:
         # HACK: Just use the tier default value instead of "celery_broker_url".
         # broker_url = tier_config["celery_broker_url"]

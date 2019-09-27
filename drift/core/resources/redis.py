@@ -55,7 +55,7 @@ def provision_resource(ts, tenant_config, attributes):
     report = []
     attributes = attributes.copy()  # Make a copy so we won't modify the actual drift config db.
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-        attributes['host'] = 'localhost'
+        attributes['host'] = os.environ.get('DRIFT_REDIS_HOST', 'localhost')
 
     # Reset Redis cache when initializing or uninitializing.
     if tenant_config['state'] in ['initializing', 'uninitializing']:
@@ -141,7 +141,7 @@ class RedisCache(object):
 
         # Override Redis hostname if needed
         if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-            self.host = 'localhost'
+            self.host = os.environ.get('DRIFT_REDIS_HOST', 'localhost')
 
         self.conn = redis.StrictRedis(
             host=self.host,
@@ -260,7 +260,7 @@ class RedisCache(object):
 def provision(config, args, recreate=None):
     params = get_parameters(config, args, TIER_DEFAULTS.keys(), "redis")
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-        params['host'] = 'localhost'
+        params['host'] = os.environ.get('DRIFT_REDIS_HOST', 'localhost')
     config.tenant["redis"] = params
 
     if recreate == 'recreate':
