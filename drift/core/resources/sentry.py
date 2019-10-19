@@ -2,12 +2,16 @@
 Sentry integration
 """
 import logging
-import os
+import os, sys
 
-
+from flask import current_app, g
 from driftconfig.util import get_drift_config
 from drift.utils import get_tier_name
-
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
 
 log = logging.getLogger(__name__)
 
@@ -40,17 +44,48 @@ def _init_sentry(app):
         'player_name',
         'client_id',
     ]
-
-    USE_RAVEN = True  # The sentry_sdk crashes in AWS Lambda
-
-    if USE_RAVEN:
-        from raven.contrib.flask import Sentry
-        Sentry(app)
-    else:
-        import sentry_sdk
-        from sentry_sdk.integrations.flask import FlaskIntegration
-        sentry_sdk.init(dsn=dsn, integrations=[FlaskIntegration()])
+    sentry_sdk.init(
+        dsn=app.config['SENTRY_DSN'],
+        integrations=[
+            SqlalchemyIntegration(),
+            FlaskIntegration(),
+            RedisIntegration(),
+            LoggingIntegration(event_level=None, level=None),
+        ],
+        environment=app.config.get('ENVIRONMENT_NAME') or 'N/A',
+        release="{}@{}".format(app.config['APP_NAME'], app.config['VERSION']),
+    )
     return True
+
+
+def log_sentry(msg, *args, **kwargs):
+    """Write a custom 'error' log event to sentry. Behaves like normal loggers
+    Batches messages that have the same signature. Please use '"hello %s", "world"', not '"hello %s" % "world"'
+    Example usage: log_sentry("Hello %s", "world", extra={"something": "else"})
+    """
+    try:
+        # also log out an error for good measure
+        log.error(msg, *args)
+        if not current_app:
+            return
+
+        extra = kwargs.get('extra', {})
+        if getattr(g, 'log_defaults', None):
+            extra.update(g.log_defaults)
+        # get info on the caller
+        f_code = sys._getframe().f_back.f_code
+        extra['method'] = f_code.co_name
+        extra['line'] = f_code.co_firstlineno
+        extra['file'] = f_code.co_filename
+
+        with sentry_sdk.push_scope() as scope:
+            for k, v in extra.items():
+                scope.set_extra(k, v)
+            scope.level = 'warning'
+            sentry_sdk.capture_message(msg % args)
+
+    except Exception as e:
+        log.exception(e)
 
 
 def drift_init_extension(app, **kwargs):

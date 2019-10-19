@@ -44,10 +44,12 @@ setup(
         'redlock',
         'cryptography',
         'PyJWT',
+        'logstash_formatter',
 
-        #'sentry-sdk',  The sentry_sdk crashes in AWS Lambda
+        'sentry-sdk[flask]',
         #'blinker',
         'raven[flask]',
+        'logstash_formatter',
     ],
 
     extras_require={
