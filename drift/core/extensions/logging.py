@@ -11,14 +11,13 @@ import logging
 import logging.config
 import json
 import datetime
-import sys
+import sys, os
 import uuid
 from collections import OrderedDict
 from logstash_formatter import LogstashFormatterV1
 
 from urllib.parse import urlsplit
 from flask import g, request
-import sentry_sdk
 
 from drift.core.extensions.jwt import current_user
 from drift.utils import get_tier_name
@@ -120,16 +119,22 @@ def logsetup(app):
     if _setup_done:
         return
     _setup_done = True
+    app.log_formatter = None
 
-    # configure logging
-    handler = logging.StreamHandler(stream=sys.stdout)
-    formatter = LogstashFormatterV1()
-    handler.setFormatter(formatter)
-    logging.basicConfig(handlers=[handler], level=logging.INFO)
-    if 'logging' in app.config:
-        logging.config.dictConfig(app.config['logging'])
+    output_format = os.environ.get("DRIFT_OUTPUT", "json").lower()
+    log_level = os.environ.get('LOGLEVEL', 'INFO').upper()
+    if output_format == 'text':
+        logging.basicConfig(level=log_level)
+    else:
 
-    app.log_formatter = formatter
+        handler = logging.StreamHandler(stream=sys.stdout)
+        formatter = LogstashFormatterV1()
+        handler.setFormatter(formatter)
+        logging.basicConfig(handlers=[handler], level=log_level)
+        if 'logging' in app.config:
+            logging.config.dictConfig(app.config['logging'])
+
+        app.log_formatter = formatter
 
     @app.before_request
     def _setup_logging():
@@ -212,12 +217,8 @@ def setup_logging(app):
     request.request_id = request_id
 
     g.log_defaults = get_log_defaults()
-
-    app.log_formatter.defaults = g.log_defaults
-
-    with sentry_sdk.configure_scope() as scope:
-        scope.set_tag('request_id', request_id)
-        scope.user = get_user_context()
+    if app.log_formatter:
+        app.log_formatter.defaults = g.log_defaults
 
 
 def drift_init_extension(app, **kwargs):

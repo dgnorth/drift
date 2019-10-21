@@ -22,8 +22,9 @@ TIER_DEFAULTS = {"dsn": "<PLEASE FILL IN>"}
 # Initialize Sentry at file scope to catch'em all.
 def _init_sentry(app):
     dsn = os.environ.get('SENTRY_DSN')
+    tier_name = get_tier_name()
     if not dsn:
-        tier = get_drift_config(tier_name=get_tier_name()).tier
+        tier = get_drift_config(tier_name=tier_name).tier
         if tier and 'drift.core.resources.sentry' in tier['resources']:
             sentry_config = tier['resources']['drift.core.resources.sentry']
             dsn = sentry_config.get('dsn')
@@ -34,25 +35,15 @@ def _init_sentry(app):
     if not dsn:
         return
 
-    app.config['SENTRY_USER_ATTRS'] = [
-        'identity_id',
-        'user_id',
-        'user_name',
-        'roles',
-        'jti',
-        'player_id',
-        'player_name',
-        'client_id',
-    ]
     sentry_sdk.init(
-        dsn=app.config['SENTRY_DSN'],
+        dsn=dsn,
         integrations=[
             SqlalchemyIntegration(),
             FlaskIntegration(),
             RedisIntegration(),
             LoggingIntegration(event_level=None, level=None),
         ],
-        environment=app.config.get('ENVIRONMENT_NAME') or 'N/A',
+        environment=tier_name,
         release="{}@{}".format(app.config['APP_NAME'], app.config['VERSION']),
     )
     return True

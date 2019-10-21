@@ -8,11 +8,7 @@ import os
 
 from drift.flaskfactory import drift_app
 
-if os.environ.get("SIMPLELOGGING"):
-    log_level = os.environ.get('LOGLEVEL', 'WARNING').upper()
-    logging.basicConfig(level=log_level)
-    print("Log level set at {}. Use environment variable 'LOGLEVEL' to set log level.".format(log_level))
-
+os.environ.setdefault("DRIFT_OUTPUT", "text")
 
 # Default tenant for devapp is 'developer'
 tenant_name = os.environ.setdefault('DRIFT_DEFAULT_TENANT', 'developer')
