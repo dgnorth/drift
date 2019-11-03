@@ -44,7 +44,6 @@ def _init_sentry(app):
             LoggingIntegration(event_level=None, level=None),
         ],
         environment=tier_name,
-        release="{}@{}".format(app.config['APP_NAME'], app.config['VERSION']),
     )
     return True
 
