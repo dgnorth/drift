@@ -32,7 +32,8 @@ def get_stream_handler():
     """returns a stream handler with standard formatting for use in local development"""
     stream_handler = logging.StreamHandler()
     stream_formatter = logging.Formatter(
-        fmt='%(asctime)s %(levelname)-8s %(name)-15s %(message)s')
+        fmt="%(asctime)s %(levelname)-8s %(name)-15s %(message)s"
+    )
     stream_handler.setFormatter(stream_formatter)
     return stream_handler
 
@@ -41,6 +42,7 @@ def get_caller():
     """returns a nice string representing caller for logs
     Note: This is heavy"""
     import inspect
+
     curframe = inspect.currentframe()
     calframe = inspect.getouterframes(curframe, 2)
     caller = "{} ({}#{})".format(calframe[2][3], calframe[2][1], calframe[2][2])
@@ -84,8 +86,10 @@ def get_log_details():
         pass
 
     try:
-        if hasattr(g, 'conf'):
-            tenant_name = g.conf.tenant_name['tenant_name'] if g.conf.tenant_name else '(none)'
+        if hasattr(g, "conf"):
+            tenant_name = (
+                g.conf.tenant_name["tenant_name"] if g.conf.tenant_name else "(none)"
+            )
     except RuntimeError as e:
         if "Working outside of application context" in repr(e):
             pass
@@ -99,7 +103,18 @@ def get_log_details():
     details["logger"] = log_context
     jwt_context = {}
     try:
-        fields = set(["user_id", "player_id", "roles", "jti", "user_name", "player_name", "client_id", "identity_id"])
+        fields = set(
+            [
+                "user_id",
+                "player_id",
+                "roles",
+                "jti",
+                "user_name",
+                "player_name",
+                "client_id",
+                "identity_id",
+            ]
+        )
         for k, v in current_user.items():
             if k in fields:
                 key = "{}".format(k)
@@ -121,52 +136,40 @@ def get_log_details():
 
 
 # Custom log record
-class DriftLogRecord(logging.LogRecord):
-    def __init__(self, name, level, fn, lno, msg, args, exc_info, func=None, extra=None, sinfo=None):
-        if six.PY3:
-            super(DriftLogRecord, self).__init__(name, level, fn, lno, msg, args, exc_info, func, sinfo)
-        else:
-            super(DriftLogRecord, self).__init__(name, level, fn, lno, msg, args, exc_info, func)
-        log_details = get_log_details()
-        if extra:
-            log_details.update(extra)
-        for k, v in log_details.items():
-            setattr(self, k, v)
-        logger_fields = (
-            "levelname", "levelno", "process", "thread", "name",
-            "filename", "module", "funcName", "lineno")
-        for f in logger_fields:
-            log_details["logger"][f] = getattr(self, f, None)
-        try:
-            correlation_id = request.correlation_id
-        except Exception:
-            correlation_id = None
-
-        log_details["logger"]["correlation_id"] = correlation_id
-        log_details["logger"]["created"] = datetime.datetime.utcnow().isoformat() + "Z"
-        for k, v in log_details.items():
-            setattr(self, k, v)
+_logRecordFactory = logging.getLogRecordFactory()
 
 
-class ContextAwareLogger(logging.Logger):
-    """
-    The context aware logger allows the caller to specify the extra information
-    in the following manner:
-    log.info(message, extra={k: v})
-    Internally, the "extra" parameter will be transformed into
-    extra={
-        "extra": {k, v}
-    }
-    This way, the extra information can easily be retrieved
-    from the "extra" field of the log record
-    """
-    def _log(self, level, msg, args, exc_info=None, extra=None):
-        if extra is not None:
-            extra = {"extra": extra}
-        super(ContextAwareLogger, self)._log(level, msg, args, exc_info, extra)
+def drift_log_record_factory(*args, **kw):
+    global _logRecordFactory
 
-    def makeRecord(self, name, level, fn, lno, msg, args, exc_info, func=None, extra=None, sinfo=None):
-        return DriftLogRecord(name, level, fn, lno, msg, args, exc_info, func, extra, sinfo)
+    logrec = _logRecordFactory(*args, **kw)
+    log_details = get_log_details()
+    for k, v in log_details.items():
+        setattr(logrec, k, v)
+    logger_fields = (
+        "levelname",
+        "levelno",
+        "process",
+        "thread",
+        "name",
+        "filename",
+        "module",
+        "funcName",
+        "lineno",
+    )
+    for f in logger_fields:
+        log_details["logger"][f] = getattr(logrec, f, None)
+    try:
+        correlation_id = request.correlation_id
+    except Exception:
+        correlation_id = None
+
+    log_details["logger"]["correlation_id"] = correlation_id
+    log_details["logger"]["created"] = datetime.datetime.utcnow().isoformat() + "Z"
+    for k, v in log_details.items():
+        setattr(logrec, k, v)
+
+    return logrec
 
 
 class JSONFormatter(logging.Formatter):
@@ -174,6 +177,7 @@ class JSONFormatter(logging.Formatter):
     """
     Format log message as JSON.
     """
+
     source_host = gethostname()
     log_tag = None
 
@@ -190,14 +194,14 @@ class JSONFormatter(logging.Formatter):
         # put the timestamp first for splunk timestamp indexing
         data["timestamp"] = self.formatTime(record)
         if hasattr(record, "logger") and "tier" in record.logger:
-            data["tenant"] = "{}.{}".format(record.logger.get("tier", None), record.logger.get("tenant", None))
+            data["tenant"] = "{}.{}".format(
+                record.logger.get("tier", None), record.logger.get("tenant", None)
+            )
 
         field_names = "logger", "client", "user"
-        data.update({
-            key: getattr(record, key)
-            for key in field_names
-            if hasattr(record, key)
-        })
+        data.update(
+            {key: getattr(record, key) for key in field_names if hasattr(record, key)}
+        )
         return data
 
     def format(self, record):
@@ -215,9 +219,11 @@ class JSONFormatter(logging.Formatter):
         Coerce everything to strings.
         All objects representing time get output as ISO8601.
         """
-        if isinstance(obj, datetime.datetime) or \
-           isinstance(obj, datetime.date) or \
-           isinstance(obj, datetime.time):
+        if (
+            isinstance(obj, datetime.datetime)
+            or isinstance(obj, datetime.date)
+            or isinstance(obj, datetime.time)
+        ):
             return obj.isoformat()
         else:
             return str(obj)
@@ -290,8 +296,10 @@ class RequestLogFormatter(JSONFormatter):
         request_body = None
         try:
             if request.json:
-                request_body = {key: format_request_body(key, value)
-                                for key, value in request.json.items()}
+                request_body = {
+                    key: format_request_body(key, value)
+                    for key, value in request.json.items()
+                }
             else:
                 request_body = request.data
         except Exception:
@@ -305,13 +313,13 @@ class RequestLogFormatter(JSONFormatter):
         except Exception:
             pass
 
-        if data.get('log_level') == 1:
+        if data.get("log_level") == 1:
             data = {
-                'timestamp': data['timestamp'],
-                'tenant': data['tenant'],
-                'method': data['method'],
-                'endpoint': data['endpoint']
-                }
+                "timestamp": data["timestamp"],
+                "tenant": data["tenant"],
+                "method": data["method"],
+                "endpoint": data["endpoint"],
+            }
 
         return self.json_format(data)
 
@@ -326,6 +334,7 @@ class StreamFormatter(logging.Formatter):
     The stream formatter automatically grab the record's extra field
     and append its content to the log message
     """
+
     def format(self, record):
         message = super(StreamFormatter, self).format(record)
         if hasattr(record, "extra"):
@@ -336,7 +345,7 @@ class StreamFormatter(logging.Formatter):
 def logsetup(app):
 
     # Special case for AWS Lambda. We skip all logging setup when running as Lambda.
-    if 'AWS_EXECUTION_ENV' in os.environ:
+    if "AWS_EXECUTION_ENV" in os.environ:
         return
 
     global _setup_done
@@ -350,9 +359,10 @@ def logsetup(app):
         g.request_log_level = 2
 
     if app.config.get("log_request", True):
+
         @app.after_request
         def log_after_request(response):
-            log_level = getattr(g, 'request_log_level', 2)
+            log_level = getattr(g, "request_log_level", 2)
             if log_level == 0:
                 return
             resp_text = ""
@@ -363,8 +373,8 @@ def logsetup(app):
             except Exception:
                 pass
             t = None
-            if hasattr(g, 'request_start_time'):
-                t = float("%.3f" % (time.time()-g.request_start_time))
+            if hasattr(g, "request_start_time"):
+                t = float("%.3f" % (time.time() - g.request_start_time))
             extra = {
                 "response_code": response.status_code,
                 "response_length": resp_len,
@@ -375,18 +385,21 @@ def logsetup(app):
                 extra["response"] = resp_text
             if hasattr(g, "database"):
                 extra["database"] = g.database
-            logging.getLogger("request").info("{} {} - {}".format(request.method, request.url, response.status_code), extra=extra)
+            logging.getLogger("request").info(
+                "{} {} - {}".format(request.method, request.url, response.status_code),
+                extra=extra,
+            )
 
             return response
 
-    logging.setLoggerClass(ContextAwareLogger)
+    logging.setLogRecordFactory(drift_log_record_factory)
 
-    syslog_path = '/dev/log'
+    syslog_path = "/dev/log"
 
-    if sys.platform == 'darwin':
-        syslog_path = '/var/run/syslog'
-    elif sys.platform == 'win32':
-        syslog_path = ('localhost', 514)
+    if sys.platform == "darwin":
+        syslog_path = "/var/run/syslog"
+    elif sys.platform == "win32":
+        syslog_path = ("localhost", 514)
 
     # Install log file handler
     handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_USER)
@@ -400,7 +413,7 @@ def logsetup(app):
     handler.setFormatter(EventLogFormatter())
     log = logging.getLogger("eventlog")
     log.propagate = False
-    log.setLevel('INFO')
+    log.setLevel("INFO")
     log.addHandler(handler)
 
     # Install client file handler
@@ -409,7 +422,7 @@ def logsetup(app):
     handler.setFormatter(ClientLogFormatter())
     log = logging.getLogger("clientlog")
     log.propagate = False
-    log.setLevel('INFO')
+    log.setLevel("INFO")
     log.addHandler(handler)
 
     # request handler
@@ -437,8 +450,8 @@ def logsetup(app):
     #         }
     #     }
     # }
-    if 'logging' in app.config:
-        logging.config.dictConfig(app.config['logging'])
+    if "logging" in app.config:
+        logging.config.dictConfig(app.config["logging"])
 
 
 def drift_init_extension(app, **kwargs):
@@ -453,4 +466,5 @@ def request_log_level(level):
             return fn(*args, **kwargs)
 
         return decorated
+
     return wrapper
