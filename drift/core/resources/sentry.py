@@ -7,6 +7,7 @@ import os
 
 from driftconfig.util import get_drift_config
 from drift.utils import get_tier_name
+from drift.core.extensions.logging import get_log_details
 
 
 log = logging.getLogger(__name__)
@@ -18,8 +19,10 @@ TIER_DEFAULTS = {"dsn": "<PLEASE FILL IN>"}
 # Initialize Sentry at file scope to catch'em all.
 def _init_sentry(app):
     dsn = os.environ.get('SENTRY_DSN')
+    conf = get_drift_config(tier_name=get_tier_name())
+
     if not dsn:
-        tier = get_drift_config(tier_name=get_tier_name()).tier
+        tier = conf.tier
         if tier and 'drift.core.resources.sentry' in tier['resources']:
             sentry_config = tier['resources']['drift.core.resources.sentry']
             dsn = sentry_config.get('dsn')
@@ -30,27 +33,72 @@ def _init_sentry(app):
     if not dsn:
         return
 
-    app.config['SENTRY_USER_ATTRS'] = [
-        'identity_id',
-        'user_id',
-        'user_name',
-        'roles',
-        'jti',
-        'player_id',
-        'player_name',
-        'client_id',
-    ]
+    import sentry_sdk
+    integrations = []
 
-    USE_RAVEN = True  # The sentry_sdk crashes in AWS Lambda
+    # Flask integration installed by default
+    from sentry_sdk.integrations.flask import FlaskIntegration
+    integrations.append(FlaskIntegration())
 
-    if USE_RAVEN:
-        from raven.contrib.flask import Sentry
-        Sentry(app)
-    else:
-        import sentry_sdk
-        from sentry_sdk.integrations.flask import FlaskIntegration
-        sentry_sdk.init(dsn=dsn, integrations=[FlaskIntegration()])
+    if "drift.core.resources.redis" in app.config["resources"]:
+        from sentry_sdk.integrations.redis import RedisIntegration
+        integrations.append(RedisIntegration())
+
+    if "drift.core.resources.postgres" in app.config["resources"]:
+        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+        integrations.append(SqlalchemyIntegration())
+
+    sentry_sdk.init(
+        dsn=dsn,
+        integrations=integrations,
+        before_send=before_send,
+        environment=get_tier_name(),
+    )
+
     return True
+
+
+def before_send(event, hint):
+    details = get_log_details()
+
+    """
+    details["logger"] =
+    {
+      "created": "2019-11-19T11:26:58.019125Z",
+      "remote_addr": "127.0.0.1",
+      "tenant": "acme-prod-test",
+      "tier": "TIER"
+    }
+
+    details["user"] =
+    {
+      "client_id": 13,
+      "identity_id": 200000011,
+      "jti": "pxS59dsk98uSpo7Ee9Ci",
+      "player_id": 11,
+      "player_name": "",
+      "roles": [],
+      "user_id": 100000011,
+      "user_name": "28f28471"
+    }
+    """
+    user = {}
+    if "remote_addr" in details["logger"]:
+        user["ip_address"] = details["logger"]["remote_addr"]
+
+    if "user" in details:
+        user["id"] = details["user"]["user_id"]
+        user["username"] = details["user"]["user_name"]
+
+    if user:
+        event.setdefault("user", {}).update(user)
+
+    event.setdefault("extra", {}).update(details)
+
+    if details["logger"]["tenant"]:
+        event.setdefault("tags", {})["tenant"] = details["logger"]["tenant"]
+
+    return event
 
 
 def drift_init_extension(app, **kwargs):

@@ -45,9 +45,8 @@ setup(
         'cryptography',
         'PyJWT',
 
-        #'sentry-sdk',  The sentry_sdk crashes in AWS Lambda
+        'sentry-sdk',
         #'blinker',
-        'raven[flask]',
     ],
 
     extras_require={
