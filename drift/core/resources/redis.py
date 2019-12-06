@@ -10,7 +10,6 @@ import redis
 
 from flask import g, abort
 from flask import _app_ctx_stack as stack
-from redlock import RedLockFactory
 from werkzeug._compat import integer_types
 from werkzeug.local import LocalProxy
 
@@ -126,7 +125,6 @@ class RedisCache(object):
     conn = None
     tenant = None
     disabled = False
-    redlock = None
 
     def __init__(self, tenant, service_name, redis_config):
         self.disabled = redis_config.get("disabled", False)
@@ -149,19 +147,10 @@ class RedisCache(object):
             socket_timeout=redis_config.get("socket_timeout", 5),
             socket_connect_timeout=redis_config.get("socket_connect_timeout", 5),
             db=redis_config.get("db_number", REDIS_DB),
+            retry_on_timeout=redis_config.get("retry_on_timeout", True),
         )
 
         self.key_prefix = "{}.{}:".format(self.tenant, self.service_name)
-
-        self.redlock_factory = RedLockFactory(
-            connection_details=[
-                {
-                    'host': self.host,
-                    'port': self.port,
-                    'db': redis_config.get("db_number", REDIS_DB),
-                }
-            ],
-        )
 
         log.debug("RedisCache initialized. self.conn = %s", self.conn)
 
@@ -241,9 +230,7 @@ class RedisCache(object):
             self.conn.expire(compound_key, expire)
 
     def lock(self, lock_name):
-        return self.redlock_factory.create_lock(self.make_key(lock_name),
-                                                retry_times=20,
-                                                retry_delay=300)
+        return self.conn.lock(self.make_key(lock_name))
 
     def delete_all(self):
         """remove all the keys for this tenant from redis"""

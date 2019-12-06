@@ -41,7 +41,6 @@ setup(
         'alembic',
         'psycopg2-binary>=2.7.4',
         'redis',
-        'redlock',
         'cryptography',
         'PyJWT',
 
