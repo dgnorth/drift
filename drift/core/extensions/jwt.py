@@ -51,11 +51,14 @@ _open_endpoints = set()
 
 log = logging.getLogger(__name__)
 bp = Blueprint('auth', 'Authentication', url_prefix='/auth', description='Authentication endpoints')
+bpjwks = Blueprint('jwks', 'JSON Web Key Set', url_prefix='/.well-known')
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
+    api.register_blueprint(bpjwks)
+    endpoints.init_app(app)
 
     # Flask Secret must be set for cookies and other secret things
     # HACK WARNING: It is weirdly difficult to get a drift config at this point.
@@ -461,6 +464,71 @@ def get_auth_token_and_type():
     return parts[1], auth_type
 
 
+def verify_jwt(token, conf):
+    """Verify standard Json web token 'token' and return its payload."""
+    algorithm = JWT_ALGORITHM
+    leeway = timedelta(seconds=JWT_LEEWAY)
+    verify_claims = JWT_VERIFY_CLAIMS
+    required_claims = JWT_REQUIRED_CLAIMS
+
+    options = {
+        'verify_' + claim: True
+        for claim in verify_claims
+    }
+
+    options.update({
+        'require_' + claim: True
+        for claim in required_claims
+    })
+
+    # Get issuer to see if we trust him and have the public key to verify.
+    try:
+        unverified_payload = jwt.decode(token,
+                                        options={
+                                            "verify_signature": False
+                                        },
+                                        algorithms=[JWT_ALGORITHM],
+                                        )
+    except jwt.InvalidTokenError as e:
+        abort_unauthorized("Invalid token: %s" % str(e))
+
+    issuer = unverified_payload.get("iss")
+    if not issuer:
+        abort_unauthorized("Invalid JWT. The 'iss' field is missing.")
+
+    public_key = None
+
+    if issuer in TRUSTED_ISSUERS:
+        ts = conf.table_store
+        public_keys = ts.get_table('public-keys')
+        drift_base_key = public_keys.get(
+            {'tier_name': conf.tier['tier_name'], 'deployable_name': issuer})
+        if drift_base_key:
+            public_key = drift_base_key['keys'][0]['public_key']
+
+    if public_key is None:
+        trusted_issuers = conf.deployable.get('jwt_trusted_issuers', [])
+        for trusted_issuer in trusted_issuers:
+            if trusted_issuer["iss"] == issuer:
+                public_key = trusted_issuer["pub_rsa"]
+                break
+
+    if public_key is None:
+        abort_unauthorized("Invalid JWT. Issuer '%s' not known or not trusted." % issuer)
+
+    try:
+        payload = jwt.decode(
+            token, public_key,
+            options=options,
+            algorithms=[algorithm],
+            leeway=leeway
+        )
+    except jwt.InvalidTokenError as e:
+        abort_unauthorized("Invalid token: %s" % str(e))
+
+    return payload
+
+
 def verify_token(token, auth_type, conf):
     """Verifies 'token' and returns its payload."""
     if auth_type == "JTI":
@@ -468,94 +536,36 @@ def verify_token(token, auth_type, conf):
         if not payload:
             log.info("Invalid JTI: Token '%s' not found in cache.", token)
             abort_unauthorized("Invalid JTI. Token %s does not exist." % token)
-
-    elif auth_type == "JWT":
-        algorithm = JWT_ALGORITHM
-        leeway = timedelta(seconds=JWT_LEEWAY)
-        verify_claims = JWT_VERIFY_CLAIMS
-        required_claims = JWT_REQUIRED_CLAIMS
-
-        options = {
-            'verify_' + claim: True
-            for claim in verify_claims
-        }
-
-        options.update({
-            'require_' + claim: True
-            for claim in required_claims
-        })
-
-        # Get issuer to see if we trust him and have the public key to verify.
-        try:
-            unverified_payload = jwt.decode(token,
-                                            options={
-                                                "verify_signature": False
-                                            },
-                                            algorithms=[JWT_ALGORITHM],
-                                            )
-        except jwt.InvalidTokenError as e:
-            abort_unauthorized("Invalid token: %s" % str(e))
-
-        issuer = unverified_payload.get("iss")
-        if not issuer:
-            abort_unauthorized("Invalid JWT. The 'iss' field is missing.")
-
-        public_key = None
-
-        if issuer in TRUSTED_ISSUERS:
-            ts = conf.table_store
-            public_keys = ts.get_table('public-keys')
-            drift_base_key = public_keys.get(
-                {'tier_name': conf.tier['tier_name'], 'deployable_name': issuer})
-            if drift_base_key:
-                public_key = drift_base_key['keys'][0]['public_key']
-
-        if public_key is None:
-            trusted_issuers = conf.deployable.get('jwt_trusted_issuers', [])
-            for trusted_issuer in trusted_issuers:
-                if trusted_issuer["iss"] == issuer:
-                    public_key = trusted_issuer["pub_rsa"]
-                    break
-
-        if public_key is None:
-            abort_unauthorized("Invalid JWT. Issuer '%s' not known or not trusted." % issuer)
-
-        try:
-            payload = jwt.decode(
-                token, public_key,
-                options=options,
-                algorithms=[algorithm],
-                leeway=leeway
-            )
-        except jwt.InvalidTokenError as e:
-            abort_unauthorized("Invalid token: %s" % str(e))
-
-        # TODO!!!! Move the stuff below somewhere else. This function should only be
-        # concerned about validating the token itself and not if the payload matches
-        # other authorization rules regarding tiers, tenants and such.
-
-        # Verify tier
-        if 'tier' not in payload:
-            abort_unauthorized("Invalid JWT. Token must specify 'tier'.")
-
-        tier = payload['tier']
-        tier_name = get_tier_name()
-        if tier != tier_name:
-            abort_unauthorized("Invalid JWT. Token is for tier '%s' but this"
-                " is tier '%s'" % (tier, tier_name))
-
-        # Verify tenant
-        if 'tenant' not in payload:
-            abort_unauthorized("Invalid JWT. Token must specify 'tenant'.")
-
-        tenant = payload['tenant']
-        if conf.tenant_name:
-            this_tenant = conf.tenant_name['tenant_name']
         else:
-            this_tenant = current_tenant_name
-        if tenant != this_tenant:
-            abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
-                " is tenant '%s'" % (tenant, this_tenant))
+            return payload
+
+    if auth_type != "JWT":
+        abort_unauthorized("Invalid authentication type '%s'. Must be Bearer, JWT or JTI.'" % auth_type)
+
+    payload = verify_jwt(token, conf)
+
+    # Verify tier
+    if 'tier' not in payload:
+        abort_unauthorized("Invalid JWT. Token must specify 'tier'.")
+
+    tier = payload['tier']
+    tier_name = get_tier_name()
+    if tier != tier_name:
+        abort_unauthorized("Invalid JWT. Token is for tier '%s' but this"
+            " is tier '%s'" % (tier, tier_name))
+
+    # Verify tenant
+    if 'tenant' not in payload:
+        abort_unauthorized("Invalid JWT. Token must specify 'tenant'.")
+
+    tenant = payload['tenant']
+    if conf.tenant_name:
+        this_tenant = conf.tenant_name['tenant_name']
+    else:
+        this_tenant = current_tenant_name
+    if tenant != this_tenant:
+        abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
+            " is tenant '%s'" % (tenant, this_tenant))
 
     return payload
 
