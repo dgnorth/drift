@@ -624,7 +624,7 @@ def get_cached_token(jti):
 @endpoints.register
 def endpoint_info(current_user):
     ret = {
-        'auth': url_for("auth", _external=True),
+        'auth': url_for("auth.authentication", _external=True),
         'auth_login': url_for("auth.login", _external=True),
         'auth_logout': url_for("auth.logout", _external=True),
     }
