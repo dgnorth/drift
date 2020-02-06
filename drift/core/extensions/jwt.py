@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import json
 from functools import wraps
 import re
+import string
 
 import jwt
 from six.moves.http_client import UNAUTHORIZED
@@ -23,6 +24,9 @@ from werkzeug.security import gen_salt
 from drift.utils import get_tier_name
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.tenancy import current_tenant_name, split_host
+
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 
 JWT_VERIFY_CLAIMS = ['signature', 'exp', 'iat']
@@ -621,12 +625,101 @@ def get_cached_token(jti):
     return payload
 
 
+
+# https://stackoverflow.com/questions/561486/how-to-convert-an-integer-to-the-shortest-url-safe-string-in-python
+ALPHABET = string.ascii_uppercase + string.ascii_lowercase + string.digits + '-_'
+ALPHABET_REVERSE = dict((c, i) for (i, c) in enumerate(ALPHABET))
+BASE = len(ALPHABET)
+SIGN_CHARACTER = '$'
+
+
+def num_encode(n):
+    if n < 0:
+        return SIGN_CHARACTER + num_encode(-n)
+    s = []
+    while True:
+        n, r = divmod(n, BASE)
+        s.append(ALPHABET[r])
+        if n == 0: break
+    return ''.join(reversed(s))
+
+
+def num_decode(s):
+    if s[0] == SIGN_CHARACTER:
+        return -num_decode(s[1:])
+    n = 0
+    for c in s:
+        n = n * BASE + ALPHABET_REVERSE[c]
+    return n
+
+
+class JwkSchema(ma.Schema):
+    """JSON Web Key"""
+    class Meta:
+        strict = True
+    kty = ma.fields.String(description="Key Type")
+    use = ma.fields.String(description="Public Key Use")
+    alg = ma.fields.String(description="Algorithm")
+    n = ma.fields.String(description="Public Modulus")
+    e = ma.fields.String(description="Public Exponent")
+
+
+class JwksSchema(ma.Schema):
+    class Meta:
+        strict = True
+    keys = ma.fields.List(ma.fields.Nested(JwkSchema))
+
+
+# Expose our public key as jwks according to best practices.
+# https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-verifying-a-jwt.html
+# https://auth0.com/docs/tokens/concepts/jwks
+# https://tools.ietf.org/html/rfc7517
+@bpjwks.route('jwks.json')
+class JWKSApi(MethodView):
+    no_auth_header_check = True
+    no_jwt_check = ['GET']
+
+    @bp.response(JwksSchema)
+    def get(self):
+        from driftconfig.util import get_default_drift_config
+        ts = get_default_drift_config()
+        public_keys = ts.get_table('public-keys')
+        row = public_keys.get({
+            'tier_name': get_tier_name(),
+            'deployable_name': current_app.config['name'],
+        })
+        json_web_keys = []
+
+        if row and "keys" in row:
+            for key in row["keys"]:
+                pk = load_pem_public_key(key["public_key"].encode("ASCII"), backend=default_backend())
+
+                # https://tools.ietf.org/html/rfc7517
+                # MUST  "kty" (Key Type) Parameter = "RSA"
+                # OPTIONAL "use" (Public Key Use) Parameter = "sig"
+                # OPTIONAL "key_ops" (Key Operations) Parameter = "verify" (verify digital signature or MAC)
+                # OPTIONAL "alg" (Algorithm) Parameter = "RS256"
+                # OPTIONAL "kid" (Key ID) Parameter (used to hint which key was used for signing)
+                jwk = {
+                    "kty": "RSA",
+                    "use": "sig",
+                    "alg": "RS256",
+                    "n": num_encode(pk.public_numbers().n),
+                    "e": num_encode(pk.public_numbers().e),
+                }
+
+                json_web_keys.append(jwk)
+
+        return {"keys": json_web_keys}
+
+
 @endpoints.register
 def endpoint_info(current_user):
     ret = {
         'auth': url_for("auth.authentication", _external=True),
         'auth_login': url_for("auth.login", _external=True),
         'auth_logout': url_for("auth.logout", _external=True),
+        'auth_jwks': url_for("jwks.JWKSApi", _external=True),
     }
 
     return ret
