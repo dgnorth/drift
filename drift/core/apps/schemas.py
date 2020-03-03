@@ -6,7 +6,7 @@ import logging
 
 from flask import current_app, url_for
 from flask.views import MethodView
-from flask_rest_api import Blueprint, abort
+from flask_smorest import Blueprint, abort
 import marshmallow as ma
 
 

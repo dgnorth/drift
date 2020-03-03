@@ -22,7 +22,7 @@ except ImportError:
 from flask import g, make_response, jsonify, request, current_app, url_for
 from click import echo
 from flask_marshmallow.fields import AbsoluteURLFor
-import flask_rest_api
+import flask_smorest
 
 from driftconfig.util import get_drift_config
 
@@ -264,7 +264,7 @@ class Url(AbsoluteURLFor):
 
 def set_url_in_header(location_url):
     response_header = {"Location": location_url}
-    flask_rest_api.utils.get_appcontext()['headers'].update(response_header)
+    flask_smorest.utils.get_appcontext()['headers'].update(response_header)
 
 
 def set_url_for_in_header(*args, **kw):

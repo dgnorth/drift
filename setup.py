@@ -25,7 +25,7 @@ setup(
         'Flask',
         'Flask-RESTful',  # Will be removed
         'flask-restplus',
-        'flask-rest-api',
+        'flask-smorest',
         'flask_marshmallow',
         'jsonschema',
         'pyopenssl>=17',

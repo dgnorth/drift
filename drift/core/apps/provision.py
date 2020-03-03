@@ -9,7 +9,7 @@ from six.moves import http_client
 
 from flask import current_app, request, g
 from flask.views import MethodView
-from flask_rest_api import Blueprint, abort
+from flask_smorest import Blueprint, abort
 import marshmallow as ma
 
 from driftconfig.config import TSTransaction
