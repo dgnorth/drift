@@ -320,7 +320,6 @@ class AuthApi(MethodView):
     @bp.arguments(AuthRequestSchema)
     @bp.response(AuthSchema)
     def post(self, auth_info):
-        print("AUTH!!")
         auth_info = _authenticate(auth_info, g.conf)
         return {
             'token': auth_info['token'],
@@ -376,7 +375,6 @@ class AuthLogoutApi(MethodView):
 
 def authenticate_with_provider(auth_info):
     handler = current_app.jwt_auth_providers.get(auth_info['provider'])
-    print(f"handler = {handler}")
     if not handler:
         # provide for a default handler that can deal with multiple providers
         handler = current_app.jwt_auth_providers.get("default")
