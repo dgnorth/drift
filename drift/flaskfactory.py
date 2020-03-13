@@ -11,7 +11,7 @@ import pkgutil
 from flask import Flask, make_response, current_app
 from flask.json import dumps as flask_json_dumps
 from flask_rest_api import Api
-from werkzeug.contrib.fixers import ProxyFix
+from werkzeug.middleware.proxy_fix import ProxyFix
 from drift.fixers import ReverseProxied, CustomJSONEncoder
 from drift.utils import get_app_root
 import drift.core.extensions
@@ -286,7 +286,7 @@ def _apply_patches(app):
     # Normal setup on AWS includes a single ELB which appends to "X-Forwarded-For"
     # header value, thus one proxy.
     num_proxies = 1
-    app.wsgi_app = ProxyFix(app.wsgi_app, num_proxies=num_proxies)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=num_proxies, x_proto=num_proxies, x_host=num_proxies)
 
     # Fixing SCRIPT_NAME/url_scheme when behind reverse proxy (i.e. the
     # API router).
