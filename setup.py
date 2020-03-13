@@ -44,6 +44,11 @@ setup(
         'cryptography',
         'PyJWT',
 
+        # Later versions break Flask
+        'webargs<6.0.0',
+        # Later versions break flask-restplus
+        'Werkzeug<0.16.0',
+
         'sentry-sdk',
         #'blinker',
     ],
