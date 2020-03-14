@@ -303,6 +303,7 @@ class AuthRequestSchema(ma.Schema):
     provider_details = ma.fields.Dict(description="Provider specific details")
     username = ma.fields.Str(description="Legacy username")
     password = ma.fields.Str(description="Legacy password")
+    automatic_account_creation = ma.fields.Boolean(description="Automatically create new users", default=True)
 
 
 class AuthSchema(ma.Schema):
