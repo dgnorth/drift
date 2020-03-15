@@ -4,7 +4,7 @@ import pytest
 
 from flask import request, jsonify
 from flask.views import MethodView
-from flask_rest_api import Blueprint
+from flask_smorest import Blueprint
 
 from drift.tests import DriftTestCase
 from drift.core.extensions.schemachecker import simple_schema_request, drift_init_extension

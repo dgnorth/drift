@@ -14,7 +14,7 @@ from six.moves.http_client import UNAUTHORIZED
 
 from flask import current_app, request, _request_ctx_stack, g, url_for, redirect, make_response
 from flask.views import MethodView
-from flask_rest_api import Blueprint, abort
+from flask_smorest import Blueprint, abort
 
 import marshmallow as ma
 
@@ -265,7 +265,6 @@ def _authenticate(auth_info, conf):
 
     # In fact only JWT is supported by all drift based deployables. Everything else
     # is specific to drift-base.
-
     if auth_info['provider'] == "jwt":
         # Authenticate using a JWT. We validate the token,
         # and issue a new one based on that.

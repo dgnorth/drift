@@ -10,7 +10,7 @@ import pkgutil
 
 from flask import Flask, make_response, current_app
 from flask.json import dumps as flask_json_dumps
-from flask_rest_api import Api
+from flask_smorest import Api
 from werkzeug.middleware.proxy_fix import ProxyFix
 from drift.fixers import ReverseProxied, CustomJSONEncoder
 from drift.utils import get_app_root

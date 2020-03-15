@@ -8,7 +8,7 @@ from six.moves.http_client import SERVICE_UNAVAILABLE
 
 from flask import current_app, g
 from flask.views import MethodView
-from flask_rest_api import Blueprint, abort
+from flask_smorest import Blueprint, abort
 import marshmallow as ma
 
 

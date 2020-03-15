@@ -19,7 +19,7 @@ from flask import current_app, request, url_for
 from flask import after_this_request
 from flask.json import dumps, loads
 from flask.wrappers import Response
-from flask_rest_api import abort
+from flask_smorest import abort
 from click import echo
 
 from jsonschema import validate as _validate

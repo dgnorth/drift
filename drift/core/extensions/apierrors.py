@@ -14,7 +14,7 @@ import sys
 from six import StringIO
 from flask import make_response, jsonify, request, current_app
 from werkzeug.exceptions import HTTPException
-from flask_rest_api import abort
+from flask_smorest import abort
 
 from drift.core.extensions.jwt import query_current_user, jwt_not_required
 
@@ -117,7 +117,7 @@ def handle_all_exceptions(e):
                 error['description'] = error.pop('message')
 
             # Legacy field ´code´ has been renamed error_code. the "code" keyword is used
-            # in flask_rest_api.abort to signify status code.
+            # in flask_smorest.abort to signify status code.
             if 'error_code' in e.data:
                 error['code'] = error.pop('error_code')
 
