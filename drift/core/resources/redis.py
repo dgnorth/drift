@@ -10,7 +10,6 @@ import redis
 
 from flask import g, abort
 from flask import _app_ctx_stack as stack
-from redlock import RedLockFactory
 from werkzeug._compat import integer_types
 from werkzeug.local import LocalProxy
 
@@ -55,7 +54,7 @@ def provision_resource(ts, tenant_config, attributes):
     report = []
     attributes = attributes.copy()  # Make a copy so we won't modify the actual drift config db.
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-        attributes['host'] = 'localhost'
+        attributes['host'] = os.environ.get('DRIFT_REDIS_HOST', 'localhost')
 
     # Reset Redis cache when initializing or uninitializing.
     if tenant_config['state'] in ['initializing', 'uninitializing']:
@@ -126,7 +125,6 @@ class RedisCache(object):
     conn = None
     tenant = None
     disabled = False
-    redlock = None
 
     def __init__(self, tenant, service_name, redis_config):
         self.disabled = redis_config.get("disabled", False)
@@ -141,7 +139,7 @@ class RedisCache(object):
 
         # Override Redis hostname if needed
         if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-            self.host = 'localhost'
+            self.host = os.environ.get('DRIFT_REDIS_HOST', 'localhost')
 
         self.conn = redis.StrictRedis(
             host=self.host,
@@ -149,19 +147,10 @@ class RedisCache(object):
             socket_timeout=redis_config.get("socket_timeout", 5),
             socket_connect_timeout=redis_config.get("socket_connect_timeout", 5),
             db=redis_config.get("db_number", REDIS_DB),
+            retry_on_timeout=redis_config.get("retry_on_timeout", True),
         )
 
         self.key_prefix = "{}.{}:".format(self.tenant, self.service_name)
-
-        self.redlock_factory = RedLockFactory(
-            connection_details=[
-                {
-                    'host': self.host,
-                    'port': self.port,
-                    'db': redis_config.get("db_number", REDIS_DB),
-                }
-            ],
-        )
 
         log.debug("RedisCache initialized. self.conn = %s", self.conn)
 
@@ -241,9 +230,7 @@ class RedisCache(object):
             self.conn.expire(compound_key, expire)
 
     def lock(self, lock_name):
-        return self.redlock_factory.create_lock(self.make_key(lock_name),
-                                                retry_times=20,
-                                                retry_delay=300)
+        return self.conn.lock(self.make_key(lock_name))
 
     def delete_all(self):
         """remove all the keys for this tenant from redis"""
@@ -260,7 +247,7 @@ class RedisCache(object):
 def provision(config, args, recreate=None):
     params = get_parameters(config, args, TIER_DEFAULTS.keys(), "redis")
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-        params['host'] = 'localhost'
+        params['host'] = os.environ.get('DRIFT_REDIS_HOST', 'localhost')
     config.tenant["redis"] = params
 
     if recreate == 'recreate':

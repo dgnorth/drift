@@ -25,7 +25,7 @@ setup(
         'Flask',
         'Flask-RESTful',  # Will be removed
         'flask-restplus',
-        'flask-rest-api',
+        'flask-smorest',
         'flask_marshmallow',
         'jsonschema',
         'pyopenssl>=17',
@@ -41,15 +41,18 @@ setup(
         'alembic',
         'psycopg2-binary>=2.7.4',
         'redis',
-        'redlock',
         'cryptography',
         'PyJWT',
         'logstash_formatter',
 
         'sentry-sdk[flask]',
+        # Later versions break Flask
+        'webargs<6.0.0',
+        # Later versions break flask-restplus
+        'Werkzeug<0.16.0',
+
+        'sentry-sdk',
         #'blinker',
-        'raven[flask]',
-        'logstash_formatter',
     ],
 
     extras_require={

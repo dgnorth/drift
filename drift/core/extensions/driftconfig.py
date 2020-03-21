@@ -13,7 +13,7 @@ from six.moves import http_client
 from werkzeug.local import LocalProxy
 from flask import g, current_app
 from flask import _app_ctx_stack as stack
-from flask_rest_api import abort
+from flask_smorest import abort
 
 from driftconfig.relib import CHECK_INTEGRITY
 from driftconfig.util import get_drift_config, get_default_drift_config, TenantNotConfigured

@@ -7,13 +7,14 @@ from datetime import datetime, timedelta
 import json
 from functools import wraps
 import re
+import string
 
 import jwt
 from six.moves.http_client import UNAUTHORIZED
 
 from flask import current_app, request, _request_ctx_stack, g, url_for, redirect, make_response
 from flask.views import MethodView
-from flask_rest_api import Blueprint, abort
+from flask_smorest import Blueprint, abort
 
 import marshmallow as ma
 
@@ -23,6 +24,9 @@ from werkzeug.security import gen_salt
 from drift.utils import get_tier_name
 from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.tenancy import current_tenant_name, split_host
+
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 
 
 JWT_VERIFY_CLAIMS = ['signature', 'exp', 'iat']
@@ -51,11 +55,14 @@ _open_endpoints = set()
 
 log = logging.getLogger(__name__)
 bp = Blueprint('auth', 'Authentication', url_prefix='/auth', description='Authentication endpoints')
+bpjwks = Blueprint('jwks', 'JSON Web Key Set', url_prefix='/.well-known')
 endpoints = Endpoints()
 
 
 def drift_init_extension(app, api, **kwargs):
     api.register_blueprint(bp)
+    api.register_blueprint(bpjwks)
+    endpoints.init_app(app)
 
     # Flask Secret must be set for cookies and other secret things
     # HACK WARNING: It is weirdly difficult to get a drift config at this point.
@@ -258,7 +265,6 @@ def _authenticate(auth_info, conf):
 
     # In fact only JWT is supported by all drift based deployables. Everything else
     # is specific to drift-base.
-
     if auth_info['provider'] == "jwt":
         # Authenticate using a JWT. We validate the token,
         # and issue a new one based on that.
@@ -297,6 +303,7 @@ class AuthRequestSchema(ma.Schema):
     provider_details = ma.fields.Dict(description="Provider specific details")
     username = ma.fields.Str(description="Legacy username")
     password = ma.fields.Str(description="Legacy password")
+    automatic_account_creation = ma.fields.Boolean(description="Automatically create new users", default=True)
 
 
 class AuthSchema(ma.Schema):
@@ -461,6 +468,71 @@ def get_auth_token_and_type():
     return parts[1], auth_type
 
 
+def verify_jwt(token, conf):
+    """Verify standard Json web token 'token' and return its payload."""
+    algorithm = JWT_ALGORITHM
+    leeway = timedelta(seconds=JWT_LEEWAY)
+    verify_claims = JWT_VERIFY_CLAIMS
+    required_claims = JWT_REQUIRED_CLAIMS
+
+    options = {
+        'verify_' + claim: True
+        for claim in verify_claims
+    }
+
+    options.update({
+        'require_' + claim: True
+        for claim in required_claims
+    })
+
+    # Get issuer to see if we trust him and have the public key to verify.
+    try:
+        unverified_payload = jwt.decode(token,
+                                        options={
+                                            "verify_signature": False
+                                        },
+                                        algorithms=[JWT_ALGORITHM],
+                                        )
+    except jwt.InvalidTokenError as e:
+        abort_unauthorized("Invalid token: %s" % str(e))
+
+    issuer = unverified_payload.get("iss")
+    if not issuer:
+        abort_unauthorized("Invalid JWT. The 'iss' field is missing.")
+
+    public_key = None
+
+    if issuer in TRUSTED_ISSUERS:
+        ts = conf.table_store
+        public_keys = ts.get_table('public-keys')
+        drift_base_key = public_keys.get(
+            {'tier_name': conf.tier['tier_name'], 'deployable_name': issuer})
+        if drift_base_key:
+            public_key = drift_base_key['keys'][0]['public_key']
+
+    if public_key is None:
+        trusted_issuers = conf.deployable.get('jwt_trusted_issuers', [])
+        for trusted_issuer in trusted_issuers:
+            if trusted_issuer["iss"] == issuer:
+                public_key = trusted_issuer["pub_rsa"]
+                break
+
+    if public_key is None:
+        abort_unauthorized("Invalid JWT. Issuer '%s' not known or not trusted." % issuer)
+
+    try:
+        payload = jwt.decode(
+            token, public_key,
+            options=options,
+            algorithms=[algorithm],
+            leeway=leeway
+        )
+    except jwt.InvalidTokenError as e:
+        abort_unauthorized("Invalid token: %s" % str(e))
+
+    return payload
+
+
 def verify_token(token, auth_type, conf):
     """Verifies 'token' and returns its payload."""
     if auth_type == "JTI":
@@ -468,94 +540,36 @@ def verify_token(token, auth_type, conf):
         if not payload:
             log.info("Invalid JTI: Token '%s' not found in cache.", token)
             abort_unauthorized("Invalid JTI. Token %s does not exist." % token)
-
-    elif auth_type == "JWT":
-        algorithm = JWT_ALGORITHM
-        leeway = timedelta(seconds=JWT_LEEWAY)
-        verify_claims = JWT_VERIFY_CLAIMS
-        required_claims = JWT_REQUIRED_CLAIMS
-
-        options = {
-            'verify_' + claim: True
-            for claim in verify_claims
-        }
-
-        options.update({
-            'require_' + claim: True
-            for claim in required_claims
-        })
-
-        # Get issuer to see if we trust him and have the public key to verify.
-        try:
-            unverified_payload = jwt.decode(token,
-                                            options={
-                                                "verify_signature": False
-                                            },
-                                            algorithms=[JWT_ALGORITHM],
-                                            )
-        except jwt.InvalidTokenError as e:
-            abort_unauthorized("Invalid token: %s" % str(e))
-
-        issuer = unverified_payload.get("iss")
-        if not issuer:
-            abort_unauthorized("Invalid JWT. The 'iss' field is missing.")
-
-        public_key = None
-
-        if issuer in TRUSTED_ISSUERS:
-            ts = conf.table_store
-            public_keys = ts.get_table('public-keys')
-            drift_base_key = public_keys.get(
-                {'tier_name': conf.tier['tier_name'], 'deployable_name': issuer})
-            if drift_base_key:
-                public_key = drift_base_key['keys'][0]['public_key']
-
-        if public_key is None:
-            trusted_issuers = conf.deployable.get('jwt_trusted_issuers', [])
-            for trusted_issuer in trusted_issuers:
-                if trusted_issuer["iss"] == issuer:
-                    public_key = trusted_issuer["pub_rsa"]
-                    break
-
-        if public_key is None:
-            abort_unauthorized("Invalid JWT. Issuer '%s' not known or not trusted." % issuer)
-
-        try:
-            payload = jwt.decode(
-                token, public_key,
-                options=options,
-                algorithms=[algorithm],
-                leeway=leeway
-            )
-        except jwt.InvalidTokenError as e:
-            abort_unauthorized("Invalid token: %s" % str(e))
-
-        # TODO!!!! Move the stuff below somewhere else. This function should only be
-        # concerned about validating the token itself and not if the payload matches
-        # other authorization rules regarding tiers, tenants and such.
-
-        # Verify tier
-        if 'tier' not in payload:
-            abort_unauthorized("Invalid JWT. Token must specify 'tier'.")
-
-        tier = payload['tier']
-        tier_name = get_tier_name()
-        if tier != tier_name:
-            abort_unauthorized("Invalid JWT. Token is for tier '%s' but this"
-                " is tier '%s'" % (tier, tier_name))
-
-        # Verify tenant
-        if 'tenant' not in payload:
-            abort_unauthorized("Invalid JWT. Token must specify 'tenant'.")
-
-        tenant = payload['tenant']
-        if conf.tenant_name:
-            this_tenant = conf.tenant_name['tenant_name']
         else:
-            this_tenant = current_tenant_name
-        if tenant != this_tenant:
-            abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
-                " is tenant '%s'" % (tenant, this_tenant))
+            return payload
+
+    if auth_type != "JWT":
+        abort_unauthorized("Invalid authentication type '%s'. Must be Bearer, JWT or JTI.'" % auth_type)
+
+    payload = verify_jwt(token, conf)
+
+    # Verify tier
+    if 'tier' not in payload:
+        abort_unauthorized("Invalid JWT. Token must specify 'tier'.")
+
+    tier = payload['tier']
+    tier_name = get_tier_name()
+    if tier != tier_name:
+        abort_unauthorized("Invalid JWT. Token is for tier '%s' but this"
+            " is tier '%s'" % (tier, tier_name))
+
+    # Verify tenant
+    if 'tenant' not in payload:
+        abort_unauthorized("Invalid JWT. Token must specify 'tenant'.")
+
+    tenant = payload['tenant']
+    if conf.tenant_name:
+        this_tenant = conf.tenant_name['tenant_name']
+    else:
+        this_tenant = current_tenant_name
+    if tenant != this_tenant:
+        abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
+            " is tenant '%s'" % (tenant, this_tenant))
 
     return payload
 
@@ -611,12 +625,101 @@ def get_cached_token(jti):
     return payload
 
 
+
+# https://stackoverflow.com/questions/561486/how-to-convert-an-integer-to-the-shortest-url-safe-string-in-python
+ALPHABET = string.ascii_uppercase + string.ascii_lowercase + string.digits + '-_'
+ALPHABET_REVERSE = dict((c, i) for (i, c) in enumerate(ALPHABET))
+BASE = len(ALPHABET)
+SIGN_CHARACTER = '$'
+
+
+def num_encode(n):
+    if n < 0:
+        return SIGN_CHARACTER + num_encode(-n)
+    s = []
+    while True:
+        n, r = divmod(n, BASE)
+        s.append(ALPHABET[r])
+        if n == 0: break
+    return ''.join(reversed(s))
+
+
+def num_decode(s):
+    if s[0] == SIGN_CHARACTER:
+        return -num_decode(s[1:])
+    n = 0
+    for c in s:
+        n = n * BASE + ALPHABET_REVERSE[c]
+    return n
+
+
+class JwkSchema(ma.Schema):
+    """JSON Web Key"""
+    class Meta:
+        strict = True
+    kty = ma.fields.String(description="Key Type")
+    use = ma.fields.String(description="Public Key Use")
+    alg = ma.fields.String(description="Algorithm")
+    n = ma.fields.String(description="Public Modulus")
+    e = ma.fields.String(description="Public Exponent")
+
+
+class JwksSchema(ma.Schema):
+    class Meta:
+        strict = True
+    keys = ma.fields.List(ma.fields.Nested(JwkSchema))
+
+
+# Expose our public key as jwks according to best practices.
+# https://docs.aws.amazon.com/cognito/latest/developerguide/amazon-cognito-user-pools-using-tokens-verifying-a-jwt.html
+# https://auth0.com/docs/tokens/concepts/jwks
+# https://tools.ietf.org/html/rfc7517
+@bpjwks.route('jwks.json')
+class JWKSApi(MethodView):
+    no_auth_header_check = True
+    no_jwt_check = ['GET']
+
+    @bp.response(JwksSchema)
+    def get(self):
+        from driftconfig.util import get_default_drift_config
+        ts = get_default_drift_config()
+        public_keys = ts.get_table('public-keys')
+        row = public_keys.get({
+            'tier_name': get_tier_name(),
+            'deployable_name': current_app.config['name'],
+        })
+        json_web_keys = []
+
+        if row and "keys" in row:
+            for key in row["keys"]:
+                pk = load_pem_public_key(key["public_key"].encode("ASCII"), backend=default_backend())
+
+                # https://tools.ietf.org/html/rfc7517
+                # MUST  "kty" (Key Type) Parameter = "RSA"
+                # OPTIONAL "use" (Public Key Use) Parameter = "sig"
+                # OPTIONAL "key_ops" (Key Operations) Parameter = "verify" (verify digital signature or MAC)
+                # OPTIONAL "alg" (Algorithm) Parameter = "RS256"
+                # OPTIONAL "kid" (Key ID) Parameter (used to hint which key was used for signing)
+                jwk = {
+                    "kty": "RSA",
+                    "use": "sig",
+                    "alg": "RS256",
+                    "n": num_encode(pk.public_numbers().n),
+                    "e": num_encode(pk.public_numbers().e),
+                }
+
+                json_web_keys.append(jwk)
+
+        return {"keys": json_web_keys}
+
+
 @endpoints.register
 def endpoint_info(current_user):
     ret = {
-        'auth': url_for("auth", _external=True),
+        'auth': url_for("auth.authentication", _external=True),
         'auth_login': url_for("auth.login", _external=True),
         'auth_logout': url_for("auth.logout", _external=True),
+        'auth_jwks': url_for("jwks.JWKSApi", _external=True),
     }
 
     return ret

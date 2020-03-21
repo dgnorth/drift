@@ -4,12 +4,11 @@ verify_ssl = true
 name = "pypi"
 
 [dev-packages]
-drift = {path = ".", editable = true, extras = ['aws', 'test']}
-driftconfig = { git = 'https://github.com/dgnorth/drift-config.git', ref = 'develop'}
+drift = {path = ".",editable = true,extras = ['aws', 'test']}
+driftconfig = {git = 'https://github.com/dgnorth/drift-config.git',ref = 'develop'}
 
 [packages]
+flask-smorest = "*"
 
 [requires]
 python_version = "3"
-
-

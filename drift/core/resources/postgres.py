@@ -129,7 +129,7 @@ def provision_resource(ts, tenant_config, attributes):
 
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         # Override 'server'
-        attributes['server'] = 'localhost'
+        attributes['server'] = os.environ.get('DRIFT_POSTGRES_HOST', 'localhost')
 
     # Initialize the DB name if applicable
     if not attributes.get('database'):
@@ -279,7 +279,7 @@ def process_connection_values(postgres_parameters):
     postgres_parameters = postgres_parameters.copy()
     if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
         # Override 'server'
-        postgres_parameters['server'] = 'localhost'
+        postgres_parameters['server'] = os.environ.get('DRIFT_POSTGRES_HOST', 'localhost')
     return postgres_parameters
 
 

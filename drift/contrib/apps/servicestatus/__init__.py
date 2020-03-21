@@ -4,17 +4,21 @@ import os
 import socket
 import collections
 import platform
+import datetime
+import json
+import logging
+
 from flask import request, current_app, g
 from flask import url_for
 from flask.views import MethodView
-from flask_rest_api import Blueprint
+from flask_smorest import Blueprint
 import marshmallow as ma
 from drift.utils import get_tier_name
-from drift.core.extensions.jwt import current_user
-import datetime
-import json
+import werkzeug.routing
 
-import logging
+from drift.core.extensions.jwt import current_user
+
+
 log = logging.getLogger(__name__)
 
 
@@ -102,12 +106,22 @@ class InfoPageAPI(MethodView):
         endpoints["root"] = url_for("root.root", _external=True)
         if endpoints["root"].endswith("/"):
             endpoints["root"] = endpoints["root"][:-1]
-        endpoints["auth"] = request.url_root + "auth"  # !evil concatination
         for func in current_app.endpoint_registry_funcs + current_app.endpoint_registry_funcs2:
             try:
                 endpoints.update(func(current_user))
             except Exception:
                 log.exception("Failed to get endpoint registry from %s", func)
+
+        # Publish Swagger and ReDoc if available
+        try:
+            # <Rule '/doc/openapi.json' (GET, HEAD, OPTIONS) -> api-docs.openapi_json>,
+            # <Rule '/doc/swagger' (GET, HEAD, OPTIONS) -> api-docs.openapi_swagger_ui>,
+            # <Rule '/doc/redoc' (GET, HEAD, OPTIONS) -> api-docs.openapi_redoc>,
+            endpoints["openapi"] = url_for("api-docs.openapi_json", _external=True)
+            endpoints["swagger"] = url_for("api-docs.openapi_swagger_ui", _external=True)
+            endpoints["redoc"] = url_for("api-docs.openapi_redoc", _external=True)
+        except werkzeug.routing.BuildError:
+            pass  # Either it's there or it isn't.
 
         # Only list out tenants which have a db, and only if caller has service role.
         if show_extra_info:
