@@ -351,19 +351,23 @@ def logsetup(app):
     _setup_done = True
     app.log_formatter = None
 
-    output_format = os.environ.get("DRIFT_OUTPUT", "json").lower()
-    log_level = os.environ.get('LOGLEVEL', 'INFO').upper()
+    output_format = app.config.get("LOG_FORMAT", "json").lower()
+    log_level = app.config.get("LOG_LEVEL", "INFO").upper()
 
-    logger = logging.getLogger()
-    logger.setLevel(log_level)
     if output_format == "json":
-        # make sure this is our only stream handler
+        logger = logging.getLogger()
+        logger.setLevel(log_level)
         formatter = LogstashFormatterV1()
         app.log_formatter = formatter
+        # make sure this is our only stream handler
         logger.handlers = []
         handler = logging.StreamHandler()
         handler.setFormatter(formatter)
         logger.addHandler(handler)
+    else:
+        logging.basicConfig(
+            level=log_level, format='%(asctime)s - %(name)-14s %(levelname)-5s: %(message)s'
+        )
 
     # if output_format == 'text':
     #     logging.basicConfig(level=log_level)

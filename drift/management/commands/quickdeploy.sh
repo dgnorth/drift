@@ -43,8 +43,5 @@ sudo systemctl daemon-reload
 sudo systemctl start ${service}
 sudo systemctl status ${service} --no-pager
 
-#sudo systemctl restart ${service}-celery
-#sudo systemctl status ${service}-celery --no-pager
-
 echo "Get root endpoint:"
 sudo cat ${UWSGI_LOGFILE}

@@ -29,7 +29,6 @@ setup(
         'flask_marshmallow',
         'jsonschema',
         'pyopenssl>=17',
-        'celery',
         'click',  # explicit requirement on the click library for echo and cmdlinge
 
         # Python 3 compatibility

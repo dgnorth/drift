@@ -11,9 +11,6 @@ Test the import of various top level modules to make sure they compile
 
 
 class ImportTestCase(unittest.TestCase):
-    def test_celeryboot(self):
-        importlib.import_module("drift.celeryboot")
-
     def test_devapp(self):
         importlib.import_module("drift.devapp")
 
