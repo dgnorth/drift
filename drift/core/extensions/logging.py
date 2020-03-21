@@ -16,9 +16,11 @@ import json
 import datetime
 import sys
 import time
+import uuid
 from socket import gethostname
 from collections import OrderedDict
 from functools import wraps
+from logstash_formatter import LogstashFormatterV1
 
 import six
 from six.moves.urllib.parse import urlsplit
@@ -343,115 +345,119 @@ class StreamFormatter(logging.Formatter):
 
 
 def logsetup(app):
-
-    # Special case for AWS Lambda. We skip all logging setup when running as Lambda.
-    if "AWS_EXECUTION_ENV" in os.environ:
-        return
-
     global _setup_done
     if _setup_done:
         return
     _setup_done = True
+    app.log_formatter = None
+
+    output_format = os.environ.get("DRIFT_OUTPUT", "json").lower()
+    log_level = os.environ.get('LOGLEVEL', 'INFO').upper()
+
+    logger = logging.getLogger()
+    logger.setLevel(log_level)
+    if output_format == "json":
+        # make sure this is our only stream handler
+        formatter = LogstashFormatterV1()
+        app.log_formatter = formatter
+        logger.handlers = []
+        handler = logging.StreamHandler()
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+
+    # if output_format == 'text':
+    #     logging.basicConfig(level=log_level)
+    # else:
+    #     handler = logging.StreamHandler()
+    #     formatter = LogstashFormatterV1()
+    #     handler.setFormatter(formatter)
+    #     logging.basicConfig(handlers=[handler], level=log_level)
+    #     if 'logging' in app.config:
+    #         logging.config.dictConfig(app.config['logging'])
 
     @app.before_request
-    def log_before_request():
-        g.request_start_time = time.time()
-        g.request_log_level = 2
+    def _setup_logging():
+        return setup_logging(app)
 
-    if app.config.get("log_request", True):
 
-        @app.after_request
-        def log_after_request(response):
-            log_level = getattr(g, "request_log_level", 2)
-            if log_level == 0:
-                return
-            resp_text = ""
-            resp_len = -1
-            try:
-                resp_len = len(response.response[0])
-                resp_text = response.response[0][:192]
-            except Exception:
-                pass
-            t = None
-            if hasattr(g, "request_start_time"):
-                t = float("%.3f" % (time.time() - g.request_start_time))
-            extra = {
-                "response_code": response.status_code,
-                "response_length": resp_len,
-                "response_time": t,
-                "log_level": log_level,
-            }
-            if response.status_code >= 400:
-                extra["response"] = resp_text
-            if hasattr(g, "database"):
-                extra["database"] = g.database
-            logging.getLogger("request").info(
-                "{} {} - {}".format(request.method, request.url, response.status_code),
-                extra=extra,
-            )
+def setup_logging(app):
+    """Inject a tracking identifier into the request and set up context-info
+    for all debug logs
+    """
+    g.log_defaults = None
+    request_id = request.headers.get("Request-ID", None)
+    if not request_id:
+        default_request_id = str(uuid.uuid4())
+        request_id = request.headers.get("X-Request-ID", default_request_id)
+    request.request_id = request_id
 
-            return response
+    g.log_defaults = get_log_defaults()
+    if app.log_formatter:
+        app.log_formatter.defaults = g.log_defaults
 
-    logging.setLogRecordFactory(drift_log_record_factory)
 
-    syslog_path = "/dev/log"
+def get_log_defaults():
+    defaults = {}
+    tenant_name = None
+    tier_name = get_tier_name()
+    remote_addr = None
 
-    if sys.platform == "darwin":
-        syslog_path = "/var/run/syslog"
-    elif sys.platform == "win32":
-        syslog_path = ("localhost", 514)
+    try:
+        remote_addr = request.remote_addr
+    except Exception:
+        pass
 
-    # Install log file handler
-    handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_USER)
-    handler.name = "serverlog"
-    handler.setFormatter(ServerLogFormatter())
-    logging.root.addHandler(handler)
+    try:
+        if hasattr(g, 'conf'):
+            tenant_name = g.conf.tenant_name['tenant_name'] if g.conf.tenant_name else '(none)'
+    except RuntimeError as e:
+        if "Working outside of application context" in repr(e):
+            pass
+        else:
+            raise
+    defaults["tenant"] = tenant_name
+    defaults["tier"] = tier_name
+    defaults["remote_addr"] = remote_addr
 
-    # Install eventLog file handler
-    handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_LOCAL0)
-    handler.name = "eventlog"
-    handler.setFormatter(EventLogFormatter())
-    log = logging.getLogger("eventlog")
-    log.propagate = False
-    log.setLevel("INFO")
-    log.addHandler(handler)
+    jwt_context = get_user_context()
 
-    # Install client file handler
-    handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_LOCAL1)
-    handler.name = "clientlog"
-    handler.setFormatter(ClientLogFormatter())
-    log = logging.getLogger("clientlog")
-    log.propagate = False
-    log.setLevel("INFO")
-    log.addHandler(handler)
+    if jwt_context:
+        defaults["user"] = jwt_context
 
-    # request handler
-    handler = SysLogHandler(address=syslog_path, facility=SysLogHandler.LOG_LOCAL2)
-    handler.name = "request"
-    handler.setFormatter(RequestLogFormatter())
-    log = logging.getLogger("request")
-    log.propagate = False
-    log.addHandler(handler)
+    # add Client-Log-Context" request headers to the logs
+    client = None
+    try:
+        client = request.headers.get("Client-Log-Context", None)
+        defaults["client"] = json.loads(client)
+    except Exception:
+        defaults["client"] = client
+    defaults["request"] = {
+        "request_id": request.request_id,
+        "url": request.url,
+        "method": request.method,
+        "remote_addr": request.remote_addr,
+        "path": request.path,
+        "user_agent": request.headers.get('User-Agent'),
+        "endpoint": get_clean_path_from_url(request.url)
+    }
+    defaults["request"].update(request.view_args or {})
+    return defaults
 
-    # Apply additional 'level' and 'propagate' settings for handlers and
-    # loggers. See https://docs.python.org/2.7/library/logging.config.html#
-    # Example format:
-    # "logging": {
-    #     "version": 1,
-    #     "incremental": true,
-    #     "loggers": {
-    #         "my_chatty_logger": {
-    #             "level": "WARNING"
-    #         }
-    #     },
-    #     "handlers": {
-    #         "serverlog": {
-    #             "level": "INFO",
-    #         }
-    #     }
-    # }
-    if "logging" in app.config:
-        logging.config.dictConfig(app.config["logging"])
+
+def get_user_context():
+    jwt_context = {}
+    try:
+        fields = set(["user_id", "player_id", "roles", "jti", "user_name",
+                      "player_name", "client_id", "identity_id"])
+        for k, v in current_user.items():
+            if k in fields:
+                key = "{}".format(k)
+                jwt_context[key] = v
+            if k == "roles" and v:
+                jwt_context[k] = ",".join(v)
+    except Exception:
+        pass
+    return jwt_context
 
 
 def drift_init_extension(app, **kwargs):
