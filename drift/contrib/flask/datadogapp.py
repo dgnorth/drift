@@ -12,3 +12,5 @@ logging.basicConfig(level='INFO')
 if os.environ.get('ENABLE_DATADOG_APM', '0') == '1':
     import ddtrace
     ddtrace.patch_all()
+
+app = drift_app()
