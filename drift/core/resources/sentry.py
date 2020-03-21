@@ -52,7 +52,6 @@ def _init_sentry(app):
     integrations = []
 
     # Flask integration installed by default
-    from sentry_sdk.integrations.flask import FlaskIntegration
     integrations.append(FlaskIntegration())
 
     if "drift.core.resources.redis" in app.config["resources"]:
