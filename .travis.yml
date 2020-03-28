@@ -20,7 +20,6 @@ deploy:
   on:
     tags: true
     branch:
-    - develop
     - "/(\\d+\\.)?(\\d+\\.)?(\\*|\\d+)$/"
   user: __token__
   password:
