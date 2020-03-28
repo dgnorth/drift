@@ -1,5 +1,3 @@
-import re
-import ast
 import os
 from setuptools import setup, find_packages
 
