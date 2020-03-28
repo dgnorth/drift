@@ -62,7 +62,7 @@ setup(
             'pyyaml',
         ],
         'test': [
-            'pytest',
+            'pytest>=5.0',
             'pytest-cov',
             'codecov',
             'requests',
