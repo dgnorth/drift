@@ -1,12 +1,7 @@
 [![Build Status](https://travis-ci.org/dgnorth/drift.svg?branch=master)](https://travis-ci.org/dgnorth/drift)
-[![codecov](https://img.shields.io/codecov/c/github/dgnorth/drift/develop.svg)](https://codecov.io/gh/dgnorth/drift)
-![PyPI - Python Version](https://img.shields.io/pypi/pyversions/python-drift.svg)
-![GitHub release](https://img.shields.io/github/release/dgnorth/drift.svg)
-[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/dgnorth/drift/badges/quality-score.png?b=develop)](https://scrutinizer-ci.com/g/dgnorth/drift/?branch=develop)
-
-![GitHub repo size in bytes](https://img.shields.io/github/repo-size/dgnorth/drift.svg)
-![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/dgnorth/drift.svg)
-[![Beerpay](https://beerpay.io/dgnorth/drift/badge.svg)](https://beerpay.io/dgnorth/drift)
+[![codecov](https://img.shields.io/codecov/c/github/dgnorth/drift/branch/develop/graph/badge.svg)](https://codecov.io/gh/dgnorth/drift)
+[![Latest version on
+PyPi](https://badge.fury.io/py/nextcode-sdk.svg)](https://badge.fury.io/py/nextcode-sdk)
 
 # drift
 Micro framework for SOA based applications.
