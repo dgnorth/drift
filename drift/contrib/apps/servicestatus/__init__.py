@@ -60,7 +60,6 @@ class InfoPageAPI(MethodView):
         Basic information about the service and exposed endpoints.
         This is the place to start for interacting with the service.
         """
-        log.info("Root endpoint called")
         tier_name = get_tier_name()
         deployable_name = current_app.config['name']
 

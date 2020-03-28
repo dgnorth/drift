@@ -42,17 +42,12 @@ def _init_sentry(app):
     sentry_sdk.init(
         dsn=dsn,
         integrations=[
-            SqlalchemyIntegration(),
             FlaskIntegration(),
-            RedisIntegration(),
             LoggingIntegration(event_level=None, level=None),
         ],
         environment=tier_name,
     )
     integrations = []
-
-    # Flask integration installed by default
-    integrations.append(FlaskIntegration())
 
     if "drift.core.resources.redis" in app.config["resources"]:
         integrations.append(RedisIntegration())
