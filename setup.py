@@ -51,6 +51,7 @@ setup(
         'logstash_formatter',
         'sentry-sdk[flask]',
         'blinker',
+        'pytz',
     ],
 
     extras_require={
