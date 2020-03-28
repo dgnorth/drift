@@ -1,13 +1,12 @@
 import re
 import ast
+import os
 from setuptools import setup, find_packages
 
-_version_re = re.compile(r'__version__\s+=\s+(.*)')
+version_file = os.path.abspath(os.path.join("drift", "VERSION"))
 
-
-with open('drift/__init__.py', 'rb') as f:
-    version = str(ast.literal_eval(_version_re.search(
-        f.read().decode('utf-8')).group(1)))
+with open(version_file) as f:
+    version = f.readlines()[0].strip()
 
 
 setup(

@@ -7,7 +7,7 @@ before_install:
 - export BOTO_CONFIG=/dev/null
 install:
 - pip install travispy
-- pip install -e .[aws,test]
+- pip install -e ".[aws,test]"
 script:
 - python -m pytest --cov=drift/ --disable-warnings
 - echo $(git describe --abbrev=0 --tags) > drift/VERSION
