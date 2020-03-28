@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/dgnorth/drift.svg?branch=master)](https://travis-ci.org/dgnorth/drift)
+[![Build Status](https://travis-ci.org/dgnorth/drift.svg?branch=develop)](https://travis-ci.org/dgnorth/drift)
 [![codecov](https://codecov.io/github/dgnorth/drift/branches/develop/graph/badge.svg)](https://codecov.io/github/dgnorth/drift/branches/develop)
 [![Latest version on
 PyPi](https://badge.fury.io/py/python-drift.svg)](https://badge.fury.io/py/python-drift)
