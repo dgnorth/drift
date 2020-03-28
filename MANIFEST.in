@@ -1,4 +1,4 @@
 recursive-include */static *
 recursive-include drift/contrib/apps/servicestatus/static *
-include VERSION
+include drift/VERSION
 include scripts/*

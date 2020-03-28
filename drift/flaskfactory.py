@@ -187,7 +187,7 @@ def init_legacy_module(app, module_name, performance):
     except ImportError:
         log.exception("Can't import blueprint %s", blueprint_name)
     else:
-        # This is a deprectated import mechanism
+        # This is a deprecated import mechanism
         warnings.warn(
             "extensions should initialize using 'drift_inít_extension()', "
             "not using a 'blueprints.py' module import.",
