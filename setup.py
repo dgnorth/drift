@@ -1,17 +1,24 @@
-from setuptools import find_packages, setup
+import re
+import ast
+from setuptools import setup, find_packages
 
-with open('VERSION') as f:
-    version = f.read().strip()
+_version_re = re.compile(r'__version__\s+=\s+(.*)')
+
+
+with open('drift/__init__.py', 'rb') as f:
+    version = str(ast.literal_eval(_version_re.search(
+        f.read().decode('utf-8')).group(1)))
 
 
 setup(
-    name='Drift',
+    name='python-drift',
     version=version,
     license='MIT',
-    author='Directive Games North',
+    author='Directive Games',
     author_email='info@directivegames.com',
     description='Micro-framework for SOA based applications',
     packages=find_packages(),
+    url="https://github.com/dgnorth/drift",
     include_package_data=True,
     scripts=[
         'scripts/drift-admin.py',
@@ -22,9 +29,8 @@ setup(
     ]},
 
     install_requires=[
+        'python-driftconfig',
         'Flask',
-        'Flask-RESTful',  # Will be removed
-        'flask-restplus',
         'flask-smorest',
         'flask_marshmallow',
         'jsonschema',
@@ -37,21 +43,15 @@ setup(
         # Resource module dependencies
         'SQLAlchemy',
         'Flask-SQLAlchemy',
+        'marshmallow-sqlalchemy',
         'alembic',
         'psycopg2-binary>=2.7.4',
         'redis',
         'cryptography',
         'PyJWT',
         'logstash_formatter',
-
         'sentry-sdk[flask]',
-        # Later versions break Flask
-        'webargs<6.0.0',
-        # Later versions break flask-restplus
-        'Werkzeug<0.16.0',
-
-        'sentry-sdk',
-        #'blinker',
+        'blinker',
     ],
 
     extras_require={
@@ -81,7 +81,10 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
         'Topic :: Software Development :: Libraries :: Application Frameworks',

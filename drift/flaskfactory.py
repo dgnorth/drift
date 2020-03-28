@@ -8,8 +8,7 @@ import time
 import warnings
 import pkgutil
 
-from flask import Flask, make_response, current_app
-from flask.json import dumps as flask_json_dumps
+from flask import Flask
 from flask_smorest import Api
 from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.utils import import_string, ImportStringError
@@ -17,7 +16,6 @@ from drift.fixers import ReverseProxied, CustomJSONEncoder
 from drift.utils import get_app_root
 import drift.core.extensions
 
-importlib.import_module(".restful", "drift")  # apply patching
 log = logging.getLogger(__name__)
 
 
@@ -66,8 +64,8 @@ def _drift_app(app=None):
 
     # Install apps, api's and extensions.
     sys.path.insert(0, app_root)  # Make current app available
-
-    api = create_api(app)
+    app.config['OPENAPI_VERSION'] = "3.0.2"
+    api = Api(app)
 
     # shitmixing this since flask-rest-api steals the 301-redirect exception
     def err(*args, **kwargs):
@@ -85,37 +83,6 @@ def _drift_app(app=None):
         log.warning("Module installation took %.3f seconds.", elapsed)
 
     return app
-
-
-def create_api(app):
-    """
-    We could subclass the api, but this is just as good
-    """
-    def output_json(data, code, headers=None):
-        """
-        Replacement json dumper which uses the flask.json dumper
-        """
-        settings = current_app.config.get('RESTPLUS_JSON', {})
-
-        # If we're in debug mode, and the indent is not set, we set it to a
-        # reasonable value here.  Note that this won't override any existing value
-        # that was set.
-        # DRIFT: Always set this
-        if True or current_app.debug:
-            settings.setdefault('indent', 4)
-
-        # always end the json dumps with a new line
-        # see https://github.com/mitsuhiko/flask/pull/1262
-        dumped = flask_json_dumps(data, **settings) + "\n"
-
-        resp = make_response(dumped, code)
-        resp.headers.extend(headers or {})
-        return resp
-    #  spec_kwargs={'basePath': '/v1', 'host': 'example.com'}
-    app.config['OPENAPI_VERSION'] = '3.0.2'
-    api = Api(app)
-    #api.representations['application/json'] = output_json
-    return api
 
 
 _sticky_app_config = None
