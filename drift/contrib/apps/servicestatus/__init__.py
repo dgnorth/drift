@@ -67,17 +67,21 @@ class InfoPageAPI(MethodView):
         show_extra_info = (current_user and ('service' in current_user['roles'])) or current_app.debug
 
         host_info = collections.OrderedDict()
-        host_info["host-name"] = socket.gethostname()
-        try:
-            host_info["ip-address"] = socket.gethostbyname(
-                socket.gethostname()
-            )
-        except Exception:
-            """
-            TODO: this is just a work around
-            there might be a better way to get the address
-            """
-            host_info["ip-address"] = "Unknown"
+        host_info["host-name"] = None
+        if current_app.config.get("HOST_ADDRESS"):
+            host_info["ip-address"] = current_app.config.get("HOST_ADDRESS")
+        else:
+            host_info["host-name"] = socket.gethostname()
+            try:
+                host_info["ip-address"] = socket.gethostbyname(
+                    socket.gethostname()
+                )
+            except Exception:
+                """
+                TODO: this is just a work around
+                there might be a better way to get the address
+                """
+                host_info["ip-address"] = "Unknown"
 
         # Platform info
         keys = [
@@ -101,6 +105,15 @@ class InfoPageAPI(MethodView):
         except Exception as e:
             platform_info = str(e)
 
+        version_info = {}
+        try:
+            import drift, driftconfig
+            version_info["service"] = current_app.config.get('VERSION', "Unknown"),
+            version_info["drift"] = drift.__version__,
+            version_info["driftconfig"] = driftconfig.__version__,
+        except Exception as e:
+            log.warning("Could not get service info: %s", e)
+            pass
         endpoints = collections.OrderedDict()
         endpoints["root"] = url_for("root.root", _external=True)
         if endpoints["root"].endswith("/"):
@@ -134,7 +147,8 @@ class InfoPageAPI(MethodView):
             tenants = None
 
         ret = {
-            'service_name': current_app.config['name'],
+            "service_name": current_app.config['name'],
+            "versions": version_info,
             "host_info": host_info,
             "endpoints": endpoints,
             "current_user": dict(current_user) if current_user else None,

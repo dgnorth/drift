@@ -8,7 +8,7 @@ from __future__ import absolute_import
 
 import uuid
 import logging
-from flask import request
+from flask import request, current_app
 
 CORRELATION_ID = "Correlation-ID"
 
@@ -36,7 +36,8 @@ def drift_init_extension(app, **kwargs):
         request.correlation_id = correlation_id
 
     @app.after_request
-    def save_correlation_id(response):
+    def add_response_headers(response):
         if CORRELATION_ID not in response.headers:
             response.headers[CORRELATION_ID] = getattr(request, "correlation_id", None)
+        response.headers["Host-Address"] = current_app.config.get("HOST_ADDRESS", "Unknown")
         return response
