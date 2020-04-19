@@ -41,6 +41,7 @@ class ServiceStatusSchema(ma.Schema):
     request_headers = ma.fields.Dict(description="Request headers (debug only)")
     request_object = ma.fields.Dict(description="Request object info (debug only)")
     wsgi_env = ma.fields.Dict(description="WSGI Environment")
+    versions = ma.fields.Dict(description="Package versions")
 
 
 def drift_init_extension(app, api, **kwargs):
