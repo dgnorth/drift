@@ -6,7 +6,6 @@ version_file = os.path.abspath(os.path.join("drift", "VERSION"))
 with open(version_file) as f:
     version = f.readlines()[0].strip()
 
-
 setup(
     name='python-drift',
     version=version,
