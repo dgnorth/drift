@@ -109,9 +109,9 @@ class InfoPageAPI(MethodView):
         version_info = {}
         try:
             import drift, driftconfig
-            version_info["service"] = current_app.config.get('VERSION', "Unknown"),
-            version_info["drift"] = drift.__version__,
-            version_info["driftconfig"] = driftconfig.__version__,
+            version_info["service"] = current_app.config.get('VERSION', "Unknown")
+            version_info["drift"] = drift.__version__
+            version_info["driftconfig"] = driftconfig.__version__
         except Exception as e:
             log.warning("Could not get service info: %s", e)
             pass
