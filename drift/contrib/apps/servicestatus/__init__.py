@@ -15,6 +15,7 @@ from flask_smorest import Blueprint
 import marshmallow as ma
 from drift.utils import get_tier_name
 import werkzeug.routing
+import drift, driftconfig
 
 from drift.core.extensions.jwt import current_user
 
@@ -103,18 +104,11 @@ class InfoPageAPI(MethodView):
         ]
         try:
             platform_info = {key: getattr(platform, key)() for key in keys}
+
+            platform_info["drift_version"] = drift.__version__
+            platform_info["driftconfig_version"] = driftconfig.__version__
         except Exception as e:
             platform_info = str(e)
-
-        version_info = {}
-        try:
-            import drift, driftconfig
-            version_info["service"] = current_app.config.get('VERSION', "Unknown")
-            version_info["drift"] = drift.__version__
-            version_info["driftconfig"] = driftconfig.__version__
-        except Exception as e:
-            log.warning("Could not get service info: %s", e)
-            pass
         endpoints = collections.OrderedDict()
         endpoints["root"] = url_for("root.root", _external=True)
         if endpoints["root"].endswith("/"):
@@ -149,7 +143,7 @@ class InfoPageAPI(MethodView):
 
         ret = {
             "service_name": current_app.config['name'],
-            "versions": version_info,
+            "version": current_app.config.get('VERSION', "Unknown"),
             "host_info": host_info,
             "endpoints": endpoints,
             "current_user": dict(current_user) if current_user else None,
