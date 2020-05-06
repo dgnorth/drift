@@ -70,6 +70,7 @@ class InfoPageAPI(MethodView):
 
         host_info = collections.OrderedDict()
         host_info["host-name"] = None
+        host_info["image"] = current_app.config.get("DOCKER_IMAGE")
         if current_app.config.get("HOST_ADDRESS"):
             host_info["ip-address"] = current_app.config.get("HOST_ADDRESS")
         else:
