@@ -29,6 +29,7 @@ bp = Blueprint('root', 'Service Status', url_prefix='/', description='Status of 
 class ServiceStatusSchema(ma.Schema):
     result = ma.fields.Str(description="Is the service healthy")
     host_info = ma.fields.Dict(description="Information about the host machine")
+    build_info = ma.fields.Dict(description="Information about the build")
     service_name = ma.fields.Str(description="Name of this service deployable")
     endpoints = ma.fields.Dict(description="List of all exposed endpoints. Contains contextual information if Auth header is provided")
     current_user = ma.fields.Dict(description="Decoded JWT of the current user")
@@ -146,6 +147,7 @@ class InfoPageAPI(MethodView):
             "service_name": current_app.config['name'],
             "version": current_app.config.get('VERSION', "Unknown"),
             "host_info": host_info,
+            "build_info": current_app.config.get("BUILD_INFO"),
             "endpoints": endpoints,
             "current_user": dict(current_user) if current_user else None,
             "tier_name": tier_name,
