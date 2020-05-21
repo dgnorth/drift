@@ -100,7 +100,24 @@ It's very convenient to refresh the local environment and run a server in one go
 dconf developer --run
 ```
 
+## Releasing drift
+Drift is a Pypi package which is released here: https://pypi.org/project/python-drift/
 
+To create a new release simply add a git tag with a semantic version. The Travis-CI process will create a new build and upload it to Pypi.
+
+The following command will tag the latest commit on the current branch and create a new pypi package.
+
+```bash
+git tag 1.0.1
+git push --tags
+```
+
+After a few minutes the package should be built and uploaded. You can now run the following command in services which depend on drift:
+
+```bash
+pipenv update
+```
+This will update the drift package to the latest version in that service.
 
 ## Acknowledgement
 
