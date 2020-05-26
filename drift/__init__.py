@@ -1,11 +1,11 @@
-# -*- coding: utf-8 -*-
+import os
 
-try:
-    from drift.version import Version
-    __version__ = Version(release=(0, 1, 0),
-                          fpath=__file__,
-                          commit="$Format:%h$",
-                          reponame="drift"
-                          )
-except Exception:
-    __version__ = '0.0.0-unknown'
+
+def read_version():
+    directory = os.path.dirname(__file__)
+    with open(os.path.join(directory, "VERSION"), "r") as version_file:
+        version = version_file.readline().strip()
+        return version
+
+
+__version__ = read_version()

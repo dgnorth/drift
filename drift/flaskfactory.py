@@ -8,15 +8,14 @@ import time
 import warnings
 import pkgutil
 
-from flask import Flask, make_response, current_app
-from flask.json import dumps as flask_json_dumps
+from flask import Flask
 from flask_smorest import Api
 from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.utils import import_string, ImportStringError
 from drift.fixers import ReverseProxied, CustomJSONEncoder
 from drift.utils import get_app_root
 import drift.core.extensions
 
-importlib.import_module(".restful", "drift")  # apply patching
 log = logging.getLogger(__name__)
 
 
@@ -48,13 +47,25 @@ def _drift_app(app=None):
     log.info("Init app.template_folder: %s", app.template_folder)
 
     # load deployment settings
-    app.config.update(load_flask_config())
+    flask_config = load_flask_config()
+    for k in flask_config.keys():
+        if k in os.environ:
+            flask_config[k] = os.environ[k]
+    app.config.update(flask_config)
+
+    try:
+        cfg = import_string('config.config')
+        app.config.from_object(cfg)
+        log.info("Overriding configuration in config/config.json with config/config.py")
+    except ImportStringError:
+        log.info("No config.py in config folder. This is fine.")
+
     _apply_patches(app)
 
     # Install apps, api's and extensions.
     sys.path.insert(0, app_root)  # Make current app available
-
-    api = create_api(app)
+    app.config['OPENAPI_VERSION'] = "3.0.2"
+    api = Api(app)
 
     # shitmixing this since flask-rest-api steals the 301-redirect exception
     def err(*args, **kwargs):
@@ -72,37 +83,6 @@ def _drift_app(app=None):
         log.warning("Module installation took %.3f seconds.", elapsed)
 
     return app
-
-
-def create_api(app):
-    """
-    We could subclass the api, but this is just as good
-    """
-    def output_json(data, code, headers=None):
-        """
-        Replacement json dumper which uses the flask.json dumper
-        """
-        settings = current_app.config.get('RESTPLUS_JSON', {})
-
-        # If we're in debug mode, and the indent is not set, we set it to a
-        # reasonable value here.  Note that this won't override any existing value
-        # that was set.
-        # DRIFT: Always set this
-        if True or current_app.debug:
-            settings.setdefault('indent', 4)
-
-        # always end the json dumps with a new line
-        # see https://github.com/mitsuhiko/flask/pull/1262
-        dumped = flask_json_dumps(data, **settings) + "\n"
-
-        resp = make_response(dumped, code)
-        resp.headers.extend(headers or {})
-        return resp
-    #  spec_kwargs={'basePath': '/v1', 'host': 'example.com'}
-    app.config['OPENAPI_VERSION'] = '3.0.2'
-    api = Api(app)
-    #api.representations['application/json'] = output_json
-    return api
 
 
 _sticky_app_config = None
@@ -198,32 +178,32 @@ def install_modules(app, api):
 
 
 def init_legacy_module(app, module_name, performance):
-        t = time.time()
-        m = importlib.import_module(module_name)
-        blueprint_name = "{}.blueprints".format(module_name)
+    t = time.time()
+    m = importlib.import_module(module_name)
+    blueprint_name = "{}.blueprints".format(module_name)
 
+    try:
+        m = importlib.import_module(blueprint_name)
+    except ImportError:
+        log.exception("Can't import blueprint %s", blueprint_name)
+    else:
+        # This is a deprecated import mechanism
+        warnings.warn(
+            "extensions should initialize using 'drift_inít_extension()', "
+            "not using a 'blueprints.py' module import.",
+            DeprecationWarning)
+        import_time = time.time() - t
         try:
-            m = importlib.import_module(blueprint_name)
-        except ImportError:
-            log.exception("Can't import blueprint %s", blueprint_name)
-        else:
-            # This is a deprectated import mechanism
-            warnings.warn(
-                "extensions should initialize using 'drift_inít_extension()', "
-                "not using a 'blueprints.py' module import.",
-                DeprecationWarning)
-            import_time = time.time() - t
-            try:
-                m.register_blueprints(app)
-            except Exception:
-                log.exception("Couldn't register blueprints for module '%s'", module_name)
+            m.register_blueprints(app)
+        except Exception:
+            log.exception("Couldn't register blueprints for module '%s'", module_name)
 
-            performance.append({
-                'category': 'legacy',
-                'module_name': module_name,
-                'total_time': time.time() - t,
-                'import_time': import_time,
-            })
+        performance.append({
+            'category': 'legacy',
+            'module_name': module_name,
+            'total_time': time.time() - t,
+            'import_time': import_time,
+        })
 
 
 def init_plugin_list(app, api, plugin_names, category, performance):

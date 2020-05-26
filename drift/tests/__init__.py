@@ -4,6 +4,7 @@ import json
 from flask import Flask
 from unittest import TestCase
 from drift.flaskfactory import _apply_patches
+from flask_smorest import Api
 
 
 class DriftTestCase(TestCase):
@@ -50,8 +51,8 @@ class DriftTestCase(TestCase):
         app = Flask(__name__)
         # apply the same kind of patching as regular factory apps get
         _apply_patches(app)
-        from drift.flaskfactory import create_api
-        api = create_api(app)
+        app.config['OPENAPI_VERSION'] = "3.0.2"
+        api = Api(app)
         # shitmixing this since flask-rest-api steals the 301-redirect exception
         def err(*args, **kwargs):
             pass

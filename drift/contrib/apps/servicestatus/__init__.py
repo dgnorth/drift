@@ -15,6 +15,7 @@ from flask_smorest import Blueprint
 import marshmallow as ma
 from drift.utils import get_tier_name
 import werkzeug.routing
+import drift, driftconfig
 
 from drift.core.extensions.jwt import current_user
 
@@ -28,6 +29,7 @@ bp = Blueprint('root', 'Service Status', url_prefix='/', description='Status of 
 class ServiceStatusSchema(ma.Schema):
     result = ma.fields.Str(description="Is the service healthy")
     host_info = ma.fields.Dict(description="Information about the host machine")
+    build_info = ma.fields.Dict(description="Information about the build")
     service_name = ma.fields.Str(description="Name of this service deployable")
     endpoints = ma.fields.Dict(description="List of all exposed endpoints. Contains contextual information if Auth header is provided")
     current_user = ma.fields.Dict(description="Decoded JWT of the current user")
@@ -41,6 +43,7 @@ class ServiceStatusSchema(ma.Schema):
     request_headers = ma.fields.Dict(description="Request headers (debug only)")
     request_object = ma.fields.Dict(description="Request object info (debug only)")
     wsgi_env = ma.fields.Dict(description="WSGI Environment")
+    version = ma.fields.Str(description="Service version")
 
 
 def drift_init_extension(app, api, **kwargs):
@@ -67,17 +70,22 @@ class InfoPageAPI(MethodView):
         show_extra_info = (current_user and ('service' in current_user['roles'])) or current_app.debug
 
         host_info = collections.OrderedDict()
-        host_info["host-name"] = socket.gethostname()
-        try:
-            host_info["ip-address"] = socket.gethostbyname(
-                socket.gethostname()
-            )
-        except Exception:
-            """
-            TODO: this is just a work around
-            there might be a better way to get the address
-            """
-            host_info["ip-address"] = "Unknown"
+        host_info["host-name"] = None
+        host_info["image"] = current_app.config.get("DOCKER_IMAGE")
+        if current_app.config.get("HOST_ADDRESS"):
+            host_info["ip-address"] = current_app.config.get("HOST_ADDRESS")
+        else:
+            host_info["host-name"] = socket.gethostname()
+            try:
+                host_info["ip-address"] = socket.gethostbyname(
+                    socket.gethostname()
+                )
+            except Exception:
+                """
+                TODO: this is just a work around
+                there might be a better way to get the address
+                """
+                host_info["ip-address"] = "Unknown"
 
         # Platform info
         keys = [
@@ -98,9 +106,11 @@ class InfoPageAPI(MethodView):
         ]
         try:
             platform_info = {key: getattr(platform, key)() for key in keys}
+
+            platform_info["drift_version"] = drift.__version__
+            platform_info["driftconfig_version"] = driftconfig.__version__
         except Exception as e:
             platform_info = str(e)
-
         endpoints = collections.OrderedDict()
         endpoints["root"] = url_for("root.root", _external=True)
         if endpoints["root"].endswith("/"):
@@ -134,8 +144,10 @@ class InfoPageAPI(MethodView):
             tenants = None
 
         ret = {
-            'service_name': current_app.config['name'],
+            "service_name": current_app.config['name'],
+            "version": current_app.config.get('VERSION', "Unknown"),
             "host_info": host_info,
+            "build_info": current_app.config.get("BUILD_INFO"),
             "endpoints": endpoints,
             "current_user": dict(current_user) if current_user else None,
             "tier_name": tier_name,

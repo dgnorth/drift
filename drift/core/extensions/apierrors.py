@@ -60,7 +60,6 @@ def drift_init_extension(app, **kwargs):
 
 def handle_all_exceptions(e):
     is_server_error = not isinstance(e, HTTPException)
-    print("handle_all_exceptions - %s" % e)
 
     ret = {}
     error = {}

@@ -2,13 +2,17 @@
 Sentry integration
 """
 import logging
-import os
+import os, sys
 
-
+from flask import current_app, g
 from driftconfig.util import get_drift_config
 from drift.utils import get_tier_name
+import sentry_sdk
+from sentry_sdk.integrations.flask import FlaskIntegration
+from sentry_sdk.integrations.logging import LoggingIntegration
+from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+from sentry_sdk.integrations.redis import RedisIntegration
 from drift.core.extensions.logging import get_log_details
-
 
 log = logging.getLogger(__name__)
 
@@ -19,7 +23,8 @@ TIER_DEFAULTS = {"dsn": "<PLEASE FILL IN>"}
 # Initialize Sentry at file scope to catch'em all.
 def _init_sentry(app):
     dsn = os.environ.get('SENTRY_DSN')
-    conf = get_drift_config(tier_name=get_tier_name())
+    tier_name = get_tier_name()
+    conf = get_drift_config(tier_name=tier_name)
 
     if not dsn:
         tier = conf.tier
@@ -31,21 +36,23 @@ def _init_sentry(app):
             dsn = None
 
     if not dsn:
+        log.info("Sentry is not enabled")
         return
 
-    import sentry_sdk
+    sentry_sdk.init(
+        dsn=dsn,
+        integrations=[
+            FlaskIntegration(),
+            LoggingIntegration(event_level=None, level=None),
+        ],
+        environment=tier_name,
+    )
     integrations = []
 
-    # Flask integration installed by default
-    from sentry_sdk.integrations.flask import FlaskIntegration
-    integrations.append(FlaskIntegration())
-
     if "drift.core.resources.redis" in app.config["resources"]:
-        from sentry_sdk.integrations.redis import RedisIntegration
         integrations.append(RedisIntegration())
 
     if "drift.core.resources.postgres" in app.config["resources"]:
-        from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
         integrations.append(SqlalchemyIntegration())
 
     sentry_sdk.init(
@@ -137,3 +144,33 @@ def register_deployable_on_tenant(
     ts, deployable_name, tier_name, tenant_name, resource_attributes
 ):
     pass
+
+
+def log_sentry(msg, *args, **kwargs):
+    """Write a custom 'error' log event to sentry. Behaves like normal loggers
+    Batches messages that have the same signature. Please use '"hello %s", "world"', not '"hello %s" % "world"'
+    Example usage: log_sentry("Hello %s", "world", extra={"something": "else"})
+    """
+    try:
+        # also log out an error for good measure
+        log.error(msg, *args)
+        if not current_app:
+            return
+
+        extra = kwargs.get('extra', {})
+        if getattr(g, 'log_defaults', None):
+            extra.update(g.log_defaults)
+        # get info on the caller
+        f_code = sys._getframe().f_back.f_code
+        extra['method'] = f_code.co_name
+        extra['line'] = f_code.co_firstlineno
+        extra['file'] = f_code.co_filename
+
+        with sentry_sdk.push_scope() as scope:
+            for k, v in extra.items():
+                scope.set_extra(k, v)
+            scope.level = 'warning'
+            sentry_sdk.capture_message(msg % args)
+
+    except Exception as e:
+        log.exception(e)

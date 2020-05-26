@@ -75,8 +75,6 @@ mkdir -p /var/log/drift
 chown syslog:adm /var/log/drift
 mkdir -p /var/log/uwsgi
 chown syslog:adm /var/log/uwsgi
-mkdir -p /var/log/celery
-chmod a+w /var/log/celery
 if [ -f ${approot}/aws/scripts/setup_instance.sh ]; then
     sh ${approot}/aws/scripts/setup_instance.sh
 fi
