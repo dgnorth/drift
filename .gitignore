@@ -58,3 +58,6 @@ target/
 .idea/
 
 venv/
+
+# Drift config folder for local development
+.driftconfig-developer
