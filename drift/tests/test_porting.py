@@ -12,7 +12,7 @@ Test the import of various top level modules to make sure they compile
 
 class ImportTestCase(unittest.TestCase):
     def test_devapp(self):
-        importlib.import_module("drift.devapp")
+        importlib.import_module("drift.contrib.flask.devapp")
 
     def test_fixers(self):
         importlib.import_module("drift.fixers")
@@ -27,13 +27,13 @@ class ImportTestCase(unittest.TestCase):
         importlib.import_module("drift.systesthelper")
 
     def test_urlregistry(self):
-        importlib.import_module("drift.urlregistry")
+        importlib.import_module("drift.core.extensions.urlregistry")
 
     def test_utils(self):
         importlib.import_module("drift.utils")
 
     def test_uwsgiboot(self):
-        importlib.import_module("drift.uwsgiboot")
+        importlib.import_module("drift.contrib.flask.plainapp")
 
     def test_version(self):
         importlib.import_module("drift.version")
