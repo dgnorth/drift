@@ -53,7 +53,6 @@ setup(
 
     extras_require={
         'aws': [
-            'boto',
             'boto3',
             'paramiko',
             'fabric>=2.0',

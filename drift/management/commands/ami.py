@@ -20,7 +20,6 @@ from six import print_
 
 try:
     # boto library is not a hard requirement for drift.
-    import boto.ec2
     import boto3
 except ImportError:
     pass
@@ -439,7 +438,7 @@ def _run_command(args):
         echo("DEPLOYABLE:")
         echo(json.dumps(conf.deployable, indent=4))
 
-    ec2_conn = boto.ec2.connect_to_region(aws_region)
+    ec2_conn = boto3.resource('ec2', region_name=aws_region)
 
     if conf.tier['is_live']:
         secho("NOTE! This tier is marked as LIVE. Special restrictions may apply. Use --force to override.", fg="yellow")

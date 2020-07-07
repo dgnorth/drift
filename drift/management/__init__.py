@@ -8,8 +8,8 @@ from datetime import datetime
 import logging
 import subprocess
 import socket
+import boto3
 
-import boto
 from click import echo
 
 from drift.management.gittools import get_branch, get_commit, get_repo_url, get_git_version
@@ -157,7 +157,7 @@ def get_ec2_instances(region, tier, service_name):
     }
     echo("Finding ec2 instances in region {!r} from filters: {!r}".format(region, filters))
 
-    conn = boto.ec2.connect_to_region(region)
+    conn = boto3.client('ec2', region_name=region)
 
     reservations = conn.get_all_reservations(filters=filters)
     instances = [i for r in reservations for i in r.instances]
