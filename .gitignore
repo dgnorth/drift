@@ -5,6 +5,10 @@ __pycache__/
 # C extensions
 *.so
 
+# Don't track these, they're for local development only
+Pipfile
+Pipfile.lock
+
 # Distribution / packaging
 .Python
 env/
