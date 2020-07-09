@@ -127,16 +127,16 @@ def provision_resource(ts, tenant_config, attributes):
     depl = ts.get_table('deployable-names').get({'deployable_name': tenant_config['deployable_name']})
     attributes['models'] = depl['resource_attributes']['drift.core.resources.postgres']['models']
 
-    if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
-        # Override 'server'
-        attributes['server'] = os.environ.get('DRIFT_POSTGRES_HOST', 'localhost')
-
     # Initialize the DB name if applicable
     if not attributes.get('database'):
         attributes["database"] = "{}.{}".format(
             tenant_config['tenant_name'], tenant_config['deployable_name'])
 
     attributes = attributes.copy()  # Do not give subroutines chance of modifying permanently.
+
+    if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
+        # Override 'server'
+        attributes['server'] = os.environ.get('DRIFT_POSTGRES_HOST', 'localhost')
 
     if tenant_config['state'] == 'initializing':
         # Create or recreate db
