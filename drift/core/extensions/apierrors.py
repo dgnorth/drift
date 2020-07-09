@@ -72,9 +72,6 @@ def handle_all_exceptions(e):
         context_id = log_context.get("request_id", str(uuid.uuid4()).replace("-", ""))
         error['context_id'] = context_id
         title = str(e) + " - [{}]".format(context_id)
-        splunk_link = 'http://splunk.devnorth.dg-api.com:8000/en-US/app/search/search'
-        splunk_link += '?q=search%20sourcetype%3D%22*%22%20%7C%20search%20{}'.format(context_id)
-        error['link'] = splunk_link
 
     if is_server_error:
         # Do a traceback if caller has dev role, or we are running in debug mode.
