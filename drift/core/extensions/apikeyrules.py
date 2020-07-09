@@ -2,7 +2,7 @@
 """
     drift - API key rules
     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    Implement api key rules for passing, redirecting or rececting requests based
+    Implement api key rules for passing, redirecting or rejecting requests based
     on product and version of the client.
 """
 from __future__ import absolute_import

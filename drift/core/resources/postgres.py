@@ -153,7 +153,7 @@ def provision_resource(ts, tenant_config, attributes):
             )
             report.append("Database didn't exist, which was unexpected, so a new DB needs to be created")
             create_db(attributes, report=report)
-        report.append("Database check successfull for DB: {}".format(format_connection_string(attributes)))
+        report.append("Database check successful for DB: {}".format(format_connection_string(attributes)))
     elif tenant_config['state'] == 'uninitializing':
         # Archive or delete db
         drop_db(attributes, force=True)
