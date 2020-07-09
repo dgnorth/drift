@@ -51,6 +51,9 @@ class DriftTestCase(TestCase):
         app = Flask(__name__)
         # apply the same kind of patching as regular factory apps get
         _apply_patches(app)
+        # flask-smorest configuration defaults
+        app.config['API_TITLE'] = "drift"
+        app.config['API_VERSION'] = "1"
         app.config['OPENAPI_VERSION'] = "3.0.2"
         api = Api(app)
         # shitmixing this since flask-rest-api steals the 301-redirect exception

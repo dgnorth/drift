@@ -46,6 +46,10 @@ def _drift_app(app=None):
     log.info("Init app.static_folder: %s", app.static_folder)
     log.info("Init app.template_folder: %s", app.template_folder)
 
+    # flask-smorest configuration defaults
+    app.config['API_TITLE'] = "drift"
+    app.config['API_VERSION'] = "1"
+
     # load deployment settings
     flask_config = load_flask_config()
     for k in flask_config.keys():
