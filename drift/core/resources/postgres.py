@@ -380,20 +380,16 @@ def create_db(params, report=None):
             models.on_create_db(engine)
 
     # stamp the db with the latest alembic upgrade version
-    alembic_not_supported = True
-    if alembic_not_supported:
-        log.warning("NOTE! Alembic not supported at the moment. No db upgrades are run.")
-    else:
-        from drift.utils import get_app_root
-        approot = get_app_root()
-        ini_path = os.path.join(approot, "alembic.ini")
-        alembic_cfg = Config(ini_path)
-        script_path = os.path.join(os.path.split(os.path.abspath(ini_path))[0], "alembic")
-        alembic_cfg.set_main_option("script_location", script_path)
-        db_names = alembic_cfg.get_main_option('databases')
-        connection_string = format_connection_string(params)
-        alembic_cfg.set_section_option(db_names, "sqlalchemy.url", connection_string)
-        command.stamp(alembic_cfg, "head")
+    from drift.utils import get_app_root
+    approot = get_app_root()
+    ini_path = os.path.join(approot, "alembic.ini")
+    alembic_cfg = Config(ini_path)
+    script_path = os.path.join(os.path.split(os.path.abspath(ini_path))[0], "alembic")
+    alembic_cfg.set_main_option("script_location", script_path)
+    db_names = alembic_cfg.get_main_option('databases')
+    connection_string = format_connection_string(params)
+    alembic_cfg.set_section_option(db_names, "sqlalchemy.url", connection_string)
+    command.stamp(alembic_cfg, "head")
 
     for schema in SCHEMAS:
         # Note that this does not automatically grant on tables added later
