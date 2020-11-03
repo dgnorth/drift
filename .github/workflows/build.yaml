@@ -1,5 +1,5 @@
 name: publish-to-pypi
-on: [push]
+on: [ push ]
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -15,7 +15,3 @@ jobs:
           pip install -e ".[aws,test]"
       - name: Run PyTest
         run: pytest .
-
-  publish:
-    runs-on: ubuntu-latest
-    steps:
