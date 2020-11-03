@@ -1,10 +1,12 @@
 name: publish-to-pypi
-on: [ push ]
+on: [ push, pull_request ]
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
@@ -14,13 +16,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install wheel
           pip install -e ".[aws,test]"
+          echo $(git describe --abbrev=0 --tags) > drift/VERSION
       - name: Run PyTest
         run: pytest .
 
   publish:
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
+    needs: test
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
@@ -30,10 +36,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install setuptools wheel twine
           pip install -e ".[aws,test]"
+      - name: Stamp version
+        run: |
+          echo $(git describe --abbrev=0 --tags) > drift/VERSION
       - name: Publish to PyPi
         env:
-          TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
-          TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
         run: |
           python setup.py sdist bdist_wheel
           twine check dist/*
