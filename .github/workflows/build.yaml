@@ -1,5 +1,9 @@
-name: Build and Publish
-on: [ push, pull_request ]
+name: Build and Test
+on:
+  push:
+    ignore-tags:
+      - '*'
+  pull_request:
 
 jobs:
   test:
@@ -7,8 +11,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
@@ -18,37 +20,5 @@ jobs:
           python -m pip install --upgrade pip
           pip install wheel
           pip install -e ".[aws,test]"
-      - name: Stamp version
-        run: |
-          echo $(git describe --abbrev=0 --tags) > drift/VERSION
       - name: Run PyTest
         run: pytest .
-
-  publish:
-    runs-on: ubuntu-latest
-    needs: test
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - name: Setup Python
-        uses: actions/setup-python@v2
-        with:
-          python-version: 3.7
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install setuptools wheel twine
-          pip install -e ".[aws,test]"
-      - name: Stamp version
-        run: |
-          echo $(git describe --abbrev=0 --tags) > drift/VERSION
-      - name: Publish to PyPi
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          python setup.py sdist bdist_wheel
-          twine check dist/*
-          twine upload dist/*
