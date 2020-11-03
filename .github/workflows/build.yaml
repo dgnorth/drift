@@ -19,6 +19,7 @@ jobs:
           pip install wheel
           pip install -e ".[aws,test]"
       - name: Stamp version
+        run: |
           echo $(git describe --abbrev=0 --tags) > drift/VERSION
       - name: Run PyTest
         run: pytest .
