@@ -64,7 +64,6 @@ setup(
             'codecov',
             'requests',
             'responses',
-            'travispy',
         ],
     },
 

@@ -59,6 +59,3 @@ class ScriptImportTestCase(unittest.TestCase):
 
     def test_parse_uwsgi_profiler(self):
         importlib.import_module("parse_uwsgi_profiler")
-
-    def test_travis_build_dependent_projects(self):
-        importlib.import_module("travis_build_dependent_projects")

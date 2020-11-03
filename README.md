@@ -1,10 +1,10 @@
-[![Build Status](https://github.com/dgnorth/drift/workflows/Build%20and%20Publish/badge.svg)](https://github.com/dgnorth/drift)
+[![Build Status](https://github.com/dgnorth/drift/workflows/Build%20and%20Test/badge.svg)](https://github.com/dgnorth/drift)
+[![Build Status](https://github.com/dgnorth/drift/workflows/Build%20and%20Publish/badge.svg)](https://pypi.org/project/python-drift)
 [![Latest version on
 PyPi](https://badge.fury.io/py/python-drift.svg)](https://badge.fury.io/py/python-drift)
 
 # drift
 Micro framework for SOA based applications.
-
 
 Drift is a high level web framework to implement REST based web services and contains tools for deployment, operation and total lifecycle management of those services.
 
@@ -102,7 +102,7 @@ dconf developer --run
 ## Releasing drift
 Drift is a Pypi package which is released here: https://pypi.org/project/python-drift/
 
-To create a new release simply add a git tag with a semantic version. The Travis-CI process will create a new build and upload it to Pypi.
+To create a new release simply add a git tag with a semantic version. The GitHub Actions process will create a new build and upload it to Pypi.
 
 The following command will tag the latest commit on the current branch and create a new pypi package.
 
