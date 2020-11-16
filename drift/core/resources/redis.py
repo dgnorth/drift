@@ -225,9 +225,10 @@ class RedisCache(object):
             log.info("Redis disabled. Not incrementing key '%s'", key)
             return None
         compound_key = self.make_key(key)
-        self.conn.incr(compound_key, amount)
+        ret = self.conn.incr(compound_key, amount)
         if expire:
             self.conn.expire(compound_key, expire)
+        return ret
 
     def lock(self, lock_name):
         return self.conn.lock(self.make_key(lock_name))
