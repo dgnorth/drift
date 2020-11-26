@@ -95,19 +95,22 @@ def provision_resource(ts, tenant_config, attributes):
     # Create the tier default user on the DBMS and assign "can login" privilege
     # and add role "rds_superuser".
     params = process_connection_values(attributes)
-    params["username"] = MASTER_USER
-    params["password"] = MASTER_PASSWORD
-    params["database"] = MASTER_DB
+    params["username"] = os.environ.get('DRIFT_POSTGRES_MASTER_USER', MASTER_USER)
+    params["password"] = os.environ.get('DRIFT_POSTGRES_MASTER_PASSWORD', MASTER_PASSWORD)
+    params["database"] = os.environ.get('DRIFT_POSTGRES_MASTER_DB', MASTER_DB)
+    tenant_db_username = attributes['username']
+    tenant_db_password = attributes['password']
     engine = connect(params)
     params['role'] = 'rds_superuser'
-    sql = "CREATE ROLE zzp_user LOGIN PASSWORD 'zzp_user' VALID UNTIL 'infinity';"
+    sql = "CREATE ROLE {role} LOGIN PASSWORD '{password}' VALID UNTIL 'infinity';".format(role=tenant_db_username,
+                                                                                          password=tenant_db_password)
     try:
         engine.execute(sql)
     except Exception as e:
         if "already exists" not in str(e):
             raise
 
-    sql = "GRANT {role} TO zzp_user;".format(**params)
+    sql = "GRANT {role} TO {tenant_role};".format(tenant_role=tenant_db_username, **params)
     try:
         engine.execute(sql)
     except Exception as e:
@@ -336,14 +339,16 @@ def create_db(params, report=None):
 
     t = time.time()  # Simple timing of CB creation.
     params = process_connection_values(params)
+    tenant_db_role = params['username']
+    tenant_db_password = params['password']
     db_name = params["database"]
     username = params["username"]
 
-    params["username"] = MASTER_USER
-    params["password"] = MASTER_PASSWORD
+    params["username"] = os.environ.get('DRIFT_POSTGRES_MASTER_USER', MASTER_USER)
+    params["password"] = os.environ.get('DRIFT_POSTGRES_MASTER_PASSWORD', MASTER_PASSWORD)
 
     master_params = params.copy()
-    master_params["database"] = MASTER_DB
+    master_params["database"] = os.environ.get('DRIFT_POSTGRES_MASTER_DB', MASTER_DB)
     engine = connect(master_params)
     engine.execute('COMMIT')
     sql = 'CREATE DATABASE "{}";'.format(db_name)
@@ -354,7 +359,8 @@ def create_db(params, report=None):
 
     # TODO: This will only run for the first time and fail in all other cases.
     # Maybe test before instead?
-    sql = "CREATE ROLE zzp_user LOGIN PASSWORD 'zzp_user' VALID UNTIL 'infinity';"
+    sql = "CREATE ROLE {role} LOGIN PASSWORD '{password}' VALID UNTIL 'infinity';".format(role=tenant_db_role,
+                                                                                          password=tenant_db_password)
     try:
         engine.execute(sql)
     except Exception as e:
