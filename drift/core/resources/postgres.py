@@ -233,7 +233,8 @@ def drift_init_extension(app, **kwargs):
         'connect_args': {
             'connect_timeout': 10,
             'application_name': Postgres.get_application_name(),
-        }
+        },
+        'pool_pre_ping': True
     })
     SQLAlchemy(app)
 
