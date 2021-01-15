@@ -90,7 +90,6 @@ def provision_resource(ts, tenant_config, attributes):
 
     if tenant_config['state'] == 'deleted':
         return ["DB is, or should be deleted. Not bothering to check though."]
-        return
 
     # Create the tier default user on the DBMS and assign "can login" privilege
     # and add role "rds_superuser".
