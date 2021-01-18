@@ -44,7 +44,7 @@ setup(
         'psycopg2-binary>=2.7.4',
         'redis',
         'cryptography',
-        'PyJWT',
+        'PyJWT<2',
         'logstash_formatter',
         'sentry-sdk[flask]',
         'blinker',
