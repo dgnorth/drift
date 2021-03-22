@@ -26,6 +26,7 @@ class ApiKeyRulesTest(DriftTestCase):
         cls.product_name = ts.get_table('products').find()[0]['product_name']
         cls.tenant_name_1 = ts.get_table('tenant-names').find({'product_name': cls.product_name})[0]['tenant_name']
         cls.tenant_name_2 = ts.get_table('tenant-names').find({'product_name': cls.product_name})[1]['tenant_name']
+        cls.tenant_name_3 = ts.get_table('tenant-names').find({'product_name': cls.product_name})[1]['tenant_name']
         cls.deployable_1 = ts.get_table('deployables').find({'tier_name': cls.tier_name})[0]['deployable_name']
         cls.conf = get_drift_config(
             ts=ts,
@@ -43,11 +44,13 @@ class ApiKeyRulesTest(DriftTestCase):
         # Rule 1: reject clients 1.6.0 and 1.6.2 and ask them to upgrade.
         # Rule 2: redirect client 1.6.5 to another tenant.
         # Rule 3: always let client 1.6.5, and 1.6.6 pass through.
-        # Rule 4: reject all clients with message "server is down".
+        # Rule 4: redirect client 1.6.7 to another host.
+        # Rule 5: reject all clients with message "server is down".
         rules = [
             ('upgrade-client-1.6', ["1.6.0", "1.6.2"], 'reject', [404, {"action": "upgrade_client"}]),
-            ('redirect-to-new-tenant', ["1.6.5"], 'redirect', cls.tenant_name_2),
+            ('redirect-to-new-tenant', ["1.6.5"], 'redirect', {'tenant_name': cls.tenant_name_2}),
             ('always-pass', ["1.6.5", "1.6.6"], 'pass', cls.tenant_name_1),
+            ('redirect-to-new-host', ["1.6.7"], 'redirect', {'host_name': cls.tenant_name_3 + '.example.com'}),
             ('downtime-message', [], 'reject', [503, {"message": "The server is down for maintenance."}]),
         ]
 
@@ -64,7 +67,7 @@ class ApiKeyRulesTest(DriftTestCase):
             if rule_type == 'reject':
                 row['reject'] = {'status_code': custom[0], 'response_body': custom[1]}
             elif rule_type == 'redirect':
-                row['redirect'] = {'tenant_name': custom}
+                row['redirect'] = custom
 
             row['response_header'] = {'Test-Rule-Name': rule_name}  # To test response headers
 
@@ -124,7 +127,7 @@ class ApiKeyRulesTest(DriftTestCase):
         self.assertEqual(rule['status_code'], 404)
         self.assertEqual(rule['response_body']['action'], "upgrade_client")
 
-    def test_redirect_rule_redirects(self):
+    def test_redirect_rule_redirects_tenant(self):
         headers = {
             "Drift-Api-Key": "%s:%s" % (self.product_name, "1.6.5")
         }
@@ -133,6 +136,16 @@ class ApiKeyRulesTest(DriftTestCase):
         self.assertIsNotNone(rule)
         self.assertEqual(rule['status_code'], 307)
         self.assertEqual(rule['response_header']['Location'], "https://%s.kaleo.io/drift" % self.tenant_name_2)
+
+    def test_redirect_rule_redirects_hostname(self):
+        headers = {
+            "Drift-Api-Key": "%s:%s" % (self.product_name, "1.6.7")
+        }
+        url = "https://%s.kaleo.io/drift" % self.tenant_name_1
+        rule = get_api_key_rule(headers, url, self.conf)
+        self.assertIsNotNone(rule)
+        self.assertEqual(rule['status_code'], 307)
+        self.assertEqual(rule['response_header']['Location'], "https://%s.example.com/drift" % self.tenant_name_3)
 
     def test_redirect_rule_passes_when_redirected(self):
         headers = {

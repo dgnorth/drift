@@ -184,15 +184,20 @@ def get_api_key_rule(request_headers, request_url, conf):
 
             current_tenant, domain = urlparts.hostname.split('.', 1)
 
+            redirect = rule['redirect']
+            current_hostname = urlparts.hostname
+            if 'tenant_name' in redirect:
+                new_hostname = redirect['tenant_name'] + '.' + domain
+            elif 'host_name' in redirect:
+                new_hostname = redirect['host_name']
+
             # See if the host already matches the redirection.
-            if current_tenant == rule['redirect']['tenant_name']:
+            if current_hostname == new_hostname:
                 continue
 
-            redirect = rule['redirect']
-            new_hostname = redirect['tenant_name'] + '.' + domain
             url = request_url.replace(urlparts.hostname, new_hostname)
             ret['status_code'] = 307  # Temporary redirect
-            ret['response_body'] = {'message': "Redirecting to tier '{}'.".format(redirect['tenant_name'])}
+            ret['response_body'] = {'message': "Redirecting to '{}'.".format(new_hostname)}
             ret['response_header']['Location'] = url
 
             return ret
