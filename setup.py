@@ -27,7 +27,7 @@ setup(
     install_requires=[
         'python-driftconfig',
         'Flask',
-        'flask-smorest',
+        'flask-smorest<0.29',
         'flask_marshmallow',
         'jsonschema',
         'pyopenssl>=17',
