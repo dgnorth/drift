@@ -49,6 +49,9 @@ setup(
         'sentry-sdk[flask]',
         'blinker',
         'pytz',
+
+        # Lock dependency versions
+        'importlib-metadata<2',
     ],
 
     extras_require={
