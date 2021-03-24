@@ -1,31 +1,26 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
+
+import getpass
+import http.client
+import importlib
+import logging
 import os
 import os.path
-import importlib
-from contextlib import contextmanager
 import socket
-import getpass
 import time
-
-import http.client
+from contextlib import contextmanager
 
 from click import echo
-
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
-
-from werkzeug.local import LocalProxy
-from sqlalchemy import create_engine
-from flask import g, abort
 from flask import _app_ctx_stack as stack, current_app
-
+from flask import g, abort
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import create_engine
+from werkzeug.local import LocalProxy
 
-from drift.flaskfactory import load_flask_config
 from drift.core.extensions.driftconfig import check_tenant
+from drift.flaskfactory import load_flask_config
 
-import logging
 log = logging.getLogger(__name__)
 
 

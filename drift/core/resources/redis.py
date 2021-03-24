@@ -1,21 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
-import os
 import datetime
 import logging
+import os
 
-from six.moves import cPickle as pickle
 import redis
-
-from flask import g, abort
+from driftconfig.util import get_parameters
 from flask import _app_ctx_stack as stack
+from flask import g, abort
+from six.moves import cPickle as pickle
 from werkzeug._compat import integer_types
 from werkzeug.local import LocalProxy
 
-from driftconfig.util import get_parameters
 from drift.core.extensions.driftconfig import check_tenant
-
 
 log = logging.getLogger(__name__)
 

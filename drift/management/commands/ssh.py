@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
-import sys
 import os
 import os.path
 import subprocess
+import sys
 
 import boto3
 from click import echo

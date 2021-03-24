@@ -5,19 +5,17 @@
     Apply application configuration and initialize tenants.
 """
 from __future__ import absolute_import
+
+import http.client
 import logging
 from functools import wraps
 
-import http.client
-
-from werkzeug.local import LocalProxy
-from flask import g, current_app
-from flask import _app_ctx_stack as stack
-from flask_smorest import abort
-
 from driftconfig.relib import CHECK_INTEGRITY
 from driftconfig.util import get_drift_config, get_default_drift_config, TenantNotConfigured
-
+from flask import _app_ctx_stack as stack
+from flask import g, current_app
+from flask_smorest import abort
+from werkzeug.local import LocalProxy
 
 from drift.core.extensions.tenancy import tenant_from_hostname
 from drift.utils import get_tier_name

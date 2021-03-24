@@ -8,22 +8,19 @@
 
 from __future__ import absolute_import
 
-from functools import wraps
 import logging
+from functools import wraps
 
 import six
-import http.client as http_client
-from six.moves import cStringIO
-
-from flask import current_app, request, url_for
+from click import echo
 from flask import after_this_request
+from flask import current_app, request, url_for
 from flask.json import dumps, loads
 from flask.wrappers import Response
 from flask_smorest import abort
-from click import echo
-
-from jsonschema import validate as _validate
 from jsonschema import RefResolver, FormatChecker, ValidationError
+from jsonschema import validate as _validate
+from six.moves import cStringIO
 
 log = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
+import http.client
 import unittest
 
-import http.client
 from flask import Flask
 
 from drift.core.extensions.httpmethod import drift_init_extension

@@ -2,22 +2,22 @@
 
 import collections
 import datetime
+import http.client
 import json
 import logging
 import os
 import platform
 import socket
 
+import driftconfig
 import marshmallow as ma
 import werkzeug.routing
 from flask import request, current_app, g
 from flask import url_for
 from flask.views import MethodView
 from flask_smorest import Blueprint
-import http.client
 
 import drift
-import driftconfig
 from drift.core.extensions.jwt import current_user
 from drift.utils import get_tier_name
 

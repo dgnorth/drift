@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
+import os
 import subprocess
 import sys
-import os
 
-from six.moves.urllib.parse import urlparse
 from click import echo
+from six.moves.urllib.parse import urlparse
 
 
 def get_branch():

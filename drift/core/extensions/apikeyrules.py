@@ -6,16 +6,14 @@
     on product and version of the client.
 """
 from __future__ import absolute_import
+
+import http.client
 import logging
 import re
 
-import http.client
-from six.moves.urllib.parse import urlparse
-
-from flask import request, g, jsonify, make_response, current_app
-
 from driftconfig.relib import ConstraintError
-
+from flask import request, g, jsonify, make_response, current_app
+from six.moves.urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
 

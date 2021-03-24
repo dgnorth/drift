@@ -8,23 +8,18 @@
 """
 from __future__ import absolute_import
 
-import os
-import logging
-from logging.handlers import SysLogHandler
-import logging.config
-import json
 import datetime
-import sys
-import time
+import json
+import logging
+import logging.config
 import uuid
-from socket import gethostname
 from collections import OrderedDict
 from functools import wraps
-from logstash_formatter import LogstashFormatterV1
+from socket import gethostname
 
-import six
-from six.moves.urllib.parse import urlsplit
 from flask import g, request
+from logstash_formatter import LogstashFormatterV1
+from six.moves.urllib.parse import urlsplit
 
 from drift.core.extensions.jwt import current_user
 from drift.utils import get_tier_name

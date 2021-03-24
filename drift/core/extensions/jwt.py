@@ -2,6 +2,7 @@
 
 from __future__ import absolute_import
 
+import http.client
 import json
 import logging
 import re
@@ -16,7 +17,6 @@ from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from flask import current_app, request, _request_ctx_stack, g, url_for, redirect, make_response
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-import http.client
 from werkzeug.local import LocalProxy
 from werkzeug.security import gen_salt
 

@@ -2,20 +2,17 @@
 """
 Schames listing APIs
 """
-import logging
-import importlib
-
 import http.client
+import importlib
+import logging
 
+import marshmallow as ma
+from driftconfig.config import TSTransaction
+from driftconfig.relib import create_backend, get_store_from_url
+from driftconfig.util import get_drift_config, define_tenant, provision_tenant_resources
 from flask import current_app, request, g
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-import marshmallow as ma
-
-from driftconfig.config import TSTransaction
-
-from driftconfig.util import get_drift_config, define_tenant, provision_tenant_resources
-from driftconfig.relib import create_backend, get_store_from_url
 
 from drift.core.extensions.schemachecker import simple_schema_request
 

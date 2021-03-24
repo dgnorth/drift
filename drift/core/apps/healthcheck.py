@@ -2,6 +2,7 @@
 """
 Schames listing APIs
 """
+import http.client
 import importlib
 import logging
 
@@ -9,7 +10,6 @@ import marshmallow as ma
 from flask import current_app, g
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-import http.client
 
 log = logging.getLogger(__name__)
 bp = Blueprint('healtchcheck', 'HealthCheck', url_prefix='/healthcheck', description='Service and tenant health check')
