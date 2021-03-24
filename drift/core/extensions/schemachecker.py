@@ -12,7 +12,7 @@ from functools import wraps
 import logging
 
 import six
-from six.moves import http_client as http_client
+import http.client as http_client
 from six.moves import cStringIO
 
 from flask import current_app, request, url_for
@@ -113,7 +113,7 @@ def schema_response(media_type_name=None, schemadef=None):
 
             # This looks very dodgy. Why is this logic needed?
             if isinstance(response, Response):
-                if response.status_code != http_client.OK:
+                if response.status_code != http.client.OK:
                     return response
                 response_value = response.data
             elif isinstance(response, tuple):

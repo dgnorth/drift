@@ -14,7 +14,7 @@ from flask import request, current_app, g
 from flask import url_for
 from flask.views import MethodView
 from flask_smorest import Blueprint
-from six.moves import http_client
+import http.client
 
 import drift
 import driftconfig
@@ -56,7 +56,7 @@ def drift_init_extension(app, api, **kwargs):
 class InfoPageAPI(MethodView):
     no_jwt_check = ["GET"]
 
-    @bp.response(http_client.OK, ServiceStatusSchema)
+    @bp.response(http.client.OK, ServiceStatusSchema)
     def get(self):
         """
         Root endpoint

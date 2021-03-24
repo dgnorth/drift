@@ -5,7 +5,7 @@ Schames listing APIs
 import logging
 import importlib
 
-from six.moves import http_client
+import http.client
 
 from flask import current_app, request, g
 from flask.views import MethodView
@@ -58,7 +58,7 @@ class AdminProvisionAPI(MethodView):
 
         # quick check for tenant state before downloading config
         if g.conf.tenant["state"] != "initializing":
-            abort(http_client.BAD_REQUEST,
+            abort(http.client.BAD_REQUEST,
                   message="You can only provision tenants which are in state 'initializing'. Tenant '%s' is in state '%s'" % (
                       tenant_name, g.conf.tenant["state"]))
 

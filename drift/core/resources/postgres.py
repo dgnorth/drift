@@ -8,7 +8,7 @@ import socket
 import getpass
 import time
 
-from six.moves import http_client
+import http.client
 
 from click import echo
 
@@ -246,7 +246,7 @@ def get_sqlalchemy_session(conn_string=None):
     """
     if not conn_string:
         if not g.conf.tenant:
-            abort(http_client.BAD_REQUEST, "No DB resource available because no tenant is specified.")
+            abort(http.client.BAD_REQUEST, "No DB resource available because no tenant is specified.")
 
         ci = g.conf.tenant.get('postgres')
         conn_string = format_connection_string(ci)
@@ -447,10 +447,10 @@ def drop_db(_params, force=False):
 
 def healthcheck():
     if "postgres" not in g.conf.tenant:
-        abort(http_client.SERVICE_UNAVAILABLE, "Tenant config does not have 'postgres' section.")
+        abort(http.client.SERVICE_UNAVAILABLE, "Tenant config does not have 'postgres' section.")
     for k in TIER_DEFAULTS.keys():
         if not g.conf.tenant["postgres"].get(k):
-            abort(http_client.SERVICE_UNAVAILABLE, "'postgres' config missing key '%s'" % k)
+            abort(http.client.SERVICE_UNAVAILABLE, "'postgres' config missing key '%s'" % k)
 
     rows = g.db.execute("SELECT 1+1")
     rows.fetchall()[0]

@@ -8,7 +8,7 @@ from __future__ import absolute_import
 import logging
 from functools import wraps
 
-from six.moves import http_client
+import http.client
 
 from werkzeug.local import LocalProxy
 from flask import g, current_app
@@ -109,7 +109,7 @@ def check_tenant_state(tenant):
     """Make sure tenant is provisioned and active."""
     if tenant['state'] != 'active':
         abort(
-            http_client.BAD_REQUEST,
+            http.client.BAD_REQUEST,
             description="Tenant '{}' for tier '{}' and deployable '{}' is not active, but in state '{}'.".format(
                 tenant['tenant_name'], tenant['tier_name'], tenant['deployable_name'], tenant['state'])
         )
@@ -120,7 +120,7 @@ def check_tenant(f):
     def _check(*args, **kwargs):
         if not tenant_from_hostname:
             abort(
-                http_client.BAD_REQUEST,
+                http.client.BAD_REQUEST,
                 description="No tenant specified. Please specify one using host name prefix or "
                 "the environment variable DRIFT_DEFAULT_TENANT."
             )
@@ -132,7 +132,7 @@ def check_tenant(f):
                 get_config_for_request(allow_missing_tenant=False)
                 raise RuntimeError("Should not reach this.")
             except TenantNotConfigured as e:
-                abort(http_client.BAD_REQUEST, description=str(e))
+                abort(http.client.BAD_REQUEST, description=str(e))
 
         check_tenant_state(g.conf.tenant)
         return f(*args, **kwargs)

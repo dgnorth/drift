@@ -9,7 +9,7 @@ import requests
 import re
 import jwt
 
-from six.moves import http_client
+import http.client
 
 from driftconfig.util import set_sticky_config, get_default_drift_config
 import driftconfig.testhelpers
@@ -145,7 +145,7 @@ class DriftBaseTestCase(unittest.TestCase):
         @DriftBaseTestCase.mock
         def inner(self, method, endpoint, data, params, *args, **kw):
             check = kw.pop("check", True)
-            expected_status_code = kw.pop("expected_status_code", http_client.OK)
+            expected_status_code = kw.pop("expected_status_code", http.client.OK)
             headers = copy.copy(self.headers)
             if "Accept" not in headers:
                 headers["Accept"] = "application/json"

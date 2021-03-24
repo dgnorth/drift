@@ -9,7 +9,7 @@ import marshmallow as ma
 from flask import current_app, g
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-from six.moves import http_client
+import http.client
 
 log = logging.getLogger(__name__)
 bp = Blueprint('healtchcheck', 'HealthCheck', url_prefix='/healthcheck', description='Service and tenant health check')
@@ -27,7 +27,7 @@ def drift_init_extension(app, api, **kwargs):
 class HealthCheckAPI(MethodView):
     no_jwt_check = ["GET"]
 
-    @bp.response(http_client.OK, HealthCheckSchema)
+    @bp.response(http.client.OK, HealthCheckSchema)
     def get(self):
         """
         Tenant health check
@@ -40,12 +40,12 @@ class HealthCheckAPI(MethodView):
             return {'result': "ok, but no tenant specified."}
 
         if g.conf.tenant["state"] != "active":
-            abort(http_client.SERVICE_UNAVAILABLE,
+            abort(http.client.SERVICE_UNAVAILABLE,
                   ("Tenant is in state '%s' but needs to be 'active'." % g.conf.tenant["state"]))
 
         resources = current_app.config.get("resources")
         if not resources:
-            abort(http_client.SERVICE_UNAVAILABLE, "Deployable is missing 'resources' section in drift config.")
+            abort(http.client.SERVICE_UNAVAILABLE, "Deployable is missing 'resources' section in drift config.")
 
         for module_name in resources:
             m = importlib.import_module(module_name)
