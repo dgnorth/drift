@@ -40,7 +40,7 @@ TRUSTED_ISSUERS = set(['drift-base'])
 WHITELIST_ENDPOINTS = [
     r"^api-docs\.",  # the marshmalloc documentation endpoint
     r"^static$",  # the marshmalloc documentation endpoint
-    ]
+]
 
 SESSION_COOKIE_NAME = 'drift-session'
 
@@ -175,6 +175,7 @@ def requires_roles(_roles):
         endpoint decorator to lock down an endpoint
         on a set of roles (comma delimitered)
     """
+
     def wrapper(fn):
         @wraps(fn)
         def decorator(*args, **kwargs):
@@ -197,7 +198,9 @@ def requires_roles(_roles):
                 abort_unauthorized("You do not have access to this resource. "
                                    "It requires role '%s'" % _roles)
             return fn(*args, **kwargs)
+
         return decorator
+
     return wrapper
 
 
@@ -294,6 +297,7 @@ def _authenticate(auth_info, conf):
 class AuthRequestSchema(ma.Schema):
     class Meta:
         strict = True
+
     provider = ma.fields.Str(description="Provider name")
     provider_details = ma.fields.Dict(description="Provider specific details")
     username = ma.fields.Str(description="Legacy username")
@@ -304,6 +308,7 @@ class AuthRequestSchema(ma.Schema):
 class AuthSchema(ma.Schema):
     class Meta:
         strict = True
+
     token = ma.fields.String(description="Token")
     jti = ma.fields.String(description="Token id")
 
@@ -376,9 +381,9 @@ def authenticate_with_provider(auth_info):
         handler = current_app.jwt_auth_providers.get("default")
     if not handler:
         abort_unauthorized(
-                "Bad Request. Unknown provider '{}'. Only 'jwt' and 'jti' are "
-                "supported".format(auth_info['provider'])
-            )
+            "Bad Request. Unknown provider '{}'. Only 'jwt' and 'jti' are "
+            "supported".format(auth_info['provider'])
+        )
     return handler(auth_info)
 
 
@@ -551,7 +556,7 @@ def verify_token(token, auth_type, conf):
     tier_name = get_tier_name()
     if tier != tier_name:
         abort_unauthorized("Invalid JWT. Token is for tier '%s' but this"
-            " is tier '%s'" % (tier, tier_name))
+                           " is tier '%s'" % (tier, tier_name))
 
     # Verify tenant
     if 'tenant' not in payload:
@@ -564,7 +569,7 @@ def verify_token(token, auth_type, conf):
         this_tenant = current_tenant_name
     if tenant != this_tenant:
         abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
-            " is tenant '%s'" % (tenant, this_tenant))
+                           " is tenant '%s'" % (tenant, this_tenant))
 
     return payload
 
@@ -599,7 +604,7 @@ def cache_token(payload, expire=None):
 
     # Add fudge to 'expire' so the token will live at least a little bit longer in the
     # Redis cache than the actual expiration date.
-    expire += 60*10  # Ten minutes
+    expire += 60 * 10  # Ten minutes
 
     try:
         jti = payload['jti']
@@ -618,7 +623,6 @@ def get_cached_token(jti):
         return None
     payload = json.loads(data)
     return payload
-
 
 
 # https://stackoverflow.com/questions/561486/how-to-convert-an-integer-to-the-shortest-url-safe-string-in-python
@@ -650,8 +654,10 @@ def num_decode(s):
 
 class JwkSchema(ma.Schema):
     """JSON Web Key"""
+
     class Meta:
         strict = True
+
     kty = ma.fields.String(description="Key Type")
     use = ma.fields.String(description="Public Key Use")
     alg = ma.fields.String(description="Algorithm")
@@ -662,6 +668,7 @@ class JwkSchema(ma.Schema):
 class JwksSchema(ma.Schema):
     class Meta:
         strict = True
+
     keys = ma.fields.List(ma.fields.Nested(JwkSchema))
 
 

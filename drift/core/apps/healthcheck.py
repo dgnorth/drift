@@ -40,7 +40,8 @@ class HealthCheckAPI(MethodView):
             return {'result': "ok, but no tenant specified."}
 
         if g.conf.tenant["state"] != "active":
-            abort(http_client.SERVICE_UNAVAILABLE, ("Tenant is in state '%s' but needs to be 'active'." % g.conf.tenant["state"]))
+            abort(http_client.SERVICE_UNAVAILABLE,
+                  ("Tenant is in state '%s' but needs to be 'active'." % g.conf.tenant["state"]))
 
         resources = current_app.config.get("resources")
         if not resources:
