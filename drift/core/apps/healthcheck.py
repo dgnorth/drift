@@ -2,15 +2,14 @@
 """
 Schames listing APIs
 """
-import logging
 import importlib
-from six.moves.http_client import SERVICE_UNAVAILABLE
+import logging
 
+import marshmallow as ma
 from flask import current_app, g
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-import marshmallow as ma
-
+from six.moves import http_client
 
 log = logging.getLogger(__name__)
 bp = Blueprint('healtchcheck', 'HealthCheck', url_prefix='/healthcheck', description='Service and tenant health check')
@@ -28,7 +27,7 @@ def drift_init_extension(app, api, **kwargs):
 class HealthCheckAPI(MethodView):
     no_jwt_check = ["GET"]
 
-    @bp.response(HealthCheckSchema)
+    @bp.response(http_client.OK, HealthCheckSchema)
     def get(self):
         """
         Tenant health check
@@ -41,11 +40,12 @@ class HealthCheckAPI(MethodView):
             return {'result': "ok, but no tenant specified."}
 
         if g.conf.tenant["state"] != "active":
-            abort(SERVICE_UNAVAILABLE, ("Tenant is in state '%s' but needs to be 'active'." % g.conf.tenant["state"]))
+            abort(http_client.SERVICE_UNAVAILABLE,
+                  ("Tenant is in state '%s' but needs to be 'active'." % g.conf.tenant["state"]))
 
         resources = current_app.config.get("resources")
         if not resources:
-            abort(SERVICE_UNAVAILABLE, "Deployable is missing 'resources' section in drift config.")
+            abort(http_client.SERVICE_UNAVAILABLE, "Deployable is missing 'resources' section in drift config.")
 
         for module_name in resources:
             m = importlib.import_module(module_name)

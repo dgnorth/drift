@@ -1,27 +1,27 @@
 # -*- coding: utf-8 -*-
 
-import os
-import socket
 import collections
-import platform
 import datetime
 import json
 import logging
+import os
+import platform
+import socket
 
+import marshmallow as ma
+import werkzeug.routing
 from flask import request, current_app, g
 from flask import url_for
 from flask.views import MethodView
 from flask_smorest import Blueprint
-import marshmallow as ma
-from drift.utils import get_tier_name
-import werkzeug.routing
-import drift, driftconfig
+from six.moves import http_client
 
+import drift
+import driftconfig
 from drift.core.extensions.jwt import current_user
-
+from drift.utils import get_tier_name
 
 log = logging.getLogger(__name__)
-
 
 bp = Blueprint('root', 'Service Status', url_prefix='/', description='Status of the service')
 
@@ -31,7 +31,8 @@ class ServiceStatusSchema(ma.Schema):
     host_info = ma.fields.Dict(description="Information about the host machine")
     build_info = ma.fields.Dict(description="Information about the build")
     service_name = ma.fields.Str(description="Name of this service deployable")
-    endpoints = ma.fields.Dict(description="List of all exposed endpoints. Contains contextual information if Auth header is provided")
+    endpoints = ma.fields.Dict(
+        description="List of all exposed endpoints. Contains contextual information if Auth header is provided")
     current_user = ma.fields.Dict(description="Decoded JWT of the current user")
     tier_name = ma.fields.Str(description="Name of this tier")
     tenant_name = ma.fields.Str(description="Name of the current tenant")
@@ -52,10 +53,9 @@ def drift_init_extension(app, api, **kwargs):
 
 @bp.route('', endpoint='root')
 class InfoPageAPI(MethodView):
-
     no_jwt_check = ["GET"]
 
-    @bp.response(ServiceStatusSchema)
+    @bp.response(http_client.OK, ServiceStatusSchema)
     def get(self):
         """
         Root endpoint
