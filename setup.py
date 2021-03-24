@@ -49,9 +49,6 @@ setup(
         'sentry-sdk[flask]',
         'blinker',
         'pytz',
-
-        # Lock dependency versions
-        'importlib-metadata<2',
     ],
 
     extras_require={
@@ -80,9 +77,7 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python',
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         'Topic :: Internet :: WWW/HTTP',
         'Topic :: Internet :: WWW/HTTP :: Dynamic Content',
         'Topic :: Software Development :: Libraries :: Application Frameworks',
