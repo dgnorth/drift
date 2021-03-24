@@ -13,7 +13,7 @@ import re
 
 from driftconfig.relib import ConstraintError
 from flask import request, g, jsonify, make_response, current_app
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 
 log = logging.getLogger(__name__)
 

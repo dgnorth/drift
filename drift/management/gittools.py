@@ -4,7 +4,7 @@ import subprocess
 import sys
 
 from click import echo
-from six.moves.urllib.parse import urlparse
+from urllib.parse import urlparse
 
 
 def get_branch():

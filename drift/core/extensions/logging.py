@@ -19,7 +19,7 @@ from socket import gethostname
 
 from flask import g, request
 from logstash_formatter import LogstashFormatterV1
-from six.moves.urllib.parse import urlsplit
+from urllib.parse import urlsplit
 
 from drift.core.extensions.jwt import current_user
 from drift.utils import get_tier_name
