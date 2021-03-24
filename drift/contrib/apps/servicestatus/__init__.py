@@ -16,6 +16,7 @@ import marshmallow as ma
 from drift.utils import get_tier_name
 import werkzeug.routing
 import drift, driftconfig
+from six.moves import http_client
 
 from drift.core.extensions.jwt import current_user
 
@@ -55,7 +56,7 @@ class InfoPageAPI(MethodView):
 
     no_jwt_check = ["GET"]
 
-    @bp.response(ServiceStatusSchema)
+    @bp.response(http_client.OK, ServiceStatusSchema)
     def get(self):
         """
         Root endpoint

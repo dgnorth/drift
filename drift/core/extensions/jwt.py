@@ -10,7 +10,7 @@ import re
 import string
 
 import jwt
-from six.moves.http_client import UNAUTHORIZED
+from six.moves import http_client
 
 from flask import current_app, request, _request_ctx_stack, g, url_for, redirect, make_response
 from flask.views import MethodView
@@ -166,7 +166,7 @@ def abort_unauthorized(description):
     """
     Raise an Unauthorized exception.
     """
-    abort(UNAUTHORIZED, description=description)
+    abort(http_client.UNAUTHORIZED, description=description)
 
 
 def register_auth_provider(app, provider, handler):
@@ -319,7 +319,7 @@ class AuthApi(MethodView):
     no_jwt_check = ['GET', 'POST']
 
     @bp.arguments(AuthRequestSchema)
-    @bp.response(AuthSchema)
+    @bp.response(http_client.OK, AuthSchema)
     def post(self, auth_info):
         auth_info = _authenticate(auth_info, g.conf)
         return {
@@ -679,7 +679,7 @@ class JWKSApi(MethodView):
     no_auth_header_check = True
     no_jwt_check = ['GET']
 
-    @bp.response(JwksSchema)
+    @bp.response(http_client.OK, JwksSchema)
     def get(self):
         from driftconfig.util import get_default_drift_config
         ts = get_default_drift_config()

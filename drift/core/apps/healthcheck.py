@@ -10,6 +10,7 @@ from flask import current_app, g
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 import marshmallow as ma
+from six.moves import http_client
 
 
 log = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ def drift_init_extension(app, api, **kwargs):
 class HealthCheckAPI(MethodView):
     no_jwt_check = ["GET"]
 
-    @bp.response(HealthCheckSchema)
+    @bp.response(http_client.OK, HealthCheckSchema)
     def get(self):
         """
         Tenant health check
