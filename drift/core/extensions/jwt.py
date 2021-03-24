@@ -2,32 +2,27 @@
 
 from __future__ import absolute_import
 
-import logging
-from datetime import datetime, timedelta
 import json
-from functools import wraps
+import logging
 import re
 import string
+from datetime import datetime, timedelta
+from functools import wraps
 
 import jwt
-from six.moves import http_client
-
+import marshmallow as ma
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from flask import current_app, request, _request_ctx_stack, g, url_for, redirect, make_response
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-
-import marshmallow as ma
-
+from six.moves import http_client
 from werkzeug.local import LocalProxy
 from werkzeug.security import gen_salt
 
-from drift.utils import get_tier_name
-from drift.core.extensions.urlregistry import Endpoints
 from drift.core.extensions.tenancy import current_tenant_name, split_host
-
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.serialization import load_pem_public_key
-
+from drift.core.extensions.urlregistry import Endpoints
+from drift.utils import get_tier_name
 
 JWT_VERIFY_CLAIMS = ['signature', 'exp', 'iat']
 JWT_REQUIRED_CLAIMS = ['exp', 'iat', 'jti']

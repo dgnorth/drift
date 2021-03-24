@@ -1,25 +1,25 @@
 # -*- coding: utf-8 -*-
 
-import os
-import socket
 import collections
-import platform
 import datetime
 import json
 import logging
+import os
+import platform
+import socket
 
+import marshmallow as ma
+import werkzeug.routing
 from flask import request, current_app, g
 from flask import url_for
 from flask.views import MethodView
 from flask_smorest import Blueprint
-import marshmallow as ma
-from drift.utils import get_tier_name
-import werkzeug.routing
-import drift, driftconfig
 from six.moves import http_client
 
+import drift
+import driftconfig
 from drift.core.extensions.jwt import current_user
-
+from drift.utils import get_tier_name
 
 log = logging.getLogger(__name__)
 
