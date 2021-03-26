@@ -25,15 +25,16 @@ bp_admin = Blueprint("admin", "Admin Provision", url_prefix='/admin', descriptio
 
 
 class AdminProvisionRequestSchema(ma.Schema):
-    provisioners = ma.fields.Dict(description="The provisioners")
+    provisioners = ma.fields.Dict(metadata=dict(description="The provisioners"))
 
 
 class AdminProvision2GetSchema(ma.Schema):
-    tenant_name = ma.fields.Str(description="Name of the tenant to provision")
+    tenant_name = ma.fields.Str(metadata=dict(description="Name of the tenant to provision"))
+
 
 class AdminProvision2PostSchema(ma.Schema):
-    tenant_name = ma.fields.Str(description="Name of the tenant to provision")
-    preview = ma.fields.Boolean(description="Just check")
+    tenant_name = ma.fields.Str(metadata=dict(description="Name of the tenant to provision"))
+    preview = ma.fields.Boolean(metadata=dict(description="Just check"))
 
 
 def drift_init_extension(app, api, **kwargs):

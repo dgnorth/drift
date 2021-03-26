@@ -298,19 +298,20 @@ class AuthRequestSchema(ma.Schema):
     class Meta:
         strict = True
 
-    provider = ma.fields.Str(description="Provider name")
-    provider_details = ma.fields.Dict(description="Provider specific details")
-    username = ma.fields.Str(description="Legacy username")
-    password = ma.fields.Str(description="Legacy password")
-    automatic_account_creation = ma.fields.Boolean(description="Automatically create new users", default=True)
+    provider = ma.fields.Str(metadata=dict(description="Provider name"))
+    provider_details = ma.fields.Dict(metadata=dict(description="Provider specific details"))
+    username = ma.fields.Str(metadata=dict(description="Legacy username"))
+    password = ma.fields.Str(metadata=dict(description="Legacy password"))
+    automatic_account_creation = ma.fields.Boolean(default=True,
+                                                   metadata=dict(description="Automatically create new users"))
 
 
 class AuthSchema(ma.Schema):
     class Meta:
         strict = True
 
-    token = ma.fields.String(description="Token")
-    jti = ma.fields.String(description="Token id")
+    token = ma.fields.String(metadata=dict(description="Token"))
+    jti = ma.fields.String(metadata=dict(description="Token id"))
 
 
 @bp.route('', endpoint='authentication')
@@ -658,11 +659,11 @@ class JwkSchema(ma.Schema):
     class Meta:
         strict = True
 
-    kty = ma.fields.String(description="Key Type")
-    use = ma.fields.String(description="Public Key Use")
-    alg = ma.fields.String(description="Algorithm")
-    n = ma.fields.String(description="Public Modulus")
-    e = ma.fields.String(description="Public Exponent")
+    kty = ma.fields.String(metadata=dict(description="Key Type"))
+    use = ma.fields.String(metadata=dict(description="Public Key Use"))
+    alg = ma.fields.String(metadata=dict(description="Algorithm"))
+    n = ma.fields.String(metadata=dict(description="Public Modulus"))
+    e = ma.fields.String(metadata=dict(description="Public Exponent"))
 
 
 class JwksSchema(ma.Schema):
