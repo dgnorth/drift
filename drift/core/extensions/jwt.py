@@ -22,6 +22,7 @@ from werkzeug.security import gen_salt
 
 from drift.core.extensions.tenancy import current_tenant_name, split_host
 from drift.core.extensions.urlregistry import Endpoints
+from drift.fixers import CustomJSONEncoder
 from drift.utils import get_tier_name
 
 JWT_VERIFY_CLAIMS = ['signature', 'exp', 'iat']
@@ -611,7 +612,7 @@ def cache_token(payload, expire=None):
         jti = payload['jti']
         key = "jwt:{}".format(jti)
         if hasattr(g, 'redis'):
-            g.redis.set(key, json.dumps(payload), expire=expire)
+            g.redis.set(key, json.dumps(payload, cls=CustomJSONEncoder), expire=expire)
             log.debug("Token cached in redis for %s seconds: %s", expire, key)
     except Exception:
         log.exception("Exception putting jwt '%s' into redis", jti)
