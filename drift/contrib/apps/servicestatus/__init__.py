@@ -27,24 +27,25 @@ bp = Blueprint('root', 'Service Status', url_prefix='/', description='Status of 
 
 
 class ServiceStatusSchema(ma.Schema):
-    result = ma.fields.Str(description="Is the service healthy")
-    host_info = ma.fields.Dict(description="Information about the host machine")
-    build_info = ma.fields.Dict(description="Information about the build")
-    service_name = ma.fields.Str(description="Name of this service deployable")
+    result = ma.fields.Str(metadata=dict(description="Is the service healthy"))
+    host_info = ma.fields.Dict(metadata=dict(description="Information about the host machine"))
+    build_info = ma.fields.Dict(metadata=dict(description="Information about the build"))
+    service_name = ma.fields.Str(metadata=dict(description="Name of this service deployable"))
     endpoints = ma.fields.Dict(
-        description="List of all exposed endpoints. Contains contextual information if Auth header is provided")
-    current_user = ma.fields.Dict(description="Decoded JWT of the current user")
-    tier_name = ma.fields.Str(description="Name of this tier")
-    tenant_name = ma.fields.Str(description="Name of the current tenant")
-    server_time = ma.fields.DateTime(description="Current wallclock time of the server machine")
-    tenants = ma.fields.List(ma.fields.Str(description="Information about tenants"))
-    platform = ma.fields.Dict(description="Information about the platform")
-    config_dump = ma.fields.Str(description="Dump of the entire Flask config")
-    default_tenant = ma.fields.Str(description="Default tenant name")
-    request_headers = ma.fields.Dict(description="Request headers (debug only)")
-    request_object = ma.fields.Dict(description="Request object info (debug only)")
-    wsgi_env = ma.fields.Dict(description="WSGI Environment")
-    version = ma.fields.Str(description="Service version")
+        metadata=dict(
+            description="List of all exposed endpoints. Contains contextual information if Auth header is provided"))
+    current_user = ma.fields.Dict(metadata=dict(description="Decoded JWT of the current user"))
+    tier_name = ma.fields.Str(metadata=dict(description="Name of this tier"))
+    tenant_name = ma.fields.Str(metadata=dict(description="Name of the current tenant"))
+    server_time = ma.fields.DateTime(metadata=dict(description="Current wallclock time of the server machine"))
+    tenants = ma.fields.List(ma.fields.Str(metadata=dict(description="Information about tenants")))
+    platform = ma.fields.Dict(metadata=dict(description="Information about the platform"))
+    config_dump = ma.fields.Str(metadata=dict(description="Dump of the entire Flask config"))
+    default_tenant = ma.fields.Str(metadata=dict(description="Default tenant name"))
+    request_headers = ma.fields.Dict(metadata=dict(description="Request headers (debug only)"))
+    request_object = ma.fields.Dict(metadata=dict(description="Request object info (debug only)"))
+    wsgi_env = ma.fields.Dict(metadata=dict(description="WSGI Environment"))
+    version = ma.fields.Str(metadata=dict(description="Service version"))
 
 
 def drift_init_extension(app, api, **kwargs):

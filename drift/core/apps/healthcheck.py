@@ -16,7 +16,7 @@ bp = Blueprint('healtchcheck', 'HealthCheck', url_prefix='/healthcheck', descrip
 
 
 class HealthCheckSchema(ma.Schema):
-    result = ma.fields.Str(description="Is the service healthy")
+    result = ma.fields.Str(metadata=dict(description="Is the service healthy"))
 
 
 def drift_init_extension(app, api, **kwargs):

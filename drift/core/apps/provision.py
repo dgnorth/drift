@@ -25,15 +25,16 @@ bp_admin = Blueprint("admin", "Admin Provision", url_prefix='/admin', descriptio
 
 
 class AdminProvisionRequestSchema(ma.Schema):
-    provisioners = ma.fields.Dict(description="The provisioners")
+    provisioners = ma.fields.Dict(metadata=dict(description="The provisioners"))
 
 
 class AdminProvision2GetSchema(ma.Schema):
-    tenant_name = ma.fields.Str(description="Name of the tenant to provision")
+    tenant_name = ma.fields.Str(metadata=dict(description="Name of the tenant to provision"))
+
 
 class AdminProvision2PostSchema(ma.Schema):
-    tenant_name = ma.fields.Str(description="Name of the tenant to provision")
-    preview = ma.fields.Boolean(description="Just check")
+    tenant_name = ma.fields.Str(metadata=dict(description="Name of the tenant to provision"))
+    preview = ma.fields.Boolean(metadata=dict(description="Just check"))
 
 
 def drift_init_extension(app, api, **kwargs):
@@ -43,7 +44,6 @@ def drift_init_extension(app, api, **kwargs):
 
 @bp_provision.route('', endpoint='provision_admin')
 class AdminProvisionAPI(MethodView):
-
     no_jwt_check = ["POST"]
 
     @bp_provision.arguments(AdminProvisionRequestSchema)
@@ -58,7 +58,9 @@ class AdminProvisionAPI(MethodView):
 
         # quick check for tenant state before downloading config
         if g.conf.tenant["state"] != "initializing":
-            abort(http_client.BAD_REQUEST, message="You can only provision tenants which are in state 'initializing'. Tenant '%s' is in state '%s'" % (tenant_name, g.conf.tenant["state"]))
+            abort(http_client.BAD_REQUEST,
+                  message="You can only provision tenants which are in state 'initializing'. Tenant '%s' is in state '%s'" % (
+                      tenant_name, g.conf.tenant["state"]))
 
         args_per_provisioner = {}
         if request.json:
@@ -108,9 +110,9 @@ class AdminProvisionAPI(MethodView):
 
         return "OK"
 
+
 @bp_admin.route('/provision', endpoint='provision')
 class AdminProvisionAPI2(MethodView):
-
     no_jwt_check = ["GET", "POST"]
 
     @bp_admin.arguments(AdminProvision2GetSchema)
