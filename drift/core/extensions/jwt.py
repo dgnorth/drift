@@ -424,7 +424,7 @@ def issue_token(payload, expire=None):
     cache_token(payload, expire=expire)
     log.debug("Issuing a new token: %s.", payload)
     ret = {
-        'token': access_token.decode('utf-8'),
+        'token': access_token,
         'payload': payload,
     }
     return ret
