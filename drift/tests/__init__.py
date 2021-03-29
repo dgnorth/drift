@@ -3,6 +3,8 @@ import json
 
 from flask import Flask
 from unittest import TestCase
+
+from drift.fixers import CustomJSONEncoder
 from drift.flaskfactory import _apply_patches
 from flask_smorest import Api
 
@@ -78,7 +80,7 @@ class DriftTestCase(TestCase):
     def post(self, expected_code, path, data, **kw):
         kw['path'] = path
         kw['headers'] = self.headers
-        kw['data'] = json.dumps(data)
+        kw['data'] = json.dumps(data, cls=CustomJSONEncoder)
         kw['content_type'] = 'application/json'
         response = self.client.post(**kw)
         return self.assert_response(response, expected_code)

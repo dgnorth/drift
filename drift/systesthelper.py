@@ -237,7 +237,7 @@ class DriftBaseTestCase(unittest.TestCase):
 
         self.token = resp.json()["token"]
         self.jti = resp.json()["jti"]
-        self.current_user = jwt.decode(self.token, verify=False, algorithms=[JWT_ALGORITHM])
+        self.current_user = jwt.decode(self.token, options={"verify_signature":False}, algorithms=[JWT_ALGORITHM])
         self.player_id = self.current_user["player_id"]
         self.user_id = self.current_user["user_id"]
         self.headers = {"Authorization": "JWT " + self.token}
@@ -260,7 +260,7 @@ class DriftBaseTestCase(unittest.TestCase):
         jti = resp.json()["jti"]
         self.token = token
         self.jti = jti
-        self.current_user = jwt.decode(self.token, verify=False, algorithms=[JWT_ALGORITHM])
+        self.current_user = jwt.decode(self.token, options={"verify_signature":False}, algorithms=[JWT_ALGORITHM])
         self.player_id = self.current_user["player_id"]
         self.user_id = self.current_user["user_id"]
         self.headers = {"Authorization": "JWT " + token, }
