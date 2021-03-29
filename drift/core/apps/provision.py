@@ -131,10 +131,6 @@ class AdminProvisionAPI2(MethodView):
         tenants = g.conf.table_store.get_table('tenants').find(crit)
         return tenants
 
-    @simple_schema_request({
-        "tenant_name": {"type": "string"},
-        "preview": {"type": "boolean"},
-    }, required=[])
     @bp_admin.arguments(AdminProvision2PostSchema)
     def post(self, args):
         """
