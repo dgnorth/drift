@@ -8,6 +8,7 @@
 
 from __future__ import absolute_import
 
+import warnings
 from functools import wraps
 import logging
 
@@ -27,6 +28,11 @@ from jsonschema import RefResolver, FormatChecker, ValidationError
 
 log = logging.getLogger(__name__)
 
+warnings.warn(
+    "SchemaChecker is deprecated, please use Flask Smorest Marshmallow Schemas instead",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 class SchemaChecker(object):
 
