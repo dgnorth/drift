@@ -259,9 +259,6 @@ def _authenticate(auth_info, conf):
 
     provider_details = auth_info.get('provider_details')
 
-    # TODO: Move specific auth logic outside this module.
-    # Steam and Game Center. should not be in here.
-
     # In fact only JWT is supported by all drift based deployables. Everything else
     # is specific to drift-base.
     if auth_info['provider'] == "jwt":
