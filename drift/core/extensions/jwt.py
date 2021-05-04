@@ -423,6 +423,7 @@ def issue_permanent_token(user_entry):
     if missing_claims:
         raise RuntimeError('Payload is missing required claims: %s' % ', '.join(missing_claims))
     access_token = _encode_payload(user_entry)
+    user_entry["token"] = access_token
     cache_token(user_entry, expire=two_years)
     log.debug("Issued a new token permanent token: %s.", user_entry)
     return {
@@ -445,22 +446,22 @@ def _encode_payload(payload):
 
 
 def verify_permanent_token(token):
+    invalid_token = {"token": token, "Invalid": True}
     try:
         external_service_users = g.conf.tier.get('external_service_users')
         if not external_service_users and g.conf.tenant:
-            return {"Invalid": True}
+            return invalid_token
     except Exception:
         log.exception("Couldn't get external service users")
-        return {"Invalid": True}
+        return invalid_token
     token_user, token_value = token.split(".")
     for user_entry in external_service_users:
         if token_user != user_entry["username"]:
             continue
         if user_entry["access_token"] == token_value:
             return issue_permanent_token(user_entry)
-    payload = {"jti": token, "Invalid": True}
-    cache_token(payload)
-    return payload
+    cache_token({"jti": token, "Invalid": True}) #  Add the failed lookup key to the cache to speed up subsequent failures
+    return invalid_token
 
 def get_auth_token_and_type():
     auth_types_supported = ["JWT", "JTI", "BEARER"]
@@ -576,7 +577,10 @@ def verify_token(token, auth_type, conf):
         if payload.get("Invalid", None):
             log.info(f"Invalid bearer token '{token}'.")
             abort_unauthorized(f"Invalid bearer token {token}.")
-        return payload
+        # If we don't want to verify the jwt, this will do the trick
+        # return get_cached_token(token)
+        auth_type = "JWT"
+        token = payload["token"]
 
     elif auth_type == "JTI":
         payload = get_cached_token(token)
