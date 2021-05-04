@@ -118,4 +118,4 @@ aws configure
 ```
 
 
-*(c) 2017 Directive Games North*
+*(c) 2021 Directive Games North*
