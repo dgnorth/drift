@@ -35,7 +35,7 @@ JWT_LEEWAY = 10
 JWT_EXPIRATION_DELTA_FOR_SERVICES = 60 * 60 * 24 * 365
 
 # Implicitly trust following issuers:
-TRUSTED_ISSUERS = set(['drift-base'])
+TRUSTED_ISSUERS = {'drift-base'}
 
 # list of regular expression objects matching endpoint definitions
 WHITELIST_ENDPOINTS = [
@@ -399,7 +399,6 @@ def issue_token(payload, expire=None):
 
     Note: This function must be called within a request context.
     """
-    algorithm = JWT_ALGORITHM
     payload = dict(payload)
     payload.update(create_standard_claims(expire))
 
@@ -407,7 +406,32 @@ def issue_token(payload, expire=None):
     if missing_claims:
         raise RuntimeError('Payload is missing required claims: %s' %
                            ', '.join(missing_claims))
+    access_token = _encode_payload(payload)
+    cache_token(payload, expire=expire)
+    log.debug("Issuing a new token: %s.", payload)
+    return {
+        'token': access_token,
+        'payload': payload,
+    }
 
+def issue_permanent_token(user_entry):
+    two_years = int(60 * 60 * 24 * 365.25 * 2)  # in seconds
+    claims = create_standard_claims(two_years)
+    claims["jti"] = f"{user_entry['username']}.{user_entry['access_token']}"
+    user_entry.update(claims)
+    missing_claims = set(JWT_REQUIRED_CLAIMS) - set(user_entry.keys())
+    if missing_claims:
+        raise RuntimeError('Payload is missing required claims: %s' % ', '.join(missing_claims))
+    access_token = _encode_payload(user_entry)
+    cache_token(user_entry, expire=two_years)
+    log.debug("Issued a new token permanent token: %s.", user_entry)
+    return {
+        'token': access_token,
+        'payload': user_entry,
+    }
+
+def _encode_payload(payload):
+    algorithm = JWT_ALGORITHM
     ts = g.conf.table_store
     public_keys = ts.get_table('public-keys')
     row = public_keys.get({
@@ -417,18 +441,29 @@ def issue_token(payload, expire=None):
         raise RuntimeError("No public key found in config for tier '{}', deployable '{}'"
                            .format(g.conf.tier['tier_name'], g.conf.deployable['deployable_name']))
     key_info = row['keys'][0]  # HACK, just select the first one
-    access_token = jwt.encode(payload, key_info['private_key'], algorithm=algorithm)
-    cache_token(payload, expire=expire)
-    log.debug("Issuing a new token: %s.", payload)
-    ret = {
-        'token': access_token,
-        'payload': payload,
-    }
-    return ret
+    return jwt.encode(payload, key_info['private_key'], algorithm=algorithm)
 
+
+def verify_permanent_token(token):
+    try:
+        external_service_users = g.conf.tier.get('external_service_users')
+        if not external_service_users and g.conf.tenant:
+            return {"Invalid": True}
+    except Exception:
+        log.exception("Couldn't get external service users")
+        return {"Invalid": True}
+    token_user, token_value = token.split(".")
+    for user_entry in external_service_users:
+        if token_user != user_entry["username"]:
+            continue
+        if user_entry["access_token"] == token_value:
+            return issue_permanent_token(user_entry)
+    payload = {"jti": token, "Invalid": True}
+    cache_token(payload)
+    return payload
 
 def get_auth_token_and_type():
-    auth_types_supported = ["JWT", "JTI"]
+    auth_types_supported = ["JWT", "JTI", "BEARER"]
     # support Authorization in session cookie
     auth_header_value = request.cookies.get(SESSION_COOKIE_NAME)
     # override with request header if present
@@ -441,10 +476,6 @@ def get_auth_token_and_type():
 
     parts = auth_header_value.split()
     auth_type = parts[0].upper()
-
-    # Legacy support
-    if auth_type == "BEARER":
-        auth_type = "JWT"
 
     if auth_type not in auth_types_supported:
         log.warning("Auth type '%s' invalid for authorization required "
@@ -534,7 +565,20 @@ def verify_jwt(token, conf):
 
 def verify_token(token, auth_type, conf):
     """Verifies 'token' and returns its payload."""
-    if auth_type == "JTI":
+    if auth_type == "BEARER":
+        token_type, token = token.split(":")
+        if token_type.upper() != "PERMANENT":
+            log.info(f"Invalid type of bearer token type '{token_type}'.")
+            abort_unauthorized(f"Invalid Bearer token type.")
+        payload = get_cached_token(token)
+        if not payload:
+            payload = verify_permanent_token(token)
+        if payload.get("Invalid", None):
+            log.info(f"Invalid bearer token '{token}'.")
+            abort_unauthorized(f"Invalid bearer token {token}.")
+        return payload
+
+    elif auth_type == "JTI":
         payload = get_cached_token(token)
         if not payload:
             log.info("Invalid JTI: Token '%s' not found in cache.", token)
