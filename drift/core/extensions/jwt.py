@@ -496,7 +496,7 @@ def verify_permanent_token(token):
     return invalid_token
 
 def get_auth_token_and_type():
-    auth_types_supported = ["JWT", "JTI", "BEARER"]
+    auth_types_supported = {"JWT", "JTI", "BEARER"}
     # support Authorization in session cookie
     auth_header_value = request.cookies.get(SESSION_COOKIE_NAME)
     # override with request header if present
@@ -509,6 +509,10 @@ def get_auth_token_and_type():
 
     parts = auth_header_value.split()
     auth_type = parts[0].upper()
+
+    # Legacy support
+    if auth_type == "BEARER" and "permanent" not in auth_header_value:
+        auth_type = "JWT"
 
     if auth_type not in auth_types_supported:
         log.warning("Auth type '%s' invalid for authorization required "
