@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import string
+import inspect
 from datetime import datetime, timedelta
 from functools import wraps
 
@@ -85,6 +86,33 @@ def drift_init_extension(app, api, **kwargs):
     # Install authorization check
     app.before_request(check_jwt_authorization)
 
+def check_external_service_role_api_restrictions():
+    """
+    If caller has role external_service, we only allow the call through if the method being called is decorated with
+    @requires_role and "external_service" is one of those roles required.
+    This isn't a very pretty way to go about it, but it'll do until we settle on a better way to restrict external
+    service user access.
+    """
+    if not current_user:
+        return
+    if "external_service" not in current_user.get("roles", []):
+        return
+
+    method = current_app.view_functions[request.endpoint]
+    if hasattr(method, "view_class"):
+        method = getattr(method.view_class, request.method.lower(), None)
+        if not method:  # This should never happen as we don't go through with authorizations in case of a 404
+            log.warning(f"No {request.method} method in {view_class}")
+            return
+    for line in inspect.getsource(method).splitlines():
+        line = line.strip()
+        if line.startswith("@requires_roles") and "external_service" in line:
+            return
+        if line.startswith("def "):
+            break
+
+    abort_unauthorized(f"Unauthorized API call.")
+
 
 def check_jwt_authorization():
     """
@@ -110,6 +138,10 @@ def check_jwt_authorization():
 
     # Authorization token has now been converted to a verified payload
     _request_ctx_stack.top.drift_jwt_payload = current_identity
+
+    if auth_type == "BEARER":
+        check_external_service_role_api_restrictions()
+
 
 
 def query_current_user():
@@ -460,7 +492,7 @@ def verify_permanent_token(token):
             continue
         if user_entry["access_token"] == token_value:
             return issue_permanent_token(user_entry)
-    cache_token({"jti": token, "Invalid": True}) #  Add the failed lookup key to the cache to speed up subsequent failures
+    cache_token({"jti": token, "Invalid": True})  # Add the failed lookup key to the cache to speed up subsequent failures
     return invalid_token
 
 def get_auth_token_and_type():
