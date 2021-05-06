@@ -403,30 +403,7 @@ def issue_token(payload, expire=None):
 
     missing_claims = list(set(JWT_REQUIRED_CLAIMS) - set(payload.keys()))
     if missing_claims:
-        raise RuntimeError('Payload is missing required claims: %s' %
-                           ', '.join(missing_claims))
-    access_token = _encode_payload(payload)
-    cache_token(payload, expire=expire)
-    log.debug("Issuing a new token: %s.", payload)
-    return {
-        'token': access_token,
-        'payload': payload,
-    }
-
-def issue_permanent_token(issued_entry):
-    two_years = int(60 * 60 * 24 * 365.25 * 2)  # in seconds
-    claims = create_standard_claims()
-    claims["jti"] = issued_entry['token']
-    issued_entry.update(claims)
-    missing_claims = set(JWT_REQUIRED_CLAIMS) - set(issued_entry.keys())
-    if missing_claims:
         raise RuntimeError('Payload is missing required claims: %s' % ', '.join(missing_claims))
-    cache_token(issued_entry, expire=two_years)
-    log.debug("Issued a new permanent token: %s.", issued_entry)
-    return issued_entry
-
-def _encode_payload(payload):
-    algorithm = JWT_ALGORITHM
     ts = g.conf.table_store
     public_keys = ts.get_table('public-keys')
     row = public_keys.get({
@@ -436,10 +413,17 @@ def _encode_payload(payload):
         raise RuntimeError("No public key found in config for tier '{}', deployable '{}'"
                            .format(g.conf.tier['tier_name'], g.conf.deployable['deployable_name']))
     key_info = row['keys'][0]  # HACK, just select the first one
-    return jwt.encode(payload, key_info['private_key'], algorithm=algorithm)
+
+    access_token = jwt.encode(payload, key_info['private_key'], algorithm=JWT_ALGORITHM)
+    cache_token(payload, expire=expire)
+    log.debug("Issuing a new token: %s.", payload)
+    return {
+        'token': access_token,
+        'payload': payload,
+    }
 
 
-def check_if_permanent_token(token):
+def check_permanent_token(token):
     try:
         external_service_users = g.conf.tier.get('external_service_users')
         if not external_service_users and g.conf.tenant:
@@ -449,7 +433,10 @@ def check_if_permanent_token(token):
         return None
     for entry in external_service_users:
         if entry["token"] == token:
-            return issue_permanent_token(entry)
+            entry["jti"] = token
+            cache_token(entry, expire=JWT_EXPIRATION_DELTA_FOR_SERVICES)
+            log.debug("Issued a new permanent token: %s.", entry)
+            return entry
     return None
 
 def get_auth_token_and_type():
@@ -581,7 +568,7 @@ def verify_token(token, auth_type, conf):
     if _is_jwt(token):
         return verify_jwt(token, conf)
     elif auth_type in ("BEARER", "JTI"):  # JTI for legacy support
-        payload = get_cached_token(token) or check_if_permanent_token(token)
+        payload = get_cached_token(token) or check_permanent_token(token)
         if payload is None:
             log.info(f"Invalid {auth_type} Token '{token}' not found in cache and not issued for tenant.")
             abort_unauthorized(f"Invalid {auth_type} token.")
