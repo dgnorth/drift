@@ -116,8 +116,7 @@ def register_resource_on_tier(ts, tier, attributes):
     tier.setdefault("external_service_users", [
         {
             "username": "flexmatch_event_bridge",
-            "password": "EXTERNAL_SERVICE",  # Not really used anywhere atm
-            "access_token": "6697e242-acb6-11eb-9f44-00155de07310",
+            "token": "IEN8oFpz8JmVDIfX9JQ9YXEDM",
             "roles": ["external_service"]
         }
     ])
@@ -125,3 +124,5 @@ def register_resource_on_tier(ts, tier, attributes):
 
 def register_deployable_on_tenant(ts, deployable_name, tier_name, tenant_name, resource_attributes):
     pass
+
+
