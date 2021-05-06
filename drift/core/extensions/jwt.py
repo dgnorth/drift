@@ -86,34 +86,6 @@ def drift_init_extension(app, api, **kwargs):
     # Install authorization check
     app.before_request(check_jwt_authorization)
 
-def check_external_service_role_api_restrictions():
-    """
-    If caller has role external_service, we only allow the call through if the method being called is decorated with
-    @requires_role and "external_service" is one of those roles required.
-    This isn't a very pretty way to go about it, but it'll do until we settle on a better way to restrict external
-    service user access.
-    """
-    if not current_user:
-        return
-    if "external_service" not in current_user.get("roles", []):
-        return
-
-    method = current_app.view_functions[request.endpoint]
-    if hasattr(method, "view_class"):
-        method = getattr(method.view_class, request.method.lower(), None)
-        if not method:  # This should never happen as we don't go through with authorizations in case of a 404
-            log.warning(f"No {request.method} method in {view_class}")
-            return
-    for line in inspect.getsource(method).splitlines():
-        line = line.strip()
-        if line.startswith("@requires_roles") and "external_service" in line:
-            return
-        if line.startswith("def "):
-            break
-
-    abort_unauthorized(f"Unauthorized API call.")
-
-
 def check_jwt_authorization():
     """
     Authentication handler.  Verifies jwt tokens from the session or header, if not
@@ -138,10 +110,6 @@ def check_jwt_authorization():
 
     # Authorization token has now been converted to a verified payload
     _request_ctx_stack.top.drift_jwt_payload = current_identity
-
-    if auth_type == "BEARER":
-        check_external_service_role_api_restrictions()
-
 
 
 def query_current_user():
@@ -446,22 +414,17 @@ def issue_token(payload, expire=None):
         'payload': payload,
     }
 
-def issue_permanent_token(user_entry):
+def issue_permanent_token(issued_entry):
     two_years = int(60 * 60 * 24 * 365.25 * 2)  # in seconds
-    claims = create_standard_claims(two_years)
-    claims["jti"] = f"{user_entry['username']}.{user_entry['access_token']}"
-    user_entry.update(claims)
-    missing_claims = set(JWT_REQUIRED_CLAIMS) - set(user_entry.keys())
+    claims = create_standard_claims()
+    claims["jti"] = issued_entry['token']
+    issued_entry.update(claims)
+    missing_claims = set(JWT_REQUIRED_CLAIMS) - set(issued_entry.keys())
     if missing_claims:
         raise RuntimeError('Payload is missing required claims: %s' % ', '.join(missing_claims))
-    access_token = _encode_payload(user_entry)
-    user_entry["token"] = access_token
-    cache_token(user_entry, expire=two_years)
-    log.debug("Issued a new token permanent token: %s.", user_entry)
-    return {
-        'token': access_token,
-        'payload': user_entry,
-    }
+    cache_token(issued_entry, expire=two_years)
+    log.debug("Issued a new permanent token: %s.", issued_entry)
+    return issued_entry
 
 def _encode_payload(payload):
     algorithm = JWT_ALGORITHM
@@ -477,23 +440,18 @@ def _encode_payload(payload):
     return jwt.encode(payload, key_info['private_key'], algorithm=algorithm)
 
 
-def verify_permanent_token(token):
-    invalid_token = {"token": token, "Invalid": True}
+def check_if_permanent_token(token):
     try:
         external_service_users = g.conf.tier.get('external_service_users')
         if not external_service_users and g.conf.tenant:
-            return invalid_token
+            return None
     except Exception:
         log.exception("Couldn't get external service users")
-        return invalid_token
-    token_user, token_value = token.split(".")
-    for user_entry in external_service_users:
-        if token_user != user_entry["username"]:
-            continue
-        if user_entry["access_token"] == token_value:
-            return issue_permanent_token(user_entry)
-    cache_token({"jti": token, "Invalid": True})  # Add the failed lookup key to the cache to speed up subsequent failures
-    return invalid_token
+        return None
+    for entry in external_service_users:
+        if entry["token"] == token:
+            return issue_permanent_token(entry)
+    return None
 
 def get_auth_token_and_type():
     auth_types_supported = {"JWT", "JTI", "BEARER"}
@@ -509,10 +467,6 @@ def get_auth_token_and_type():
 
     parts = auth_header_value.split()
     auth_type = parts[0].upper()
-
-    # Legacy support
-    if auth_type == "BEARER" and "permanent" not in auth_header_value:
-        auth_type = "JWT"
 
     if auth_type not in auth_types_supported:
         log.warning("Auth type '%s' invalid for authorization required "
@@ -597,40 +551,6 @@ def verify_jwt(token, conf):
     except jwt.InvalidTokenError as e:
         abort_unauthorized("Invalid token: %s" % str(e))
 
-    return payload
-
-
-def verify_token(token, auth_type, conf):
-    """Verifies 'token' and returns its payload."""
-    if auth_type == "BEARER":
-        token_type, token = token.split(":")
-        if token_type.upper() != "PERMANENT":
-            log.info(f"Invalid type of bearer token type '{token_type}'.")
-            abort_unauthorized(f"Invalid Bearer token type.")
-        payload = get_cached_token(token)
-        if not payload:
-            payload = verify_permanent_token(token)
-        if payload.get("Invalid", None):
-            log.info(f"Invalid bearer token '{token}'.")
-            abort_unauthorized(f"Invalid bearer token {token}.")
-        # If we don't want to verify the jwt, this will do the trick
-        # return get_cached_token(token)
-        auth_type = "JWT"
-        token = payload["token"]
-
-    elif auth_type == "JTI":
-        payload = get_cached_token(token)
-        if not payload:
-            log.info("Invalid JTI: Token '%s' not found in cache.", token)
-            abort_unauthorized("Invalid JTI. Token %s does not exist." % token)
-        else:
-            return payload
-
-    if auth_type != "JWT":
-        abort_unauthorized("Invalid authentication type '%s'. Must be Bearer, JWT or JTI.'" % auth_type)
-
-    payload = verify_jwt(token, conf)
-
     # Verify tier
     if 'tier' not in payload:
         abort_unauthorized("Invalid JWT. Token must specify 'tier'.")
@@ -638,8 +558,7 @@ def verify_token(token, auth_type, conf):
     tier = payload['tier']
     tier_name = get_tier_name()
     if tier != tier_name:
-        abort_unauthorized("Invalid JWT. Token is for tier '%s' but this"
-                           " is tier '%s'" % (tier, tier_name))
+        abort_unauthorized("Invalid JWT. Token is for tier '%s' but this is tier '%s'" % (tier, tier_name))
 
     # Verify tenant
     if 'tenant' not in payload:
@@ -651,10 +570,24 @@ def verify_token(token, auth_type, conf):
     else:
         this_tenant = current_tenant_name
     if tenant != this_tenant:
-        abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
-                           " is tenant '%s'" % (tenant, this_tenant))
+        abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this is tenant '%s'" % (tenant, this_tenant))
 
     return payload
+
+def _is_jwt(token):
+    return token.count(".") == 2
+
+def verify_token(token, auth_type, conf):
+    """Verifies 'token' and returns its payload."""
+    if _is_jwt(token):
+        return verify_jwt(token, conf)
+    elif auth_type in ("BEARER", "JTI"):  # JTI for legacy support
+        payload = get_cached_token(token) or check_if_permanent_token(token)
+        if payload is None:
+            log.info(f"Invalid {auth_type} Token '{token}' not found in cache and not issued for tenant.")
+            abort_unauthorized(f"Invalid {auth_type} token.")
+        return payload
+    abort_unauthorized("Invalid authentication type '%s'. Must be Bearer, JWT or JTI.'" % auth_type)
 
 
 def create_standard_claims(expire=None):
