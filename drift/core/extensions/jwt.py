@@ -174,7 +174,7 @@ def register_auth_provider(app, provider, handler):
 def requires_roles(_roles):
     """
         endpoint decorator to lock down an endpoint
-        on a set of roles (comma delimitered)
+        on a set of roles (comma delimited)
     """
 
     def wrapper(fn):
