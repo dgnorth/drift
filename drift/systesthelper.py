@@ -297,6 +297,7 @@ class DriftBaseTestCase(unittest.TestCase):
         # provider called 'user+pass' we will use that instead of the unit test version.
         if 'user+pass' in app.jwt_auth_providers:
             cls.auth_provider = 'user+pass'
+        cls.drift_app = app
 
     @classmethod
     def tearDownClass(cls):
