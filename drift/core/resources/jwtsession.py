@@ -112,14 +112,6 @@ def register_resource_on_tier(ts, tier, attributes):
     """
     # LEGACY SUPPORT! Register the service user
     tier.setdefault('service_user', {"password": "SERVICE", "username": "user+pass:$SERVICE$"})
-    # TODO:  Move to proper user/identity in postgres maybe
-    tier.setdefault("external_service_users", [
-        {
-            "username": "flexmatch_event_bridge",
-            "token": "IEN8oFpz8JmVDIfX9JQ9YXEDM",
-            "roles": ["external_service"]
-        }
-    ])
 
 
 def register_deployable_on_tenant(ts, deployable_name, tier_name, tenant_name, resource_attributes):
