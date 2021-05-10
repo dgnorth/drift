@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import string
+import copy
 from datetime import datetime, timedelta
 from functools import wraps
 
@@ -422,23 +423,6 @@ def issue_token(payload, expire=None):
         'payload': payload,
     }
 
-
-def check_permanent_token(token):
-    try:
-        external_service_users = g.conf.tier.get('external_service_users')
-        if not external_service_users and g.conf.tenant:
-            return None
-    except Exception:
-        log.exception("Couldn't get external service users")
-        return None
-    for entry in external_service_users:
-        if entry["token"] == token:
-            entry["jti"] = token
-            cache_token(entry, expire=JWT_EXPIRATION_DELTA_FOR_SERVICES)
-            log.debug("Issued a new permanent token: %s.", entry)
-            return entry
-    return None
-
 def get_auth_token_and_type():
     auth_types_supported = {"JWT", "JTI", "BEARER"}
     # support Authorization in session cookie
@@ -563,15 +547,63 @@ def verify_jwt(token, conf):
 def _is_jwt(token):
     return token.count(".") == 2
 
+
+def lookup_bearer_token(token, conf):
+    context_info = {
+        "tenant": conf.tenant["tenant_name"],
+        "deployable": conf.deployable["deployable_name"],
+        "tier": conf.deployable["tier_name"],
+        "organization": conf.organization["organization_name"]
+    }
+    user_search_criteria = {
+        "is_service": True,
+        "is_active": True,
+        "organization_name": context_info["organization"],
+        "access_key": token
+    }
+    acl_search_criteria = {
+        'organization_name': context_info["organization"],
+        'tenant_name': context_info["tenant"]
+    }
+    role_search_criteria = {
+        "deployable_name": context_info["deployable"]
+    }
+    ts = conf.table_store
+    try:
+        user_entry = ts.get_table("users").find(user_search_criteria)[0]
+    except IndexError:
+        # FIXME: Log this and maybe cache the failed search result ?
+        return None
+
+    # Associate the acl entry for the user on the tenant with the roles on this deployable
+    acl_search_criteria['user_name'] = user_entry["user_name"]
+    acl_entries = ts.get_table("users-acl").find(acl_search_criteria)
+    if not acl_entries:
+        # FIXME: log it.  Not sure if this should be treated as an error or not though
+        print(f"Service user {user_entry['user_name']} defined with no applicable roles for {context_info['organization']}'s {context_info['tenant']}")
+        return None
+    roles = []
+    for entry in acl_entries:
+        role_search_criteria["role_name"] = entry["role_name"]
+        roles.extend([r["role_name"] for r in ts.get_table("access-roles").find(role_search_criteria)])
+
+    payload = copy.copy(user_entry)
+    payload["roles"] = roles
+    payload["jti"] = user_entry["access_key"]
+    cache_token(payload)  # Note, the payload isn't a JWT like normal JTI cached payloads, so no expiry or other claims are set on the payload
+    return payload
+
+
 def verify_token(token, auth_type, conf):
     """Verifies 'token' and returns its payload."""
     if _is_jwt(token):
         return verify_jwt(token, conf)
     elif auth_type in ("BEARER", "JTI"):  # JTI for legacy support
-        payload = get_cached_token(token) or check_permanent_token(token)
+        payload = get_cached_token(token) or lookup_bearer_token(token, conf)
         if payload is None:
             log.info(f"Invalid {auth_type} Token '{token}' not found in cache and not issued for tenant.")
             abort_unauthorized(f"Invalid {auth_type} token.")
+        # FIXME: We should verify the payload wrt expiry and claims here
         return payload
     abort_unauthorized("Invalid authentication type '%s'. Must be Bearer, JWT or JTI.'" % auth_type)
 
