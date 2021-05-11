@@ -572,20 +572,20 @@ def lookup_bearer_token(token, conf):
     try:
         user_entry = ts.get_table("users").find(user_search_criteria)[0]
     except IndexError:
-        # FIXME: Log this and maybe cache the failed search result ?
+        log.info(f"No user found in {context_info['organization']} with assigned bearer token {token}.")
         return None
 
-    # Associate the acl entry for the user on the tenant with the roles on this deployable
+    # Associate the acl entry for the user on the tenant with roles on this deployable
     acl_search_criteria['user_name'] = user_entry["user_name"]
-    acl_entries = ts.get_table("users-acl").find(acl_search_criteria)
-    if not acl_entries:
-        # FIXME: log it.  Not sure if this should be treated as an error or not though
-        print(f"Service user {user_entry['user_name']} defined with no applicable roles for {context_info['organization']}'s {context_info['tenant']}")
-        return None
     roles = []
-    for entry in acl_entries:
+    for entry in ts.get_table("users-acl").find(acl_search_criteria):
         role_search_criteria["role_name"] = entry["role_name"]
         roles.extend([r["role_name"] for r in ts.get_table("access-roles").find(role_search_criteria)])
+    if not roles:
+        log.info(f"User {user_entry['user_name']} has no defined roles on tenant {context_info['tenant']}")
+        # Not sure about returning here; If a service user should work across all tenants, we don't want to
+        # define a role for him across all the tenants.
+        return None
 
     payload = copy.copy(user_entry)
     payload["roles"] = roles
@@ -603,7 +603,7 @@ def verify_token(token, auth_type, conf):
         if payload is None:
             log.info(f"Invalid {auth_type} Token '{token}' not found in cache and not issued for tenant.")
             abort_unauthorized(f"Invalid {auth_type} token.")
-        # FIXME: We should verify the payload wrt expiry and claims here
+        # FIXME: We should verify the payload wrt expiry and potential claims here
         return payload
     abort_unauthorized("Invalid authentication type '%s'. Must be Bearer, JWT or JTI.'" % auth_type)
 
