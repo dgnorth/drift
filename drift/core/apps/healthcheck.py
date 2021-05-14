@@ -12,7 +12,7 @@ from flask_smorest import Blueprint, abort
 from six.moves import http_client
 
 log = logging.getLogger(__name__)
-bp = Blueprint('healtchcheck', 'HealthCheck', url_prefix='/healthcheck', description='Service and tenant health check')
+bp = Blueprint('healthcheck', 'HealthCheck', url_prefix='/healthcheck', description='Service and tenant health check')
 
 
 class HealthCheckSchema(ma.Schema):
