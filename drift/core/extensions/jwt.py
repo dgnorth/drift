@@ -555,41 +555,30 @@ def lookup_bearer_token(token, conf):
         "tier": conf.deployable["tier_name"],
         "organization": conf.organization["organization_name"]
     }
-    user_search_criteria = {
-        "is_service": True,
-        "is_active": True,
-        "organization_name": context_info["organization"],
-        "access_key": token
-    }
-    acl_search_criteria = {
-        'organization_name': context_info["organization"],
-        'tenant_name': context_info["tenant"]
-    }
-    role_search_criteria = {
-        "deployable_name": context_info["deployable"]
-    }
     ts = conf.table_store
-    try:
-        user_entry = ts.get_table("users").find(user_search_criteria)[0]
-    except IndexError:
-        log.info(f"No user found in {context_info['organization']} with assigned bearer token {token}.")
-        return None
 
-    # Associate the acl entry for the user on the tenant with roles on this deployable
-    acl_search_criteria['user_name'] = user_entry["user_name"]
-    roles = []
-    for entry in ts.get_table("users-acl").find(acl_search_criteria):
-        role_search_criteria["role_name"] = entry["role_name"]
-        roles.extend([r["role_name"] for r in ts.get_table("access-roles").find(role_search_criteria)])
-    if not roles:
-        log.info(f"User {user_entry['user_name']} has no defined roles on tenant {context_info['tenant']}")
-        # Not sure about returning here; If a service user should work across all tenants, we don't want to
-        # define a role for him across all the tenants.
+    try:
+        access_key_entry = ts.get_table("access-keys").find({
+            "access_key": token,
+            "tenant_name": context_info["tenant"]
+        })[0]
+    except IndexError:
+        log.info(f"Access key {token} unbeknownst to {context_info['tenant']}.")
+        return None
+    try:
+        user_entry = ts.get_table("users").find({
+            "user_name": access_key_entry["user_name"],
+            "tenant_name": access_key_entry["tenant_name"],
+            "is_active": True
+        })[0]
+    except IndexError:
+        log.info(f"Unknown or disabled user {access_key_entry['user_name']}.")
         return None
 
     payload = copy.copy(user_entry)
-    payload["roles"] = roles
-    payload["jti"] = user_entry["access_key"]
+    payload["is_service"] = True
+    payload["jti"] = token
+
     cache_token(payload)  # Note, the payload isn't a JWT like normal JTI cached payloads, so no expiry or other claims are set on the payload
     return payload
 
