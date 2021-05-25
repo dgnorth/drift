@@ -556,30 +556,42 @@ def lookup_bearer_token(token, conf):
         "organization": conf.organization["organization_name"]
     }
     ts = conf.table_store
+    user_search_criteria = {
+        "is_service": True,
+        "is_active": True,
+        "organization_name": context_info["organization"],
+        "access_key": token
+    }
+    acl_search_criteria = {
+        'organization_name': context_info["organization"],
+        'tenant_name': context_info["tenant"]
+    }
+    role_search_criteria = {
+        "deployable_name": context_info["deployable"]
+    }
+    ts = conf.table_store
+    try:
+        user_entry = ts.get_table("users").find(user_search_criteria)[0]
+    except IndexError:
+        log.info(f"No valid user for organization {context_info['organization']} associated with token {token}.")
+        return None
 
-    try:
-        access_key_entry = ts.get_table("access-keys").find({
-            "access_key": token,
-            "tenant_name": context_info["tenant"]
-        })[0]
-    except IndexError:
-        log.info(f"Access key {token} unbeknownst to {context_info['tenant']}.")
+    # Associate the acl entry for the user on the tenant with the roles on this deployable
+    acl_search_criteria['user_name'] = user_entry["user_name"]
+    acl_entries = ts.get_table("users-acl").find(acl_search_criteria)
+    if not acl_entries:
+        log.info(f"Service user {user_entry['user_name']} has no applicable roles for {context_info['organization']}'s {context_info['tenant']}")
         return None
-    try:
-        user_entry = ts.get_table("users").find({
-            "user_name": access_key_entry["user_name"],
-            "tenant_name": access_key_entry["tenant_name"],
-            "is_active": True
-        })[0]
-    except IndexError:
-        log.info(f"Unknown or disabled user {access_key_entry['user_name']}.")
-        return None
+    roles = []
+    for entry in acl_entries:
+        role_search_criteria["role_name"] = entry["role_name"]
+        roles.extend([r["role_name"] for r in ts.get_table("access-roles").find(role_search_criteria)])
 
     payload = copy.copy(user_entry)
-    payload["is_service"] = True
-    payload["jti"] = token
-
-    cache_token(payload)  # Note, the payload isn't a JWT like normal JTI cached payloads, so no expiry or other claims are set on the payload
+    payload["roles"] = roles
+    payload["jti"] = user_entry["access_key"]
+    cache_token(
+        payload)  # Note, the payload isn't a JWT like normal JTI cached payloads, so no expiry or other claims are set on the payload
     return payload
 
 
