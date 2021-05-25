@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import string
+import copy
 from datetime import datetime, timedelta
 from functools import wraps
 
@@ -35,7 +36,7 @@ JWT_LEEWAY = 10
 JWT_EXPIRATION_DELTA_FOR_SERVICES = 60 * 60 * 24 * 365
 
 # Implicitly trust following issuers:
-TRUSTED_ISSUERS = set(['drift-base'])
+TRUSTED_ISSUERS = {'drift-base'}
 
 # list of regular expression objects matching endpoint definitions
 WHITELIST_ENDPOINTS = [
@@ -84,7 +85,6 @@ def drift_init_extension(app, api, **kwargs):
 
     # Install authorization check
     app.before_request(check_jwt_authorization)
-
 
 def check_jwt_authorization():
     """
@@ -399,15 +399,12 @@ def issue_token(payload, expire=None):
 
     Note: This function must be called within a request context.
     """
-    algorithm = JWT_ALGORITHM
     payload = dict(payload)
     payload.update(create_standard_claims(expire))
 
     missing_claims = list(set(JWT_REQUIRED_CLAIMS) - set(payload.keys()))
     if missing_claims:
-        raise RuntimeError('Payload is missing required claims: %s' %
-                           ', '.join(missing_claims))
-
+        raise RuntimeError('Payload is missing required claims: %s' % ', '.join(missing_claims))
     ts = g.conf.table_store
     public_keys = ts.get_table('public-keys')
     row = public_keys.get({
@@ -417,18 +414,17 @@ def issue_token(payload, expire=None):
         raise RuntimeError("No public key found in config for tier '{}', deployable '{}'"
                            .format(g.conf.tier['tier_name'], g.conf.deployable['deployable_name']))
     key_info = row['keys'][0]  # HACK, just select the first one
-    access_token = jwt.encode(payload, key_info['private_key'], algorithm=algorithm)
+
+    access_token = jwt.encode(payload, key_info['private_key'], algorithm=JWT_ALGORITHM)
     cache_token(payload, expire=expire)
     log.debug("Issuing a new token: %s.", payload)
-    ret = {
+    return {
         'token': access_token,
         'payload': payload,
     }
-    return ret
-
 
 def get_auth_token_and_type():
-    auth_types_supported = ["JWT", "JTI"]
+    auth_types_supported = {"JWT", "JTI", "BEARER"}
     # support Authorization in session cookie
     auth_header_value = request.cookies.get(SESSION_COOKIE_NAME)
     # override with request header if present
@@ -441,10 +437,6 @@ def get_auth_token_and_type():
 
     parts = auth_header_value.split()
     auth_type = parts[0].upper()
-
-    # Legacy support
-    if auth_type == "BEARER":
-        auth_type = "JWT"
 
     if auth_type not in auth_types_supported:
         log.warning("Auth type '%s' invalid for authorization required "
@@ -529,24 +521,6 @@ def verify_jwt(token, conf):
     except jwt.InvalidTokenError as e:
         abort_unauthorized("Invalid token: %s" % str(e))
 
-    return payload
-
-
-def verify_token(token, auth_type, conf):
-    """Verifies 'token' and returns its payload."""
-    if auth_type == "JTI":
-        payload = get_cached_token(token)
-        if not payload:
-            log.info("Invalid JTI: Token '%s' not found in cache.", token)
-            abort_unauthorized("Invalid JTI. Token %s does not exist." % token)
-        else:
-            return payload
-
-    if auth_type != "JWT":
-        abort_unauthorized("Invalid authentication type '%s'. Must be Bearer, JWT or JTI.'" % auth_type)
-
-    payload = verify_jwt(token, conf)
-
     # Verify tier
     if 'tier' not in payload:
         abort_unauthorized("Invalid JWT. Token must specify 'tier'.")
@@ -554,8 +528,7 @@ def verify_token(token, auth_type, conf):
     tier = payload['tier']
     tier_name = get_tier_name()
     if tier != tier_name:
-        abort_unauthorized("Invalid JWT. Token is for tier '%s' but this"
-                           " is tier '%s'" % (tier, tier_name))
+        abort_unauthorized("Invalid JWT. Token is for tier '%s' but this is tier '%s'" % (tier, tier_name))
 
     # Verify tenant
     if 'tenant' not in payload:
@@ -567,10 +540,73 @@ def verify_token(token, auth_type, conf):
     else:
         this_tenant = current_tenant_name
     if tenant != this_tenant:
-        abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this"
-                           " is tenant '%s'" % (tenant, this_tenant))
+        abort_unauthorized("Invalid JWT. Token is for tenant '%s' but this is tenant '%s'" % (tenant, this_tenant))
 
     return payload
+
+def _is_jwt(token):
+    return token.count(".") == 2
+
+
+def lookup_bearer_token(token, conf):
+    context_info = {
+        "tenant": conf.tenant["tenant_name"],
+        "deployable": conf.deployable["deployable_name"],
+        "tier": conf.deployable["tier_name"],
+        "organization": conf.organization["organization_name"]
+    }
+    ts = conf.table_store
+    user_search_criteria = {
+        "is_service": True,
+        "is_active": True,
+        "organization_name": context_info["organization"],
+        "access_key": token
+    }
+    acl_search_criteria = {
+        'organization_name': context_info["organization"],
+        'tenant_name': context_info["tenant"]
+    }
+    role_search_criteria = {
+        "deployable_name": context_info["deployable"]
+    }
+    ts = conf.table_store
+    try:
+        user_entry = ts.get_table("users").find(user_search_criteria)[0]
+    except IndexError:
+        log.info(f"No valid user for organization {context_info['organization']} associated with token {token}.")
+        return None
+
+    # Associate the acl entry for the user on the tenant with the roles on this deployable
+    acl_search_criteria['user_name'] = user_entry["user_name"]
+    acl_entries = ts.get_table("users-acl").find(acl_search_criteria)
+    if not acl_entries:
+        log.info(f"Service user {user_entry['user_name']} has no applicable roles for {context_info['organization']}'s {context_info['tenant']}")
+        return None
+    roles = []
+    for entry in acl_entries:
+        role_search_criteria["role_name"] = entry["role_name"]
+        roles.extend([r["role_name"] for r in ts.get_table("access-roles").find(role_search_criteria)])
+
+    payload = copy.copy(user_entry)
+    payload["roles"] = roles
+    payload["jti"] = user_entry["access_key"]
+    cache_token(
+        payload)  # Note, the payload isn't a JWT like normal JTI cached payloads, so no expiry or other claims are set on the payload
+    return payload
+
+
+def verify_token(token, auth_type, conf):
+    """Verifies 'token' and returns its payload."""
+    if _is_jwt(token):
+        return verify_jwt(token, conf)
+    elif auth_type in ("BEARER", "JTI"):  # JTI for legacy support
+        payload = get_cached_token(token) or lookup_bearer_token(token, conf)
+        if payload is None:
+            log.info(f"Invalid {auth_type} Token '{token}' not found in cache and not issued for tenant.")
+            abort_unauthorized(f"Invalid {auth_type} token.")
+        # FIXME: We should verify the payload wrt expiry and potential claims here
+        return payload
+    abort_unauthorized("Invalid authentication type '%s'. Must be Bearer, JWT or JTI.'" % auth_type)
 
 
 def create_standard_claims(expire=None):

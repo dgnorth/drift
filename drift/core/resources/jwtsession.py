@@ -116,3 +116,5 @@ def register_resource_on_tier(ts, tier, attributes):
 
 def register_deployable_on_tenant(ts, deployable_name, tier_name, tenant_name, resource_attributes):
     pass
+
+
