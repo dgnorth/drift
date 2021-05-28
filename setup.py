@@ -31,7 +31,7 @@ setup(
         'flask_marshmallow',
         'jsonschema',
         'pyopenssl>=17',
-        'click',  # explicit requirement on the click library for echo and cmdlinge
+        'click',  # explicit requirement on the click library for echo and cmdline
 
         # Python 3 compatibility
         'six',
