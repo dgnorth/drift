@@ -1,5 +1,7 @@
 mode: ContinuousDeployment
-branches: {}
+branches:
+  feature:
+    tag: alpha
 ignore:
   sha: []
 merge-message-formats: {}
