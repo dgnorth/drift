@@ -13,18 +13,22 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
+
       - name: Setup Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.9
+
       - name: Install dependencies
+        env:
+          PYPI_USERNAME: ${{ secrets.DG_TWINE_USERNAME }}
+          PYPI_PASSWORD: ${{ secrets.DG_TWINE_PASSWORD }}
+          PYPI_INDEX_URL: ${{ secrets.DG_NEXUS_PYPI_URL }}
         run: |
           python -m pip install --upgrade pip
           pip install wheel
           pip install -e ".[aws,test]"
-      - name: Stamp version
-        run: |
-          echo $(git describe --abbrev=0 --tags) > drift/VERSION
+
       - name: Run PyTest
         run: pytest .
 
@@ -54,6 +58,10 @@ jobs:
           python-version: 3.9
 
       - name: Install dependencies
+        env:
+          PYPI_USERNAME: ${{ secrets.DG_TWINE_USERNAME }}
+          PYPI_PASSWORD: ${{ secrets.DG_TWINE_PASSWORD }}
+          PYPI_REPOSITORY_URL: ${{ secrets.DG_NEXUS_PYPI_URL }}
         run: |
           python -m pip install --upgrade pip
           pip install setuptools wheel twine
@@ -65,8 +73,9 @@ jobs:
 
       - name: Publish to PyPi
         env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+          TWINE_USERNAME: ${{ secrets.DG_TWINE_USERNAME }}
+          TWINE_PASSWORD: ${{ secrets.DG_TWINE_PASSWORD }}
+          TWINE_REPOSITORY_URL: ${{ secrets.DG_NEXUS_PYPI_URL }}
         run: |
           python setup.py sdist bdist_wheel
           twine check dist/*
