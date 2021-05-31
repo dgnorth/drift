@@ -2,22 +2,22 @@
 
 from __future__ import absolute_import
 
+import copy
+import http
+
 import json
+import jwt
 import logging
+import marshmallow as ma
 import re
 import string
-import copy
-from datetime import datetime, timedelta
-from functools import wraps
-
-import jwt
-import marshmallow as ma
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from datetime import datetime, timedelta
 from flask import current_app, request, _request_ctx_stack, g, url_for, redirect, make_response
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
-from six.moves import http_client
+from functools import wraps
 from werkzeug.local import LocalProxy
 from werkzeug.security import gen_salt
 
@@ -162,7 +162,7 @@ def abort_unauthorized(description):
     """
     Raise an Unauthorized exception.
     """
-    abort(http_client.UNAUTHORIZED, description=description)
+    abort(http.client.UNAUTHORIZED, description=description)
 
 
 def register_auth_provider(app, provider, handler):
@@ -318,7 +318,7 @@ class AuthApi(MethodView):
     no_jwt_check = ['GET', 'POST']
 
     @bp.arguments(AuthRequestSchema)
-    @bp.response(http_client.OK, AuthSchema)
+    @bp.response(http.client.OK, AuthSchema)
     def post(self, auth_info):
         auth_info = _authenticate(auth_info, g.conf)
         return {
@@ -713,7 +713,7 @@ class JWKSApi(MethodView):
     no_auth_header_check = True
     no_jwt_check = ['GET']
 
-    @bp.response(http_client.OK, JwksSchema)
+    @bp.response(http.client.OK, JwksSchema)
     def get(self):
         from driftconfig.util import get_default_drift_config
         ts = get_default_drift_config()
