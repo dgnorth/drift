@@ -589,9 +589,6 @@ def lookup_bearer_token(token, conf):
 
     payload = copy.copy(user_entry)
     payload["roles"] = roles
-    payload["jti"] = user_entry["access_key"]
-    cache_token(
-        payload)  # Note, the payload isn't a JWT like normal JTI cached payloads, so no expiry or other claims are set on the payload
     return payload
 
 
