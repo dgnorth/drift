@@ -163,11 +163,13 @@ class RedisCache(object):
 
     def dump_object(self, value):
         """Dumps an object into a string for redis.  By default it serializes
-        integers as regular string and pickle dumps everything else.
+        integers and strings as regular string and pickle dumps everything else.
         """
         t = type(value)
         if t in integer_types:
             return str(value).encode('ascii')
+        if isinstance(value, str):
+            return value.encode("utf-8")
         return b'!' + pickle.dumps(value)
 
     def load_object(self, value):
@@ -176,7 +178,7 @@ class RedisCache(object):
         """
         if value is None:
             return None
-        if value.startswith(b'!'):
+        if isinstance(value, bytes) and value.startswith(b'!'):
             try:
                 return pickle.loads(value[1:])
             except pickle.PickleError:
