@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
 
+import http.client
+
 import os
 import datetime
 import logging
 
-from six.moves import cPickle as pickle, http_client
+from six.moves import cPickle as pickle
 import redis
 
 from flask import g, abort
@@ -111,7 +113,7 @@ def get_redis_session():
             redis_config
         )
     else:
-        abort(http_client.BAD_REQUEST, "No Redis resource configured.")
+        abort(http.client.BAD_REQUEST, "No Redis resource configured.")
 
 
 def drift_init_extension(app, **kwargs):
