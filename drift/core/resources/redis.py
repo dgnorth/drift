@@ -143,7 +143,7 @@ class RedisCache(object):
         if os.environ.get('DRIFT_USE_LOCAL_SERVERS', False):
             self.host = os.environ.get('DRIFT_REDIS_HOST', 'localhost')
 
-        self.conn = redis.StrictRedis(
+        self.conn = redis.Redis(
             host=self.host,
             port=self.port,
             socket_timeout=redis_config.get("socket_timeout", 5),
