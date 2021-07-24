@@ -150,7 +150,7 @@ class RedisCache(object):
             socket_connect_timeout=redis_config.get("socket_connect_timeout", 5),
             db=REDIS_DB,
             retry_on_timeout=redis_config.get("retry_on_timeout", True),
-            decode_responses=redis_config.get("decode_responses", False),
+            decode_responses=True,
         )
 
         self.key_prefix = "{}.{}:".format(self.tenant, self.service_name)
