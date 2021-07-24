@@ -148,7 +148,7 @@ class RedisCache(object):
             port=self.port,
             socket_timeout=redis_config.get("socket_timeout", 5),
             socket_connect_timeout=redis_config.get("socket_connect_timeout", 5),
-            db=redis_config.get("db_number", REDIS_DB),
+            db=REDIS_DB,
             retry_on_timeout=redis_config.get("retry_on_timeout", True),
             decode_responses=redis_config.get("decode_responses", False),
         )
