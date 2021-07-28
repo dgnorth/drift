@@ -12,7 +12,6 @@ import redis
 
 from flask import g, abort
 from flask import _app_ctx_stack as stack
-from werkzeug._compat import integer_types
 from werkzeug.local import LocalProxy
 
 from driftconfig.util import get_parameters
@@ -167,8 +166,7 @@ class RedisCache(object):
         """Dumps an object into a string for redis.  By default it serializes
         integers and strings as regular string and pickle dumps everything else.
         """
-        t = type(value)
-        if t in integer_types:
+        if isinstance(value, int):
             return str(value).encode('ascii')
         if isinstance(value, str):
             return value.encode("utf-8")
