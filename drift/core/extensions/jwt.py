@@ -300,7 +300,7 @@ class AuthRequestSchema(ma.Schema):
     provider_details = ma.fields.Dict(metadata=dict(description="Provider specific details"))
     username = ma.fields.Str(metadata=dict(description="Legacy username"))
     password = ma.fields.Str(metadata=dict(description="Legacy password"))
-    automatic_account_creation = ma.fields.Boolean(missing=True,
+    automatic_account_creation = ma.fields.Boolean(load_default=True,
                                                    metadata=dict(description="Automatically create new users"))
 
 
